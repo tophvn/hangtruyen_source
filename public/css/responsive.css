@@ -1,0 +1,614 @@
+@media (min-width: 1400px) {
+    .container {
+        max-width: 1380px;
+    }
+}
+
+@media (min-width: 992px) {
+    img.reading-img {
+        max-width: 900px;
+    }
+}
+
+@media (min-width: 576px) and (max-width: 1400px) {
+    .container {
+        max-width: 100%;
+    }
+    .main-menu {
+        margin-left: 0px !important;
+    }
+}
+
+@media (max-width: 1366px) {
+    .main-header {
+        gap: 0;
+    }
+    .main-menu {
+        gap: 20px;
+        margin-left: 20px !important;
+    }
+}
+
+@media (max-width: 1200px) {
+    .main-header {
+        gap: 12px;
+    }
+    .main-header .logo {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translateX(-50%) translateY(-50%);
+    }
+    .main-menu {
+        margin: 0;
+        display: block;
+    }
+    .main-menu>li>a {
+        display: block;
+        padding: 14px 0;
+    }
+    .main-menu>li+li>a {
+        border-top: 1px solid #B5B1D6;
+    }
+    .main-menu .has-sub>a {
+        padding-bottom: 6px !important;
+    }
+    .main-menu .has-sub .dropdown-menu {
+        opacity: 1;
+        visibility: visible;
+        position: relative !important;
+        background: transparent;
+        transform: none !important;
+        border: 0;
+    }
+    .main-menu .has-sub .dropdown-menu::after {
+        display: none;
+    }
+    .main-menu .dropdown-item {
+        margin: 0;
+    }
+    .main-menu .dropdown-menu span {
+        padding: 0;
+    }
+    .main-menu .dropdown-menu span+span a,
+    .more-tags span:first-child a {
+        border: 0;
+    }
+    .nav-account .dropdown-menu {
+        right: 0 !important;
+    }
+    .nav-account .dropdown-menu::after {
+        right: 8px;
+        left: auto;
+    }
+    .user-avatar-img {
+        width: 30px;
+        height: 30px;
+        line-height: 30px;
+        justify-content: center;
+    }
+    .cmt-line .cmt-line::before {
+        width: 30px;
+        top: 18px;
+        left: -30px;
+    }
+    .cmt-line::after {
+        left: 18px;
+    }
+    .menu-random {
+        margin-left: 18px;
+    }
+    .sl-wrapper {
+        padding: 0;
+    }
+    #manga-trend .splide::after,
+    .m-suggest.splide::after {
+        display: none;
+    }
+    .splide__arrow--next,
+    .splide__arrow--prev {
+        z-index: 99;
+    }
+    .main-header .form-search.active-mobile {
+        display: block;
+    }
+    .main-header .form-search {
+        display: none;
+        position: fixed;
+        top: 8%;
+        left: 16px;
+        right: 16px;
+        z-index: 999;
+    }
+    .form-search input {
+        width: 100%;
+        position: relative;
+        z-index: 100;
+    }
+    .p-thumb .img-poster {
+        width: 110px;
+        height: 180px;
+    }
+    .main-info .col-image .img-poster {
+        max-width: 180px;
+    }
+    .main-info .num-follow {
+        display: none;
+    }
+    .main-info .info-group {
+        display: block;
+    }
+    .rating .options a {
+        align-items: center;
+    }
+    .rating .options a .bg {
+        width: 52px;
+        height: 52px;
+    }
+    .rating .options a .bg svg {
+        height: auto;
+    }
+    .list-chapters .l-chapter .ll-chap {
+        font-size: 14px;
+    }
+    .reading-header {
+        padding: 16px;
+        gap: 16px;
+    }
+    #mg-continue .list-chaps {
+        margin: 10px 0;
+    }
+    .list-genre {
+        grid-template-columns: repeat(6, 1fr);
+    }
+    .list-genre .p-thumb .img-poster {
+        width: 100%;
+        height: 200px;
+    }
+    .header-right {
+        gap: 12px;
+    }
+    .btn-noti {
+        border: 0;
+        width: auto;
+        height: auto;
+        background: transparent;
+    }
+    .btn-noti .badge-noti {
+        right: -4px;
+    }
+}
+
+@media (max-width: 1200px) and (min-width: 992px) {
+    .top-list .topleft-list {
+        flex: 2;
+        gap: 10px;
+    }
+    .list-chapters .l-chapter .ll-chap {
+        flex: 2;
+    }
+}
+
+@media (max-width: 991px) {
+    .social-link {
+        margin-top: 20px;
+    }
+    .f-left {
+        margin-bottom: 20px;
+    }
+    .main-info .col-image {
+        padding: 15px;
+    }
+    .main-info .col-image::before {
+        background: linear-gradient(180deg, #FAF7F0 0%, rgba(250, 247, 240, 0.00) 31%, rgba(250, 247, 240, 0.00) 73.5%, #FAF7F0 100%), linear-gradient(90deg, #FAF7F0 0%, rgba(250, 247, 240, 0.40) 51.5%, #FAF7F0 100%);
+    }
+    .col-main-info {
+        padding: 30px 0;
+        position: relative;
+    }
+    .m-trend .p-thumb::before {
+        width: 60%;
+    }
+    .list-genre {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+@media only screen and (min-device-width: 375px) and (max-device-width: 812px) and (-webkit-min-device-pixel-ratio: 2) {
+    input,
+    textarea {
+        font-size: 16px !important;
+    }
+}
+
+@media (max-width: 767px) {
+    section {
+        padding: 15px 0;
+    }
+    .m-star img:not(:first-child) {
+        display: none;
+    }
+    .m-name a,
+    .p-content .m-name a {
+        font-size: 14px;
+        line-height: 20px;
+    }
+    .m-star {
+        margin-bottom: 10px;
+    }
+    .m-trend .m-name {
+        min-height: auto;
+    }
+    .main-info {
+        margin-bottom: 30px;
+    }
+    .report {
+        justify-content: center;
+    }
+    .title-detail {
+        text-align: center;
+    }
+    .title-detail::before {
+        left: 50%;
+        transform: translateX(-50%);
+    }
+    .col-main-info .m-star {
+        text-align: center;
+    }
+    .rating .top-rating,
+    .rating .vote-rate::before,
+    .rating .vote-rate>svg {
+        display: none;
+    }
+    .col-main-info {
+        padding-bottom: 0;
+    }
+    .main-info .read-action {
+        position: absolute;
+        bottom: -15%;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 99;
+    }
+    .rating .vote-rate {
+        padding-top: 90px;
+        padding-bottom: 30px;
+        margin: auto;
+    }
+    .rating .options {
+        padding: 18px 15px;
+        background: #596FB7;
+        position: relative;
+        border-radius: 12px;
+        gap: 10px;
+    }
+    .top-list {
+        position: relative;
+        padding-top: 50px;
+    }
+    .top-list .form-search {
+        position: absolute;
+        top: 0;
+        width: 100%;
+    }
+    .top-list .topleft-list {
+        flex: 2;
+        gap: 10px;
+    }
+    .list-chapters .l-chapter .ll-chap {
+        flex: 2;
+    }
+    .offcanvas-end {
+        bottom: 0;
+        top: auto;
+        left: 0;
+        width: 100%;
+        transform: translateY(100%);
+        padding: 16px;
+        border-radius: 12px 12px 0 0;
+    }
+    .r-right {
+        order: unset;
+    }
+    .reading-header>div {
+        flex: auto;
+    }
+    .reading-header .r-navigation {
+        flex: 1 1 100%;
+    }
+    .list-settings .dropdown-menu {
+        top: auto !important;
+        bottom: 128% !important;
+    }
+    .list-settings .dropdown-menu::after {
+        top: auto;
+        bottom: -5px;
+        transform: translateX(-50%) rotate(135deg);
+    }
+    #offcanvasSetting .offcanvas-body {
+        overflow: unset;
+    }
+    #dd-pages .list-pages {
+        max-height: 250px;
+    }
+    .notfound-page img {
+        height: auto;
+    }
+    #manga-new_update .m-post {
+        padding-right: 20px;
+    }
+    .sl-wrapper .bg-slide {
+        display: none;
+    }
+}
+
+@media (max-width: 758px) {
+    .genre-content {
+        height: auto;
+    }
+    .genre-content img {
+        width: 125px;
+        height: 115px;
+        object-fit: contain;
+    }
+    .genre-content .g-name {
+        font-size: 14px;
+    }
+    .genre-content .g-name a i {
+        display: none;
+    }
+    .genre-content .g-thumb {
+        gap: 0;
+        padding: 0;
+    }
+    .genre-content .num-series {
+        font-size: 11px;
+        margin-left: unset;
+    }
+    .genre-content .num-series strong {
+        font-size: 14px;
+    }
+    .list-genre {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+    }
+}
+
+@media (max-width: 575px) {
+    .main-header .logo img {
+        max-width: 125px;
+        height: auto;
+    }
+    .modal-dialog {
+        width: auto;
+    }
+    .sl-wrapper {
+        height: 214px;
+    }
+    .sl-wrapper>.mb-banner {
+        display: none;
+    }
+    .sl-wrapper .mb-mid {
+        margin: 0 !important;
+    }
+    .sl-wrapper .sm-tag {
+        margin-top: 0;
+    }
+    body.darkmode .mb-mid__banner::after {
+        width: 110px;
+        height: 80px;
+        background-size: contain;
+        bottom: -20px;
+    }
+    .sl-wrapper .sm-tag span {
+        display: inline-block;
+        margin-left: 3px;
+    }
+    .splide__arrow--next,
+    .splide__arrow--prev {
+        width: 36px;
+        height: 36px;
+    }
+    .title {
+        font-size: 18px;
+        line-height: 24px;
+    }
+    .group-title .sub,
+    .title .sub {
+        font-size: 12px;
+        line-height: 20px;
+    }
+    .group-title {
+        gap: unset;
+    }
+    .swiper-btn__group {
+        order: inherit;
+        gap: 8px;
+    }
+    .group-title .m-sort {
+        flex: 1 1 100%;
+        margin: 0 0 16px;
+    }
+    #manga-new_update .title {
+        margin-bottom: 10px;
+    }
+    #manga-new_update .m-name {
+        min-height: auto;
+        margin-bottom: 4px;
+    }
+    #manga-new_update .m-name a {
+        max-width: 230px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        display: block;
+        overflow: hidden;
+    }
+    .m-trend .m-post {
+        padding-top: 23px;
+        padding-left: 20px;
+    }
+    .m-trend .m-post>svg {
+        height: 52px;
+        width: auto;
+    }
+    .m-trend .p-thumb::before {
+        top: -24px;
+    }
+    .rank.rank-1 {
+        width: 40px;
+        height: 40px;
+        line-height: 35px;
+        right: 0;
+    }
+    .chapter a img {
+        display: none;
+    }
+    .tab-content ul.list-unstyled>li {
+        padding-right: 50px;
+    }
+    .tab-content .p-content .m-name a {
+        max-width: 220px;
+    }
+    #footer .container {
+        padding: 20px 10px;
+        background-size: 270px;
+    }
+    .f-menu {
+        grid-template-columns: auto;
+    }
+    .main-info .col-image {
+        margin-left: -10px;
+        margin-right: -10px;
+    }
+    .top-list {
+        font-size: 14px;
+    }
+    .top-list .topleft-list {
+        flex: 1;
+    }
+    .top-list .dropdown-toggle {
+        padding-right: 25px;
+        position: relative;
+    }
+    .top-list .dropdown-toggle i {
+        position: absolute;
+        right: 5px;
+    }
+    .top-list .dropdown-toggle span,
+    .top-list .dropdown-toggle sub {
+        max-width: 80px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        display: block;
+        overflow: hidden;
+    }
+    .list-chapters .l-chapter .ll-chap {
+        padding-left: 0;
+        flex: 1;
+    }
+    .list-chapters .l-chapter .ll-chap img {
+        display: none;
+    }
+    .list-chapters .l-chapter .ll-trans {
+        margin: 0;
+        max-width: 100px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        display: block;
+        overflow: hidden;
+    }
+    .ibottom a {
+        font-size: 0;
+    }
+    .navi-bottom {
+        margin: auto;
+    }
+    .main-title {
+        font-size: 13px;
+        line-height: 18px;
+        position: relative;
+        left: auto;
+        top: auto;
+    }
+    .user-page {
+        flex-direction: column;
+    }
+    .info-user .form-control {
+        width: 100%;
+    }
+    .nav-account .nav-link {
+        padding: 0 10px 10px;
+    }
+    #manga-new_update .m-post {
+        padding-right: 0;
+    }
+    .splide-navtop .splide__arrows,
+    .swiper-btn__group .splide__arrows {
+        gap: 8px;
+    }
+    .genre-content img {
+        width: 90px;
+    }
+    .genre-content .g-thumb {
+        justify-content: space-around;
+    }
+    .star-rating::before,
+    .star-rating span::before {
+        content: '\e90a';
+        letter-spacing: 0;
+    }
+    .list-genre .p-thumb .img-poster {
+        height: 140px;
+    }
+    .item-card .item-title a {
+        font-size: 14px;
+        line-height: 20px;
+    }
+}
+
+@media (max-width: 400px) {
+    .reading-header {
+        padding: 16px 10px;
+    }
+    .reading-header .r-navigation {
+        padding: 0 35px;
+        gap: 8px;
+        align-items: center;
+    }
+    .reading-header .r-navigation>div {
+        flex: 1;
+        max-width: max-content;
+    }
+    .reading-header .r-navigation .dropdown-toggle span,
+    .reading-header .r-navigation .dropdown-toggle sub {
+        max-width: 90px;
+    }
+    .r-navigation.navigation button {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        left: 0;
+    }
+    .r-navigation.navigation button.next {
+        left: auto;
+        right: 0;
+    }
+    .m-suggest .p-thumb .img-poster {
+        height: 180px;
+    }
+    .chapter a {
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 320px) {
+    .tab-content ul.list-unstyled>li {
+        padding-right: 0;
+    }
+    .rank {
+        display: none;
+    }
+    .swiper-btn__group .splide__arrows {
+        display: none;
+    }
+}

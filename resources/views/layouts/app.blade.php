@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+    <title>Hangtruyen - Trang web đọc truyện tranh Online</title>
+    <meta name="description" content="Đọc truyện tranh manga, manhua, manhwa miễn phí được cập nhật liên tục hàng ngày.">
+    <meta name="keywords" content="đọc truyện, truyện tranh, hangtruyen">
+    <link rel="canonical" href="{{ url('/') }}" />
+
+    <meta name="robots" content="index, follow" />
+
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "HangTruyen",
+            "alternateName": "Hang Truyện",
+            "url": "https://hangtruyen.co/"
+        }
+    </script>
+
+    <!-- Required meta tags -->
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta property="og:locale" content="vi_VN" />
+    <meta property="og:url" content="{{ url('/') }}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Hangtruyen - Trang web đọc truyện tranh Online" />
+    <meta property="og:description" content="Đọc truyện tranh manga, manhua, manhwa miễn phí được cập nhật liên tục hàng ngày." />
+    <meta property="og:image" content="{{ asset('images/logo-dark.png') }}" />
+
+    <meta http-equiv="content-language" content="vi" />
+    <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
+    <link rel="shortcut icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
+    
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="{{ asset('css/bootstrap.min.css') }}" />
+    <link rel="stylesheet" href="{{ asset('css/icon-font.css') }}" />
+    <link rel="stylesheet" href="{{ asset('css/splide-core.min.css') }}" />
+    <link rel="stylesheet" href="{{ asset('css/style.css') }}?v=1.13" />
+    <link rel="stylesheet" href="{{ asset('css/responsive.css') }}?v=1.13" />
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-LYBKW914VZ"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() {
+            dataLayer.push(arguments);
+        }
+        gtag('js', new Date());
+        gtag('config', 'G-LYBKW914VZ');
+    </script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+</head>
+
+<body>
+    <div id="auth"></div>
+    <script>
+        async function getUser() {
+            var response = await $.ajax({
+                type: 'POST',
+                xhrFields: {
+                    withCredentials: true
+                },
+                url: 'https://api.hangtruyen.vip/auth/user',
+                contentType: 'application/json',
+            }).catch(() => {
+                console.log('getUser error');
+                return null;
+            });
+
+            if (response && response.status === 1) {
+                return response.user;
+            }
+            return null;
+        }
+
+        async function refreshToken(newToken = false) {
+            var response = await $.ajax({
+                type: 'POST',
+                xhrFields: {
+                    withCredentials: true
+                },
+                url: 'https://api.hangtruyen.vip/auth/refresh-token',
+                contentType: 'application/json',
+            }).catch(() => {
+                console.log('refreshToken error');
+                return null;
+            });
+
+            if (response && response.status === 1) {
+                return response.user;
+            }
+            return null;
+        }
+
+        async function logout(newToken = false) {
+            await $.ajax({
+                type: 'POST',
+                xhrFields: {
+                    withCredentials: true
+                },
+                url: 'https://api.hangtruyen.vip/auth/logout',
+                contentType: 'application/json',
+                error: function(data) {
+                    console.log('logout error');
+                    return null;
+                },
+            });
+        }
+
+        function handleSaveUserToSessionStorage(user) {
+            sessionStorage.setItem(
+                'user',
+                JSON.stringify({
+                    ...user,
+                }),
+            );
+        }
+
+        function handleRemoveUserFromSessionStorage() {
+            sessionStorage.removeItem('user');
+        }
+
+        function getUserFromSessionStorage() {
+            try {
+                return JSON.parse(sessionStorage.getItem('user'));
+            } catch {
+                return sessionStorage.getItem('user');
+            }
+        }
+    </script>
+    <script src="{{ asset('js/utils/cookie.js') }}"></script>
+    <script src="{{ asset('js/utils/common.js') }}"></script>
+    <script src="{{ asset('js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ asset('js/splide.min.js') }}"></script>
+    <script>
+        // Check darkmode config
+        function checkDarkModeConfig() {
+            const lightMode = localStorage.getItem('lm');
+            if (lightMode === 'true') {
+                document.body.classList.remove('darkmode');
+                $('.dark-mode').removeClass('on');
+            } else {
+                document.body.classList.add('darkmode');
+                $('.dark-mode').addClass('on');
+            }
+        }
+
+        function toggleDarkModeConfig(mode) {
+            const darkMode = mode !== undefined ? mode : $('body').hasClass('darkmode');
+            if (!darkMode) {
+                document.body.classList.add('darkmode');
+            } else {
+                document.body.classList.remove('darkmode');
+            }
+
+            localStorage.setItem('lm', darkMode);
+            checkDarkModeConfig();
+        }
+        checkDarkModeConfig();
+    </script>
+    <div class="wrapper">
+        @include('components.header')
+        @include('components.mobile-menu')
+        @include('components.login-modal')
+
+        <div id="vote_noti">
+            <p></p>
+            <img src="{{ asset('images/details/img-vote-noti.png') }}" width="64" height="92" alt="" />
+        </div>
+
+        <main>
+            <div id="main-content">
+                @yield('content')
+            </div>
+        </main>
+        
+        @include('components.footer')
+        
+        <div href="javascript:void(0)" id="back-to-top" style="display: flex; cursor: pointer;">
+            <i class="icon-arrow-up"></i>
+        </div>
+    </div>
+    <script src="{{ asset('js/splide-extension-grid.min.js') }}"></script>
+    <script src="{{ asset('js/custom/suggest.js') }}"></script>
+    <script src="{{ asset('js/custom/home/index.js') }}"></script>
+    <script src="{{ asset('js/custom.js') }}?v=1.06"></script>
+    @stack('scripts')
+</body>
+
+</html>

@@ -1,0 +1,128 @@
+@font-face {
+    font-family: 'icon-font';
+    src: url('../fonts/icon-font.eot?qlgl9i');
+    src: url('../fonts/icon-font.eot?qlgl9i#iefix') format('embedded-opentype'), url('../fonts/icon-font.ttf?qlgl9i') format('truetype'), url('../fonts/icon-font.woff?qlgl9i') format('woff'), url('../fonts/icon-font.svg?qlgl9i#icon-font') format('svg');
+    font-weight: normal;
+    font-style: normal;
+    font-display: block;
+}
+
+[class^="icon-"],
+[class*=" icon-"] {
+    /* use !important to prevent issues with browser extensions that change fonts */
+    font-family: 'icon-font' !important;
+    speak: never;
+    font-style: normal;
+    font-weight: normal;
+    font-variant: normal;
+    text-transform: none;
+    line-height: 1;
+    /* Better Font Rendering =========== */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.icon-info-circle:before {
+    content: "\e900";
+}
+
+.icon-like:before {
+    content: "\e901";
+}
+
+.icon-liked:before {
+    content: "\e902";
+    color: var(--main-color);
+}
+
+.icon-login:before {
+    content: "\e903";
+}
+
+.icon-messages:before {
+    content: "\e904";
+}
+
+.icon-minus:before {
+    content: "\e905";
+}
+
+.icon-minus-1:before {
+    content: "\e906";
+}
+
+.icon-more-circle:before {
+    content: "\e907";
+}
+
+.icon-search-normal:before {
+    content: "\e908";
+}
+
+.icon-setting-2:before {
+    content: "\e909";
+}
+
+.icon-star:before {
+    content: "\e90a";
+}
+
+.icon-sun:before {
+    content: "\e90b";
+}
+
+.icon-arrow-3:before {
+    content: "\e90c";
+}
+
+.icon-arrow-down-1:before {
+    content: "\e90d";
+}
+
+.icon-arrow-down:before {
+    content: "\e90e";
+}
+
+.icon-arrow-left:before {
+    content: "\e90f";
+}
+
+.icon-arrow-right:before {
+    content: "\e910";
+}
+
+.icon-arrow-swap-horizontal:before {
+    content: "\e911";
+}
+
+.icon-arrow-swap-horizontal-1:before {
+    content: "\e912";
+}
+
+.icon-arrow-up:before {
+    content: "\e913";
+}
+
+.icon-bookmark:before {
+    content: "\e914";
+}
+
+.icon-close-circle:before {
+    content: "\e94f";
+}
+
+.icon-eye:before {
+    content: "\e950";
+}
+
+.icon-eye-slash:before {
+    content: "\e951";
+}
+
+.icon-filter-search:before {
+    content: "\e952";
+}
+
+.icon-forbidden:before {
+    content: "\e953";
+}
