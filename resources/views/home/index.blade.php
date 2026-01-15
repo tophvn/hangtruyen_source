@@ -1,14 +1,14 @@
 @extends('layouts.app')
 
 @section('content')
-    @include('components.manga-slider')
-    @include('components.manga-trend')
-    @include('components.manga-suggest')
+    @include('home.components.manga-slider')
+    @include('home.components.manga-trend')
+    @include('home.components.manga-suggest')
 
     <div class="container">
         <div class="row">
             <div class="col-12 col-xl-8">
-                @include('components.manga-new-update')
+                @include('home.components.manga-new-update')
             </div>
             <div class="col-12 col-xl-4">
                 @include('components.top-follow')
@@ -16,11 +16,11 @@
         </div>
     </div>
 
-    @include('components.top-comments')
-    @include('components.manga-feature-genres')
-    @include('components.manga-select')
-    @include('components.manga-finish')
-    @include('components.blog-section')
+    @include('home.components.top-comments')
+    @include('home.components.manga-feature-genres')
+    @include('home.components.manga-select')
+    @include('home.components.manga-finish')
+    @include('home.components.blog-section')
 
     <script>
         async function getNewlyUpdatedHot() {

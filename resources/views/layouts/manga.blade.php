@@ -1,11 +1,10 @@
 <!doctype html>
 <html lang="vi">
-
 <head>
-    <title>Hangtruyen - Trang web đọc truyện tranh Online</title>
-    <meta name="description" content="Đọc truyện tranh manga, manhua, manhwa miễn phí được cập nhật liên tục hàng ngày.">
-    <meta name="keywords" content="đọc truyện, truyện tranh, hangtruyen">
-    <link rel="canonical" href="{{ url('/') }}" />
+    <title>@yield('title', 'Hangtruyen - Trang web đọc truyện tranh Online')</title>
+    <meta name="description" content="@yield('description', 'Đọc truyện tranh manga, manhua, manhwa miễn phí được cập nhật liên tục hàng ngày.')">
+    <meta name="keywords" content="@yield('keywords', 'đọc truyện, truyện tranh, hangtruyen')">
+    <link rel="canonical" href="@yield('canonical', url('/'))" />
 
     <meta name="robots" content="index, follow" />
 
@@ -23,11 +22,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <meta property="og:locale" content="vi_VN" />
-    <meta property="og:url" content="{{ url('/') }}" />
+    <meta property="og:url" content="@yield('og:url', url('/'))" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Hangtruyen - Trang web đọc truyện tranh Online" />
-    <meta property="og:description" content="Đọc truyện tranh manga, manhua, manhwa miễn phí được cập nhật liên tục hàng ngày." />
-    <meta property="og:image" content="{{ asset('images/logo-dark.png') }}" />
+    <meta property="og:title" content="@yield('og:title', 'Hangtruyen - Trang web đọc truyện tranh Online')" />
+    <meta property="og:description" content="@yield('og:description', 'Đọc truyện tranh manga, manhua, manhwa miễn phí được cập nhật liên tục hàng ngày.')" />
+    <meta property="og:image" content="@yield('og:image', asset('images/logo-dark.png'))" />
 
     <meta http-equiv="content-language" content="vi" />
     <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
@@ -51,6 +50,7 @@
         gtag('config', 'G-LYBKW914VZ');
     </script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    @include('components.header-scripts')
 </head>
 
 <body>
@@ -183,10 +183,7 @@
     @include('components.mobile-menu')
     @include('components.login-modal')
     <script src="{{ asset('js/splide-extension-grid.min.js') }}"></script>
-    <script src="{{ asset('js/custom/suggest.js') }}"></script>
-    <script src="{{ asset('js/custom/home/index.js') }}"></script>
-    <script src="{{ asset('js/custom.js') }}?v=1.06"></script>
     @stack('scripts')
+    <script src="{{ asset('js/custom.js') }}?v=1.06"></script>
 </body>
-
 </html>

@@ -1,3 +1,4 @@
+@php($demoMangaUrl = route('manga.detail', ['slug' => 'gto-fury-of-death-yamada']))
 <section id="manga-new_update">
     <div class="list-manga splide">
         <div class="group-title">
@@ -21,7 +22,7 @@
                 <!-- Truyện 1 -->
                 <div class="m-post splide__slide">
                     <div class="p-thumb flex-shrink-0">
-                        <a title="One Punch Man" href="/truyen-tranh/one-punch-man">
+                        <a title="One Punch Man" href="{{ $demoMangaUrl }}">
                             <span class="img-poster">
                                 <img class="lzl" data-src="https://prvhtr.mgbucket.xyz/posters/2024.11.13/eFBaGhXD2T5EBvM4el.jpg" rel="nofollow"
                                     data-original="https://prvhtr.mgbucket.xyz/posters/2024.11.13/eFBaGhXD2T5EBvM4el.jpg" alt="One Punch Man" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
@@ -30,7 +31,7 @@
                     </div>
                     <div class="p-content flex-grow-1">
                         <h3 class="m-name">
-                            <a href="/truyen-tranh/one-punch-man">One Punch Man</a>
+                            <a href="{{ $demoMangaUrl }}">One Punch Man</a>
                         </h3>
                         <div class="group-star">
                             <div class="m-star">
@@ -43,12 +44,12 @@
                         </div>
                         <ul class="list-chaps">
                             <li class="chapter">
-                                <a data-id="2170271" href="/truyen-tranh/one-punch-man/chapter-294" title="Chapter 294">
+                                <a data-id="2170271" href="{{ $demoMangaUrl }}" title="Chapter 294">
                                     Chapter 294<span>15 giờ trước</span>
                                 </a>
                             </li>
                             <li class="chapter">
-                                <a data-id="2168449" href="/truyen-tranh/one-punch-man/chapter-293" title="Chapter 293">
+                                <a data-id="2168449" href="{{ $demoMangaUrl }}" title="Chapter 293">
                                     Chapter 293<span>1 tháng trước</span>
                                 </a>
                             </li>
@@ -59,7 +60,7 @@
                 <!-- Truyện 2 -->
                 <div class="m-post splide__slide">
                     <div class="p-thumb flex-shrink-0">
-                        <a title="Blue Lock" href="/truyen-tranh/blue-lock">
+                        <a title="Blue Lock" href="{{ $demoMangaUrl }}">
                             <span class="img-poster">
                                 <img class="lzl" data-src="https://prvhtr.mgbucket.xyz/posters/5f/cf/blue-lock.jpg" rel="nofollow"
                                     data-original="https://prvhtr.mgbucket.xyz/posters/5f/cf/blue-lock.jpg" alt="Blue Lock" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
@@ -68,7 +69,7 @@
                     </div>
                     <div class="p-content flex-grow-1">
                         <h3 class="m-name">
-                            <a href="/truyen-tranh/blue-lock">Blue Lock</a>
+                            <a href="{{ $demoMangaUrl }}">Blue Lock</a>
                         </h3>
                         <div class="group-star">
                             <div class="m-star">
@@ -81,12 +82,12 @@
                         </div>
                         <ul class="list-chaps">
                             <li class="chapter">
-                                <a data-id="2170270" href="/truyen-tranh/blue-lock/chapter-331" title="Chapter 331">
+                                <a data-id="2170270" href="{{ $demoMangaUrl }}" title="Chapter 331">
                                     Chapter 331<span>1 ngày trước</span>
                                 </a>
                             </li>
                             <li class="chapter">
-                                <a data-id="2169975" href="/truyen-tranh/blue-lock/chapter-330" title="Chapter 330">
+                                <a data-id="2169975" href="{{ $demoMangaUrl }}" title="Chapter 330">
                                     Chapter 330<span>8 ngày trước</span>
                                 </a>
                             </li>

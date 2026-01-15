@@ -1,3 +1,4 @@
+@php($demoMangaUrl = route('manga.detail', ['slug' => 'gto-fury-of-death-yamada']))
 <section class="container">
     <div class="row">
         <div class="col-12 col-xl-3">
@@ -22,7 +23,7 @@
                                         </div>
                                     </div>
                                     <div class="tc-thumb">
-                                        <a class="tc-thumbnail" title="" href="/truyen-tranh/hoan-doi-dieu-ky">
+                                        <a class="tc-thumbnail" title="" href="{{ $demoMangaUrl }}">
                                             <img class="lzl" data-src="https://img.htrcdn.com/fast/0x150/oss.cdnfastest.com/90htr/posters/01/c5/hoan-doi-dieu-ky.png" rel="nofollow"
                                                 alt="Hoán Đổi Diệu Kỳ" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
                                         </a>
@@ -32,9 +33,9 @@
                                     A Jay ở sạch quá r=)))) a Vasco mà bt Dan đớp 1 đóng calo chắc tức xỉu:))))
                                 </div>
                                 <div class="tc-footer">
-                                    <a href="/truyen-tranh/hoan-doi-dieu-ky" class="tc-name">Hoán Đổi Diệu Kỳ</a>
+                                    <a href="{{ $demoMangaUrl }}" class="tc-name">Hoán Đổi Diệu Kỳ</a>
                                 </div>
-                                <a class="tc-link" href="/truyen-tranh/hoan-doi-dieu-ky#cmt-3744"></a>
+                                <a class="tc-link" href="{{ $demoMangaUrl }}#cmt-3744"></a>
                             </div>
                         </li>
 
@@ -50,7 +51,7 @@
                                         </div>
                                     </div>
                                     <div class="tc-thumb">
-                                        <a class="tc-thumbnail" title="" href="/truyen-tranh/blue-lock">
+                                        <a class="tc-thumbnail" title="" href="{{ $demoMangaUrl }}">
                                             <img class="lzl" data-src="https://img.htrcdn.com/fast/0x150/oss.cdnfastest.com/90htr/posters/5f/cf/blue-lock.jpg" rel="nofollow"
                                                 alt="Blue Lock" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
                                         </a>
@@ -60,9 +61,9 @@
                                     quá ảo
                                 </div>
                                 <div class="tc-footer">
-                                    <a href="/truyen-tranh/blue-lock" class="tc-name">Blue Lock</a>
+                                    <a href="{{ $demoMangaUrl }}" class="tc-name">Blue Lock</a>
                                 </div>
-                                <a class="tc-link" href="/truyen-tranh/blue-lock#cmt-3739"></a>
+                                <a class="tc-link" href="{{ $demoMangaUrl }}#cmt-3739"></a>
                             </div>
                         </li>
                     </ul>

@@ -1,3 +1,4 @@
+@php($demoMangaUrl = route('manga.detail', ['slug' => 'gto-fury-of-death-yamada']))
 <section id="manga-select" class="container">
     <div class="m-suggest splide splide-navtop">
         <div class="group-title">
@@ -18,7 +19,7 @@
                 <!-- Truyện 1 -->
                 <div class="m-post horizontal splide__slide">
                     <div class="p-thumb flex-shrink-0">
-                        <a title="Kỵ Sĩ Chuyển Sinh Bị Lưu Đày, Trở Nên Bất Bại Nhờ Trò Chơi" href="/truyen-tranh/ky-si-chuyen-sinh-bi-luu-day-tro-nen-bat-bai-nho-tro-choi">
+                        <a title="Kỵ Sĩ Chuyển Sinh Bị Lưu Đày, Trở Nên Bất Bại Nhờ Trò Chơi" href="{{ $demoMangaUrl }}">
                             <span class="img-poster">
                                 <img class="lzl" data-src="https://prvhtr.mgbucket.xyz/posters/ed/86/ky-si-chuyen-sinh-bi-luu-day-tro-nen-bat-bai-nho-tro-choi.png" rel="nofollow"
                                     data-original="https://prvhtr.mgbucket.xyz/posters/ed/86/ky-si-chuyen-sinh-bi-luu-day-tro-nen-bat-bai-nho-tro-choi.png" alt="Kỵ Sĩ Chuyển Sinh Bị Lưu Đày, Trở Nên Bất Bại Nhờ Trò Chơi" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
@@ -27,7 +28,7 @@
                     </div>
                     <div class="p-content flex-grow-1">
                         <h3 class="m-name">
-                            <a href="/truyen-tranh/ky-si-chuyen-sinh-bi-luu-day-tro-nen-bat-bai-nho-tro-choi">Kỵ Sĩ Chuyển Sinh Bị Lưu Đày, Trở Nên Bất Bại Nhờ Trò Chơi</a>
+                            <a href="{{ $demoMangaUrl }}">Kỵ Sĩ Chuyển Sinh Bị Lưu Đày, Trở Nên Bất Bại Nhờ Trò Chơi</a>
                         </h3>
                         <div class="group-star">
                             <div class="m-star">
@@ -39,7 +40,7 @@
                         </div>
                         <ul class="list-chaps">
                             <li class="chapter">
-                                <a data-id="2170255" href="/truyen-tranh/ky-si-chuyen-sinh-bi-luu-day-tro-nen-bat-bai-nho-tro-choi/chapter-152" title="Chapter #152">
+                                <a data-id="2170255" href="{{ $demoMangaUrl }}" title="Chapter #152">
                                     Chapter #152<span>2 ngày trước</span>
                                 </a>
                             </li>
@@ -50,7 +51,7 @@
                 <!-- Truyện 2 -->
                 <div class="m-post horizontal splide__slide">
                     <div class="p-thumb flex-shrink-0">
-                        <a title="Thám tử lừng danh Conan - Giờ trà của Zero (NXB Kim Đồng)" href="/truyen-tranh/tham-tu-lung-danh-conan-gio-tra-cua-zero-nxb-kim-dong">
+                        <a title="Thám tử lừng danh Conan - Giờ trà của Zero (NXB Kim Đồng)" href="{{ $demoMangaUrl }}">
                             <span class="img-poster">
                                 <img class="lzl" data-src="https://prvhtr.mgbucket.xyz/posters/d1/f3/tham-tu-lung-danh-conan-gio-tra-cua-zero-nxb-kim-dong.jpg" rel="nofollow"
                                     data-original="https://prvhtr.mgbucket.xyz/posters/d1/f3/tham-tu-lung-danh-conan-gio-tra-cua-zero-nxb-kim-dong.jpg" alt="Thám tử lừng danh Conan - Giờ trà của Zero (NXB Kim Đồng)" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
@@ -59,7 +60,7 @@
                     </div>
                     <div class="p-content flex-grow-1">
                         <h3 class="m-name">
-                            <a href="/truyen-tranh/tham-tu-lung-danh-conan-gio-tra-cua-zero-nxb-kim-dong">Thám tử lừng danh Conan - Giờ trà của Zero (NXB Kim Đồng)</a>
+                            <a href="{{ $demoMangaUrl }}">Thám tử lừng danh Conan - Giờ trà của Zero (NXB Kim Đồng)</a>
                         </h3>
                         <div class="group-star">
                             <div class="m-star">
@@ -71,7 +72,7 @@
                         </div>
                         <ul class="list-chaps">
                             <li class="chapter">
-                                <a data-id="2150372" href="/truyen-tranh/tham-tu-lung-danh-conan-gio-tra-cua-zero-nxb-kim-dong/time-60-thuong-that" title="Time #60: Thường thật">
+                                <a data-id="2150372" href="{{ $demoMangaUrl }}" title="Time #60: Thường thật">
                                     Time #60: Thường thật<span>3 tháng trước</span>
                                 </a>
                             </li>

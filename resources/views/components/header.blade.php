@@ -102,7 +102,7 @@
                     <div class="noti-content list-unstyled no-scrollbar"></div>
                     <div class="overlay-noti"></div>
                 </div>
-                <div hidden class="nav-account list-inline" id="not-loggin">
+                <div class="nav-account list-inline" id="not-loggin">
                     <span class="login-link d-none d-xl-flex">
                         <button class="btn btn-login" rel="nofollow" data-bs-toggle="modal" data-bs-target="#loginModal">
                             <span>Đăng nhập</span>
@@ -129,6 +129,3 @@
         </div>
     </div>
 </header>
-
-@include('components.mobile-menu')
-@include('components.login-modal')

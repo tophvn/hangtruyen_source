@@ -1,3 +1,4 @@
+@php($demoMangaUrl = route('manga.detail', ['slug' => 'gto-fury-of-death-yamada']))
 <section id="m-finish" class="container">
     <div class="m-suggest splide splide-navtop">
         <div class="group-title">
@@ -19,7 +20,7 @@
                 <!-- Truyện 1 -->
                 <div class="m-post horizontal splide__slide">
                     <div class="p-thumb flex-shrink-0">
-                        <a title="Springtime for Blossom" href="/truyen-tranh/springtime-for-blossom">
+                        <a title="Springtime for Blossom" href="{{ $demoMangaUrl }}">
                             <span class="img-poster">
                                 <img class="lzl" data-src="https://prvhtr.mgbucket.xyz/posters/db/e8/springtime-for-blossom.png" rel="nofollow"
                                     data-original="https://prvhtr.mgbucket.xyz/posters/db/e8/springtime-for-blossom.png" alt="Springtime for Blossom" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
@@ -28,7 +29,7 @@
                     </div>
                     <div class="p-content flex-grow-1">
                         <h3 class="m-name">
-                            <a href="/truyen-tranh/springtime-for-blossom">Springtime for Blossom</a>
+                            <a href="{{ $demoMangaUrl }}">Springtime for Blossom</a>
                         </h3>
                         <div class="group-star">
                             <div class="m-star">
@@ -40,7 +41,7 @@
                         </div>
                         <ul class="list-chaps">
                             <li class="chapter">
-                                <a data-id="2065132" href="/truyen-tranh/springtime-for-blossom/chapter-34-end" title="Chapter #34 - END">
+                                <a data-id="2065132" href="{{ $demoMangaUrl }}" title="Chapter #34 - END">
                                     Chapter #34 - END<span>5 tháng trước</span>
                                 </a>
                             </li>
@@ -51,7 +52,7 @@
                 <!-- Truyện 2 -->
                 <div class="m-post horizontal splide__slide">
                     <div class="p-thumb flex-shrink-0">
-                        <a title="Toàn Chức Pháp Sư" href="/truyen-tranh/toan-chuc-phap-su">
+                        <a title="Toàn Chức Pháp Sư" href="{{ $demoMangaUrl }}">
                             <span class="img-poster">
                                 <img class="lzl" data-src="https://prvhtr.mgbucket.xyz/posters/5a/7e/toan-chuc-phap-su.png" rel="nofollow"
                                     data-original="https://prvhtr.mgbucket.xyz/posters/5a/7e/toan-chuc-phap-su.png" alt="Toàn Chức Pháp Sư" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
@@ -60,7 +61,7 @@
                     </div>
                     <div class="p-content flex-grow-1">
                         <h3 class="m-name">
-                            <a href="/truyen-tranh/toan-chuc-phap-su">Toàn Chức Pháp Sư</a>
+                            <a href="{{ $demoMangaUrl }}">Toàn Chức Pháp Sư</a>
                         </h3>
                         <div class="group-star">
                             <div class="m-star">
@@ -72,7 +73,7 @@
                         </div>
                         <ul class="list-chaps">
                             <li class="chapter">
-                                <a data-id="1484811" href="/truyen-tranh/toan-chuc-phap-su/chapter-1181" title="Chapter 1181">
+                                <a data-id="1484811" href="{{ $demoMangaUrl }}" title="Chapter 1181">
                                     Chapter 1181<span>2 năm trước</span>
                                 </a>
                             </li>
