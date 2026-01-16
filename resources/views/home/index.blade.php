@@ -3,7 +3,6 @@
 @section('content')
     @include('home.components.manga-slider')
     @include('home.components.manga-trend')
-    @include('home.components.manga-suggest')
 
     <div class="container">
         <div class="row">
@@ -16,6 +15,7 @@
         </div>
     </div>
 
+    @include('home.components.manga-suggest')
     @include('home.components.top-comments')
     @include('home.components.manga-feature-genres')
     @include('home.components.manga-select')

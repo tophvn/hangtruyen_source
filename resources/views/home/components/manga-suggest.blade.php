@@ -1,7 +1,17 @@
 @php($demoMangaUrl = route('manga.detail', ['slug' => 'gto-fury-of-death-yamada']))
 <section id="m-suggest" class="container">
     <div class="m-suggest splide splide-navtop">
-        <h2 class="m-title title">Gợi ý cho bạn<span class="sub">Gợi ý theo sở thích của bạn.</span></h2>
+        <div class="group-title justify-content-between">
+            <h2 class="m-title title">Gợi ý cho bạn<span class="sub">Gợi ý theo sở thích của bạn.</span></h2>
+            <div class="splide__arrows position-relative">
+                <button class="splide__arrow splide__arrow--prev">
+                    <i class="icon-arrow-left"></i>
+                </button>
+                <button class="splide__arrow splide__arrow--next">
+                    <i class="icon-arrow-right"></i>
+                </button>
+            </div>
+        </div>
         <div class="splide__track">
             <div class="splide__list">
                 <!-- Truyện 1 -->

@@ -1351,6 +1351,14 @@ a.toggle-formsearch {
     margin-left: -100px;
 }
 
+.slide-single .splide-slide {
+    transition: none !important;
+}
+
+.slide-single .splide__slide .mb-banner {
+    transition: none !important;
+}
+
 .splide-slide {
     transition: transform 0.3s ease;
 }

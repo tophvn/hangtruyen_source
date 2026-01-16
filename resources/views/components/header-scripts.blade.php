@@ -179,40 +179,49 @@
     }
 
     function handleHeaderLoginSuccess(user) {
-        $('#userava').attr('src', user.avatar);
         $('#username').text(user.name);
-        !user.avatar && $('#avatar-temp-header').attr('data-name', user.name);
+        
         if (user.avatar) {
             $('#avatar-temp-header').css({
                 'background-image': `url(${user.avatar})`,
                 'background-size': 'cover',
                 'background-position': 'center',
                 'background-repeat': 'no-repeat',
-            });
+            }).text('').attr('data-name', '');
         } else {
-            $('#avatar-temp-header').text(user.name[0]).css({
-                'background-color': '#787978',
+            $('#avatar-temp-header').attr('data-name', user.name);
+            const firstLetter = user.name ? user.name[0].toUpperCase() : '?';
+            const avaColor = (typeof getAvaColor !== 'undefined' && getAvaColor) 
+                ? getAvaColor(user.name || 'User') 
+                : '#787978';
+            $('#avatar-temp-header').text(firstLetter).css({
+                'background-image': '',
+                'background-color': avaColor,
             });
         }
 
         if (user.unreadNoti) {
-            $('#box-noti .badge-noti').text(user.unreadNoti);
+            $('#box-noti .badge-noti').text(user.unreadNoti).removeAttr('hidden');
         } else {
             $('#box-noti .badge-noti').attr('hidden', true);
         }
 
         $('#not-loggin').attr('hidden', true);
-        $('#has-login').attr('hidden', false);
-        $('#box-noti').attr('hidden', false);
+        $('#has-login').removeAttr('hidden');
+        $('#box-noti').removeAttr('hidden');
     }
 
     function handleHeaderLogout() {
-        $('#not-loggin').attr('hidden', false);
+        $('#not-loggin').removeAttr('hidden');
         $('#has-login').attr('hidden', true);
         $('#box-noti').attr('hidden', true);
-
         $('#userava').attr('src', '');
         $('#username').text('');
+        $('#avatar-temp-header').css({
+            'background-image': '',
+            'background-color': '',
+        }).text('').attr('data-name', '');
+        $('#box-noti .badge-noti').attr('hidden', true);
     }
 
     async function fetchListNoti() {
@@ -234,11 +243,29 @@
         return null;
     }
     
-    $('#logout').on('click', async function() {
-        await logout();
-        handleRemoveUserFromSessionStorage();
-        handleHeaderGetUserInfoFromLS();
-        window.location.reload()
+    $(document).on('click', '#logout', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (typeof handleRemoveUserFromSessionStorage === 'function') {
+            handleRemoveUserFromSessionStorage();
+        }
+        
+        if (typeof handleHeaderLogout === 'function') {
+            handleHeaderLogout();
+        }
+        
+        try {
+            await $.ajax({
+                type: 'POST',
+                url: '/api/auth/logout',
+                contentType: 'application/json',
+            });
+        } catch (error) {
+            console.log('Logout API error:', error);
+        }
+        
+        window.location.href = '/auth/logout';
     });
 
     var recommendMangas = [];
@@ -269,10 +296,44 @@
     });
 
     $('.dropdown-item').on('click', function(e) {
-        window.location.href = $(e.target).attr('href');
+        if ($(this).attr('id') === 'logout') {
+            return;
+        }
+        const href = $(this).attr('href');
+        if (href && href !== '#' && href !== 'javascript:void(0)') {
+            window.location.href = href;
+        }
     });
     
     checkDarkModeConfig()
+    
+    async function checkAndUpdateHeader() {
+        try {
+            const user = await getUser();
+            if (user) {
+                if (typeof handleSaveUserToSessionStorage === 'function') {
+                    handleSaveUserToSessionStorage(user);
+                }
+                if (typeof handleHeaderLoginSuccess === 'function') {
+                    handleHeaderLoginSuccess(user);
+                }
+            } else {
+                if (typeof handleHeaderLogout === 'function') {
+                    handleHeaderLogout();
+                }
+            }
+        } catch (error) {
+            if (typeof handleHeaderLogout === 'function') {
+                handleHeaderLogout();
+            }
+        }
+    }
+    
+    $(document).ready(function() {
+        checkAndUpdateHeader();
+        setTimeout(checkAndUpdateHeader, 500);
+    });
+    
     handleCallbackCheckAuthIsDone(handleHeaderGetUserInfoFromLS);
 
     $('.btn-noti').on('click', async function() {

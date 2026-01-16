@@ -43,6 +43,23 @@ const getAvaColor = (name) => {
     });
 })();
 
+// Hàm getUser sử dụng API local
+async function getUser() {
+    var response = await $.ajax({
+        type: 'GET',
+        url: '/api/auth/user',
+        contentType: 'application/json',
+    }).catch(() => {
+        console.log('getUser error');
+        return null;
+    });
+
+    if (response && response.status === 1) {
+        return response.user;
+    }
+    return null;
+}
+
 function handleClearWindowHref() {
     var url = document.location.href;
     const newUrl = new URL(url);

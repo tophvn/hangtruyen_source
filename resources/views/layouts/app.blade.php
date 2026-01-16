@@ -58,11 +58,8 @@
     <script>
         async function getUser() {
             var response = await $.ajax({
-                type: 'POST',
-                xhrFields: {
-                    withCredentials: true
-                },
-                url: 'https://api.hangtruyen.vip/auth/user',
+                type: 'GET',
+                url: '/api/auth/user',
                 contentType: 'application/json',
             }).catch(() => {
                 console.log('getUser error');
@@ -76,31 +73,14 @@
         }
 
         async function refreshToken(newToken = false) {
-            var response = await $.ajax({
-                type: 'POST',
-                xhrFields: {
-                    withCredentials: true
-                },
-                url: 'https://api.hangtruyen.vip/auth/refresh-token',
-                contentType: 'application/json',
-            }).catch(() => {
-                console.log('refreshToken error');
-                return null;
-            });
-
-            if (response && response.status === 1) {
-                return response.user;
-            }
-            return null;
+            // Không cần refresh token cho local, chỉ cần getUser
+            return await getUser();
         }
 
         async function logout(newToken = false) {
             await $.ajax({
                 type: 'POST',
-                xhrFields: {
-                    withCredentials: true
-                },
-                url: 'https://api.hangtruyen.vip/auth/logout',
+                url: '/api/auth/logout',
                 contentType: 'application/json',
                 error: function(data) {
                     console.log('logout error');
@@ -187,6 +167,31 @@
     <script src="{{ asset('js/custom/home/index.js') }}"></script>
     <script src="{{ asset('js/custom.js') }}?v=1.06"></script>
     @stack('scripts')
+    
+    <script>
+        // Tự động cập nhật header sau khi đăng nhập thành công
+        $(document).ready(function() {
+            // Đợi một chút để đảm bảo các script đã load xong
+            setTimeout(function() {
+                if (typeof getUser === 'function' && typeof handleHeaderLoginSuccess === 'function') {
+                    getUser().then(function(user) {
+                        if (user) {
+                            if (typeof handleSaveUserToSessionStorage === 'function') {
+                                handleSaveUserToSessionStorage(user);
+                            }
+                            handleHeaderLoginSuccess(user);
+                        } else {
+                            if (typeof handleHeaderLogout === 'function') {
+                                handleHeaderLogout();
+                            }
+                        }
+                    }).catch(function(error) {
+                        console.log('Error getting user:', error);
+                    });
+                }
+            }, 100);
+        });
+    </script>
 </body>
 
 </html>

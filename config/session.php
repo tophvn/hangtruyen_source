@@ -31,7 +31,7 @@ return [
     |
     */
 
-    'lifetime' => env('SESSION_LIFETIME', 120),
+    'lifetime' => env('SESSION_LIFETIME', 525600), // 1 năm (525600 phút)
 
     'expire_on_close' => false,
 

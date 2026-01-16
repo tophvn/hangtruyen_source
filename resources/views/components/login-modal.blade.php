@@ -21,10 +21,8 @@
 <script>
     $('#google-authen-btn').on('click', (e) => {
         e.preventDefault();
-        window.location.href =
-            'https://api.hangtruyen.vip' +
-            '/auth/get-google-auth-url' +
-            '/?callback=' +
-            window.location.href;
+        // Lưu URL hiện tại để redirect về sau khi đăng nhập
+        const currentUrl = window.location.href;
+        window.location.href = '{{ route("auth.google") }}?state=' + encodeURIComponent(currentUrl);
     });
 </script>

@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function() {
             lazyLoad: 'nearby',
             autoplay: true,
             interval: 5000,
-            speed: 2000,
+            speed: 0,
             pauseOnHover: true,
             pauseOnFocus: true,
             pauseOnLeave: true,
