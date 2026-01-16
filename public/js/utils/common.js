@@ -21,19 +21,28 @@ const getAvaColor = (name) => {
 };
 
 (async function checkAuthen() {
-    handleRemoveUserFromSessionStorage();
-    handleClearWindowHref();
+    // Kiểm tra xem các function đã được định nghĩa chưa
+    if (typeof handleRemoveUserFromSessionStorage === 'function') {
+        handleRemoveUserFromSessionStorage();
+    }
+    if (typeof handleClearWindowHref === 'function') {
+        handleClearWindowHref();
+    }
 
     let user = await getUser();
-    if (!user) {
+    if (!user && typeof refreshToken === 'function') {
         user = await refreshToken();
     }
 
     if (user) {
         // handle header
-        handleSaveUserToSessionStorage(user);
+        if (typeof handleSaveUserToSessionStorage === 'function') {
+            handleSaveUserToSessionStorage(user);
+        }
     } else {
-        handleRemoveUserFromSessionStorage();
+        if (typeof handleRemoveUserFromSessionStorage === 'function') {
+            handleRemoveUserFromSessionStorage();
+        }
     }
 
     $(document).ready(function() {

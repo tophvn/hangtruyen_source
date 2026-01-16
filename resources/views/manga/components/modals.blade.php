@@ -9,7 +9,7 @@
                 </button>
             </div>
             <div class="modal-body">
-                <p><span style="font-size: 16px">{{ $fullDescription ?? 'Bộ phim kể về Phó Hiệu trưởng Hiroshi Uchiyamada, người vô tình lạc vào một cơn ác mộng xuyên không gian sau khi đến Kabukicho để tìm kiếm nữ sinh mất tích Nanami.' }}</span></p>
+                {!! $manga['description'] ?? '<p>Đang cập nhật</p>' !!}
             </div>
         </div>
     </div>
@@ -28,7 +28,7 @@
             <div class="modal-body">
                 <form class="report-form">
                     <textarea class="form-control form-control-textarea" name="content" maxlength="3000" placeholder="Gặp vấn đề khác xin điền ở đây..."></textarea>
-                    <button type="button" class="btn" data-bs-toggle="modal" data-bs-target="#otp-modal">Báo cáo</button>
+                    <button type="button" class="btn">Báo cáo</button>
                 </form>
             </div>
         </div>

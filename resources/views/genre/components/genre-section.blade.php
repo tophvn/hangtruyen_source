@@ -3,12 +3,12 @@
     $mangas = $genre['mangas'] ?? [];
 @endphp
 
-<section id="m-finish" class="container">
+<section class="mb-3">
     <div class="m-suggest splide splide-navtop">
         <div class="group-title">
             <h2 class="m-title title">{{ $genre['name'] }}<span class="sub">Gợi ý theo sở thích của bạn.</span></h2>
             <div class="swiper-btn__group">
-                <a href="{{ url('/genre/' . $genre['slug']) }}" class="view-all">Xem tất cả</a>
+                <a href="{{ url('/the-loai/' . $genre['slug']) }}" class="view-all">Xem tất cả</a>
                 <div class="splide__arrows position-relative">
                     <button class="splide__arrow splide__arrow--prev">
                         <i class="icon-arrow-left"></i>
@@ -44,14 +44,18 @@
                                 </div>
                             </div>
                             <ul class="list-chaps">
-                                @if(isset($manga['chapters']) && is_array($manga['chapters']))
+                                @if(isset($manga['chapters']) && is_array($manga['chapters']) && count($manga['chapters']) > 0)
                                     @foreach(array_slice($manga['chapters'], 0, 1) as $chapter)
                                         <li class="chapter">
-                                            <a data-id="{{ $chapter['id'] }}" href="/truyen-tranh/{{ $manga['slug'] }}/{{ $chapter['slug'] }}" title="{{ $chapter['name'] }}">
+                                            <a data-id="{{ $chapter['id'] ?? '' }}" href="{{ route('manga.chapter', ['mangaSlug' => $manga['slug'], 'chapterSlug' => $chapter['slug']]) }}" title="{{ $chapter['name'] }}">
                                                 {{ $chapter['name'] }}<span>{{ $chapter['releasedAt'] ?? '' }}</span>
                                             </a>
                                         </li>
                                     @endforeach
+                                @else
+                                    <li class="chapter">
+                                        <span>Đang cập nhật</span>
+                                    </li>
                                 @endif
                             </ul>
                         </div>

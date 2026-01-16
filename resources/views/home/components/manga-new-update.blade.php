@@ -1,4 +1,3 @@
-@php($demoMangaUrl = route('manga.detail', ['slug' => 'gto-fury-of-death-yamada']))
 <section id="manga-new_update">
     <div class="list-manga splide">
         <div class="group-title">
@@ -19,93 +18,87 @@
         </div>
         <div class="splide__track">
             <div class="splide__list">
-                <!-- Truyện 1 -->
-                <div class="m-post splide__slide">
-                    <div class="p-thumb flex-shrink-0">
-                        <a title="One Punch Man" href="{{ $demoMangaUrl }}">
-                            <span class="img-poster">
-                                <img class="lzl" data-src="https://prvhtr.mgbucket.xyz/posters/2024.11.13/eFBaGhXD2T5EBvM4el.jpg" rel="nofollow"
-                                    data-original="https://prvhtr.mgbucket.xyz/posters/2024.11.13/eFBaGhXD2T5EBvM4el.jpg" alt="One Punch Man" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
-                            </span>
-                        </a>
-                    </div>
-                    <div class="p-content flex-grow-1">
-                        <h3 class="m-name">
-                            <a href="{{ $demoMangaUrl }}">One Punch Man</a>
-                        </h3>
-                        <div class="group-star">
-                            <div class="m-star">
-                                <span class="star-rating">
-                                    <span style="width: 100%;"></span>
+                @forelse($recentlyUpdated ?? [] as $manga)
+                    @php
+                        $mangaUrl = route('manga.detail', ['slug' => $manga['slug']]);
+                        $chapters = $manga['chapters'] ?? [];
+                        $views = $manga['views'] ?? null;
+                        $rating = $manga['rating'] ?? 0;
+                    @endphp
+                    <div class="m-post splide__slide">
+                        <div class="p-thumb flex-shrink-0">
+                            <a title="{{ $manga['name'] }}" href="{{ $mangaUrl }}">
+                                <span class="img-poster">
+                                    <img class="lzl" 
+                                        data-src="{{ $manga['cover_url'] }}" 
+                                        rel="nofollow"
+                                        data-original="{{ $manga['cover_url'] }}" 
+                                        alt="{{ $manga['name'] }}" 
+                                        src="{{ asset('images/pre-load1.png') }}" 
+                                        width="100%" 
+                                        height="100%">
                                 </span>
-                                <span>5</span>
-                            </div>
-                            <span class="num-view">208.25K lượt xem</span>
+                            </a>
                         </div>
-                        <ul class="list-chaps">
-                            <li class="chapter">
-                                <a data-id="2170271" href="{{ $demoMangaUrl }}" title="Chapter 294">
-                                    Chapter 294<span>15 giờ trước</span>
-                                </a>
-                            </li>
-                            <li class="chapter">
-                                <a data-id="2168449" href="{{ $demoMangaUrl }}" title="Chapter 293">
-                                    Chapter 293<span>1 tháng trước</span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
-                <!-- Truyện 2 -->
-                <div class="m-post splide__slide">
-                    <div class="p-thumb flex-shrink-0">
-                        <a title="Blue Lock" href="{{ $demoMangaUrl }}">
-                            <span class="img-poster">
-                                <img class="lzl" data-src="https://prvhtr.mgbucket.xyz/posters/5f/cf/blue-lock.jpg" rel="nofollow"
-                                    data-original="https://prvhtr.mgbucket.xyz/posters/5f/cf/blue-lock.jpg" alt="Blue Lock" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
-                            </span>
-                        </a>
-                    </div>
-                    <div class="p-content flex-grow-1">
-                        <h3 class="m-name">
-                            <a href="{{ $demoMangaUrl }}">Blue Lock</a>
-                        </h3>
-                        <div class="group-star">
-                            <div class="m-star">
-                                <span class="star-rating">
-                                    <span style="width: 62%;"></span>
-                                </span>
-                                <span>3.1</span>
+                        <div class="p-content flex-grow-1">
+                            <h3 class="m-name">
+                                <a href="{{ $mangaUrl }}">{{ $manga['name'] }}</a>
+                            </h3>
+                            <div class="group-star">
+                                <div class="m-star">
+                                    <span class="star-rating">
+                                        <span style="width: {{ ($rating / 5) * 100 }}%;"></span>
+                                    </span>
+                                    <span>{{ number_format($rating, 1) }}</span>
+                                </div>
+                                @php
+                                    $viewsCount = (int)($views ?? 0);
+                                    if ($viewsCount >= 1000000) {
+                                        $formattedViews = number_format($viewsCount / 1000000, 2) . 'M';
+                                    } elseif ($viewsCount >= 1000) {
+                                        $formattedViews = number_format($viewsCount / 1000, 2) . 'K';
+                                    } else {
+                                        $formattedViews = number_format($viewsCount);
+                                    }
+                                @endphp
+                                <span class="num-view">{{ $formattedViews }} lượt xem</span>
                             </div>
-                            <span class="num-view">62.9K lượt xem</span>
+                            @if(count($chapters) > 0)
+                                <ul class="list-chaps">
+                                    @foreach(array_slice($chapters, 0, 2) as $chapter)
+                                        @php
+                                            $chapterTime = $chapter['updated_at'] 
+                                                ? formatVietnameseTime($chapter['updated_at'])
+                                                : '';
+                                            $chapterNumber = $chapter['number'] ?? '';
+                                            $chapterSlug = 'chapter-' . $chapterNumber;
+                                            $chapterUrl = route('manga.detail', ['slug' => $manga['slug']]) . '/' . $chapterSlug;
+                                        @endphp
+                                        <li class="chapter">
+                                            <a href="{{ $chapterUrl }}" title="{{ $chapter['name'] }}">
+                                                {{ $chapter['name'] }}<span>{{ $chapterTime }}</span>
+                                            </a>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @endif
                         </div>
-                        <ul class="list-chaps">
-                            <li class="chapter">
-                                <a data-id="2170270" href="{{ $demoMangaUrl }}" title="Chapter 331">
-                                    Chapter 331<span>1 ngày trước</span>
-                                </a>
-                            </li>
-                            <li class="chapter">
-                                <a data-id="2169975" href="{{ $demoMangaUrl }}" title="Chapter 330">
-                                    Chapter 330<span>8 ngày trước</span>
-                                </a>
-                            </li>
-                        </ul>
                     </div>
-                </div>
+                @empty
+                    <div class="m-post splide__slide">
+                        <p>Đang tải dữ liệu...</p>
+                    </div>
+                @endforelse
             </div>
         </div>
-        <ul class="pagination">
-            <li class="active" data-page="1">
-                <a href="{{ url('/') }}">1</a>
-            </li>
-            <li class="" data-page="2">
-                <a href="/new?page=2">2</a>
-            </li>
-            <li class="" data-page="3">
-                <a href="/new?page=3">3</a>
-            </li>
-        </ul>
+        @if(isset($recentlyUpdatedMetadata) && $recentlyUpdatedMetadata)
+            <ul class="pagination">
+                @for($i = 1; $i <= min(5, $recentlyUpdatedMetadata['total_pages'] ?? 1); $i++)
+                    <li class="{{ $i == 1 ? 'active' : '' }}" data-page="{{ $i }}">
+                        <a href="{{ $i == 1 ? url('/') : "/new?page={$i}" }}">{{ $i }}</a>
+                    </li>
+                @endfor
+            </ul>
+        @endif
     </div>
 </section>

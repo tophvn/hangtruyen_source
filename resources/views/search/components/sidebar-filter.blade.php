@@ -47,38 +47,36 @@
                     <input class="form-check-input" type="checkbox" value="3" id="cat--3">
                     <label class="form-check-label" for="cat--3">Manhwa</label>
                 </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" value="4" id="cat--4">
-                    <label class="form-check-label" for="cat--4">Marvel Comics</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" value="5" id="cat--5">
-                    <label class="form-check-label" for="cat--5">DC Comics</label>
-                </div>
             </div>
         </div>
         <div>
             <span>Tags:</span>
             <div class="list-genres">
-                <span data-value="97" class="">#Action</span>
-                <span data-value="101" class="d-none">#Romance</span>
-                <span data-value="98" class="d-none">#Comedy</span>
-                <span data-value="93" class="d-none">#Fantasy</span>
-                <span data-value="102" class="d-none">#Drama</span>
-                <span data-value="1" class="">#Adventure</span>
-                <span data-value="18" class="d-none">#Ngôn Tình</span>
-                <span data-value="28" class="d-none">#School Life</span>
-                <span data-value="14" class="d-none">#Slice of Life</span>
-                <span data-value="23" class="d-none">#Shoujo</span>
-                <span data-value="103" class="d-none">#Shounen</span>
-                <span data-value="7" class="d-none">#Supernatural</span>
-                <span data-value="4" class="d-none">#Mystery</span>
-                <span data-value="10" class="d-none">#Martial Arts</span>
-                <span data-value="100" class="d-none">#Xuyên Không</span>
+                @if(isset($allTags) && is_array($allTags) && count($allTags) > 0)
+                    @foreach($allTags as $index => $tag)
+                        @php
+                            $isHidden = $index >= 23;
+                            $tagId = $tag['id'] ?? '';
+                            $tagValue = $tag['slug'] ?? $tag['name'] ?? (is_string($tag) ? $tag : '');
+                            $tagName = $tag['name'] ?? (is_string($tag) ? $tag : '');
+                            // Check if selected by ID, slug, or name
+                            $isSelected = isset($tags) && is_array($tags) && (
+                                in_array($tagId, $tags) || 
+                                in_array($tagValue, $tags) || 
+                                in_array($tagName, $tags)
+                            );
+                        @endphp
+                        <span data-value="{{ $tagId }}" class="tag-item {{ $isHidden ? 'd-none' : '' }} {{ $isSelected ? 'active' : '' }}" style="cursor: pointer;">#{{ $tagName }}</span>
+                    @endforeach
+                @else
+                    <span class="text-muted">Chưa có tags</span>
+                @endif
             </div>
-            <a href="javascript:void(0)" id="view-all-tags" class="view-all mt-2 d-inline-block">Xem tất cả</a>
+            @if(isset($allTags) && count($allTags) > 23)
+                <a href="javascript:void(0)" id="view-all-tags" class="view-all mt-2 d-inline-block">Xem tất cả</a>
+            @endif
         </div>
-        <a class="btn btn-filter" href="#">
+        <a class="btn btn-filter" href="javascript:void(0)" id="btn-filter-submit">
             <span>Tìm kiếm</span>
         </a>
     </div>

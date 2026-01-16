@@ -51,14 +51,18 @@
                                 </div>
                             </div>
                             <ul class="list-chaps">
-                                @if(isset($manga['chapters']) && is_array($manga['chapters']))
+                                @if(isset($manga['chapters']) && is_array($manga['chapters']) && count($manga['chapters']) > 0)
                                     @foreach(array_slice($manga['chapters'], 0, 1) as $chapter)
                                         <li class="chapter">
-                                            <a data-id="{{ $chapter['id'] }}" href="/truyen-tranh/{{ $manga['slug'] }}/{{ $chapter['slug'] }}" title="{{ $chapter['name'] }}">
+                                            <a data-id="{{ $chapter['id'] ?? '' }}" href="{{ route('manga.chapter', ['mangaSlug' => $manga['slug'], 'chapterSlug' => $chapter['slug']]) }}" title="{{ $chapter['name'] }}">
                                                 {{ $chapter['name'] }}<span>{{ $chapter['releasedAt'] ?? '' }}</span>
                                             </a>
                                         </li>
                                     @endforeach
+                                @else
+                                    <li class="chapter">
+                                        <span>Đang cập nhật</span>
+                                    </li>
                                 @endif
                             </ul>
                         </div>

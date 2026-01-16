@@ -13,7 +13,7 @@
 <div class="container">
     <div class="page-breadcrumb">
         <span class="item"><a href="{{ url('/') }}">Trang chủ</a></span>
-        <span class="item breadcrumb_last" aria-current="page">Tags</span>
+        <span class="item breadcrumb_last" aria-current="page">Thể loại</span>
     </div>
 
     @foreach($genres as $genre)
@@ -22,32 +22,6 @@
 </div>
 
 @push('scripts')
-<script>
-    $(document).ready(function() {
-        // Initialize Splide for each genre section
-        $('.m-suggest.splide').each(function() {
-            const splideElement = this;
-            new Splide(splideElement, {
-                type: 'slide',
-                perPage: 4,
-                perMove: 1,
-                gap: '1rem',
-                pagination: false,
-                arrows: true,
-                breakpoints: {
-                    1200: {
-                        perPage: 3,
-                    },
-                    768: {
-                        perPage: 2,
-                    },
-                    576: {
-                        perPage: 1,
-                    },
-                },
-            }).mount();
-        });
-    });
-</script>
+<script src="{{ asset('js/custom/suggest.js') }}"></script>
 @endpush
 @endsection

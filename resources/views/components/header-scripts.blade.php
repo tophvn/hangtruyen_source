@@ -1,6 +1,7 @@
 <script>
-    const apiUrl = 'https://api.hangtruyen.vip';
-    const listMangaElem = $('#form-search .result').first();
+    if (typeof listMangaElem === 'undefined') {
+        var listMangaElem = $('#form-search .result').first();
+    }
 
     function renderMatchedTitle(search, title) {
         const collator = new Intl.Collator(undefined, {
@@ -9,7 +10,6 @@
         const searchWords = search.toLowerCase().split(/\s+/);
         const titleLower = title.toLowerCase();
 
-        // Try to match the full search term first
         const fullMatchIndex = titleLower.indexOf(search.toLowerCase());
         if (fullMatchIndex !== -1) {
             const matched = title.slice(
@@ -23,7 +23,6 @@
             );
         }
 
-        // If full search term is not matched, fallback to individual words
         const matches = searchWords.map((word) => {
             let index = -1;
             for (let i = 0; i <= titleLower.length - word.length; i++) {
@@ -107,30 +106,16 @@
         'keyup',
         debounce(function() {
             const keyword = $(this).val();
-            $.ajax({
-                method: 'GET',
-                url: `${apiUrl}/mangas/search?keyword=${keyword}`,
-                success: function(res) {
-                    if (res.status && res.data) {
-                        const mangas = res.data;
-                        appendRecommendMangas(mangas, keyword);
-                        $('#search-suggest .tab-content > a').attr(
-                            'href',
-                            `/tim-kiem?keyword=${keyword}`,
-                        );
-                    } else {
-                        alert('search error');
-                    }
-                },
-                error: function(err) {
-                    alert('search error: ' + err);
-                },
-            });
+            if (keyword) {
+                $('#search-suggest .tab-content > a').attr(
+                    'href',
+                    `/tim-kiem?keyword=${keyword}`,
+                );
+            }
         }, 200),
     );
 
     $(document).ready(function() {
-        // Toggle Search Form Mobile
         const forms = $('.form-search');
         const btnToggleSearchForms = $('.toggle-formsearch');
 
@@ -170,6 +155,9 @@
     });
 
     function handleHeaderGetUserInfoFromLS() {
+        if (typeof getUserFromSessionStorage !== 'function') {
+            return;
+        }
         let user = getUserFromSessionStorage();
         if (user) {
             handleHeaderLoginSuccess(user);
@@ -270,42 +258,53 @@
 
     var recommendMangas = [];
     async function getRecommendMangas() {
-        const response = await $.ajax({
-            type: 'GET',
-            xhrFields: {
-                withCredentials: true
-            },
-            url: apiUrl + '/mangas/recommend',
-            contentType: 'application/json',
-        }).catch(() => {
-            return null;
-        });
-
-        if (response && response.status === 200) {
-            return response.data;
-        }
-
         return null;
     }
     
-    $('form.form-search input').on('focus', async function() {
-        if (!recommendMangas.length) {
-            recommendMangas = await getRecommendMangas();
-            appendRecommendMangas(recommendMangas, '');
-        }
-    });
 
-    $('.dropdown-item').on('click', function(e) {
-        if ($(this).attr('id') === 'logout') {
+    // Handle dropdown item clicks - but allow account links to navigate normally
+    $(document).on('click', '.dropdown-item', function(e) {
+        const $item = $(this);
+        const href = $item.attr('href');
+        
+        // Skip logout button
+        if ($item.attr('id') === 'logout') {
             return;
         }
-        const href = $(this).attr('href');
+        
+        // Allow normal navigation for account links - don't prevent default, don't stop propagation
+        if ($item.hasClass('account-link') || (href && (href.includes('/tai-khoan') || href.includes('account')))) {
+            // Let browser handle navigation normally - don't interfere at all
+            return true;
+        }
+        
+        // For other links, handle programmatically if needed
         if (href && href !== '#' && href !== 'javascript:void(0)') {
+            e.preventDefault();
             window.location.href = href;
         }
     });
     
-    checkDarkModeConfig()
+    // Explicitly handle account links with higher priority to ensure navigation works
+    $(document).on('click', '#has-login .account-link', function(e) {
+        const href = $(this).attr('href');
+        if (href) {
+            // Close dropdown
+            const dropdownElement = document.querySelector('#menuAccount');
+            if (dropdownElement) {
+                const dropdown = bootstrap.Dropdown.getInstance(dropdownElement);
+                if (dropdown) {
+                    dropdown.hide();
+                }
+            }
+            // Navigate
+            window.location.href = href;
+        }
+    });
+    
+    if (typeof checkDarkModeConfig === 'function') {
+        checkDarkModeConfig();
+    }
     
     async function checkAndUpdateHeader() {
         try {

@@ -1,12 +1,12 @@
-<div class="list-all-comments">
-    <div class="offcanvas-header">
+<div class="list-all-comments" style="display: flex; flex-direction: column; height: 100%;">
+    <div class="offcanvas-header" style="flex-shrink: 0;">
         <button class="btn-close" type="button" data-bs-dismiss="offcanvas" aria-label="Close"><i class="icon-close-circle"></i></button>
         <h4 class="title">
-            Bình luận <span class="countComment">(1)</span>
+            Bình luận <span class="countComment">({{ $commentsCount ?? 0 }})</span>
         </h4>
     </div>
-    <div id="content-comments">
-        <div class="comment-input d-flex">
+    <div id="content-comments" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column;">
+        <div class="comment-input d-flex" style="flex-shrink: 0;">
             <div class="avatar-temp user-avatar-img avatar-temp-cmt">
                 <img src="{{ asset('images/favicon.png') }}" style="object-fit:contain">
             </div>
@@ -31,19 +31,32 @@
                 </form>
             </div>
         </div>
-        <div class="list-comments">
-            <!-- Comment 1 -->
-            <div class="cmt-line d-flex" data-parent-id="3586" id="cmt-3586">
+        <div class="list-comments" style="flex: 1; overflow-y: auto;">
+            @if(isset($comments) && $comments->count() > 0)
+                @foreach($comments as $comment)
+                    @include('manga.components.comment-item', [
+                        'comment' => $comment,
+                        'isLiked' => isset($likedCommentIds) && is_array($likedCommentIds) && in_array($comment->id, $likedCommentIds),
+                        'mangaSlug' => $mangaSlug ?? '',
+                        'likedCommentIds' => $likedCommentIds ?? [],
+                    ])
+                @endforeach
+            @endif
+        </div>
+        
+        <!-- Template for new comments (hidden) -->
+        <div class="template-comment" style="display: none;">
+            <div class="cmt-line d-flex" data-parent-id="">
                 <div class="user-avatar flex-shrink-0">
-                    <div id="avatar-temp-hs" class="avatar-temp user-avatar-img" style="background-image: url({{ asset('images/avatars/type5/1.png') }}); background-size: cover; background-position: center; background-repeat: no-repeat; background-color: #787978" data-name=""></div>
+                    <div id="avatar-temp-hs" class="avatar-temp user-avatar-img" style="background-color: #787978" data-name=""></div>
                 </div>
                 <div class="info flex-grow-1">
                     <div class="ihead">
-                        <div class="user-name">phongcake</div>
-                        <div class="time">13 ngày trước</div>
+                        <div class="user-name"></div>
+                        <div class="time"></div>
                     </div>
                     <div class="ibody">
-                        <p class="">hình hơi bé,có thể cho to thêm k thớt</p>
+                        <p class=""></p>
                     </div>
                     <div class="ibottom">
                         <div class="ib-li ib-reply">

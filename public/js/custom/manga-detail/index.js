@@ -1,168 +1,188 @@
-const followButton = $('.manga-save');
-const voteButton = $('.vote-rate .options a');
-const listChapters = $('.list-chapters');
-const elemListChapters = listChapters.find('.l-chapter');
-
-handleCallbackCheckAuthIsDone(() => addModalLogin(followButton, voteButton));
-
-function handleCheckFollowAndVote() {
-    if (!isLogin) {
-        return;
+$(document).ready(function() {
+    function checkAndInit() {
+        if (typeof window.mangaDetail === 'undefined' || !window.mangaDetail) {
+            setTimeout(checkAndInit, 500);
+            return;
+        }
+        
+        initializeMangaDetailScript();
     }
-    const user = getUserFromSessionStorage();
+    
+    setTimeout(checkAndInit, 100);
+});
 
-    if (user?.following?.includes(mangaDetail.id)) {
-        $(followButton).addClass('active');
+function initializeMangaDetailScript() {
+    const followButton = $('.manga-save');
+    const voteButton = $('.vote-rate .options a');
+    const listChapters = $('.list-chapters');
+    const elemListChapters = listChapters.find('.l-chapter');
+
+    handleCallbackCheckAuthIsDone(() => addModalLogin(followButton, voteButton));
+
+    function handleCheckFollowAndVote() {
+        if (!isLogin()) {
+            return;
+        }
+        
+        const currentMangaDetail = window.mangaDetail || (typeof mangaDetail !== 'undefined' ? mangaDetail : null);
+        if (!currentMangaDetail || !currentMangaDetail.id) {
+            return;
+        }
+        
+        if (typeof getUserFromSessionStorage !== 'function') {
+            return;
+        }
+        
+        const user = getUserFromSessionStorage();
+        
+        // Kiểm tra follow từ server (nếu có trong window.mangaDetail)
+        if (currentMangaDetail && currentMangaDetail.isFollowing) {
+            $(followButton).addClass('active');
+        }
+
+        const currentUserVote = window.userVote || (typeof userVote !== 'undefined' ? userVote : null);
+        if (currentUserVote !== null && currentUserVote !== undefined) {
+            $(`.manga-vote-btn`).addClass('un-select');
+            $(`.manga-vote-btn[data-vote="${currentUserVote}"]`).removeClass('un-select');
+        }
     }
 
-    $(`.manga-vote-btn`).addClass('un-select');
-    if (user?.votes[mangaDetail.id]) {
-        $(
-            `.manga-vote-btn[data-vote="${user.votes[mangaDetail.id]}"]`,
-        ).removeClass('un-select');
-    } else {
-        $(`.manga-vote-btn`).removeClass('un-select');
+    if ((typeof window.mangaDetail !== 'undefined' && window.mangaDetail) && typeof handleCheckFollowAndVote === 'function') {
+        handleCallbackCheckAuthIsDone(handleCheckFollowAndVote);
     }
-}
 
-handleCallbackCheckAuthIsDone(handleCheckFollowAndVote);
+    $('.list-chapters-wrapper .form-search input').on(
+        'keyup',
+        debounce(function () {
+            const keyword = $(this).val();
+            if (keyword) {
+                listChapters.addClass('reserve-list');
+                for (const elemChapter of elemListChapters) {
+                    const text = $(elemChapter)
+                        .find('a')
+                        .attr('title')
+                        .toLowerCase();
+                    if (text.includes(keyword.toLowerCase())) {
+                        $(elemChapter).removeClass('d-none');
+                    } else {
+                        $(elemChapter).addClass('d-none');
+                    }
+                }
+            } else {
+                listChapters.removeClass('reserve-list');
+                elemListChapters.removeClass('d-none');
+            }
 
-$('.list-chapters-wrapper .form-search input').on(
-    'keyup',
-    debounce(function () {
-        const keyword = $(this).val();
-        if (keyword) {
-            listChapters.addClass('reserve-list');
-            for (const elemChapter of elemListChapters) {
-                const text = $(elemChapter)
-                    .find('a')
-                    .attr('title')
-                    .toLowerCase();
-                if (text.includes(keyword.toLowerCase())) {
-                    $(elemChapter).removeClass('d-none');
-                } else {
-                    $(elemChapter).addClass('d-none');
+            listChapters.scrollTop(0);
+        }, 200),
+    );
+
+    followButton.on('click', async function (e) {
+        e.preventDefault();
+        if (!isLogin()) {
+            return;
+        }
+        
+        const currentMangaDetail = window.mangaDetail || (typeof mangaDetail !== 'undefined' ? mangaDetail : null);
+        if (!currentMangaDetail || !currentMangaDetail.id) {
+            return;
+        }
+
+        const response = await followManga(currentMangaDetail.id);
+        if (response) {
+            if (response.isFollowing) {
+                $(this).addClass('active');
+            } else {
+                $(this).removeClass('active');
+            }
+            
+            if (response.followsCount !== undefined) {
+                const followsCount = response.followsCount;
+                const followsCountText = followsCount >= 1000000 
+                    ? (followsCount / 1000000).toFixed(1) + 'M'
+                    : (followsCount >= 1000 
+                        ? (followsCount / 1000).toFixed(1) + 'K'
+                        : followsCount.toString());
+                
+                $(this)
+                    .next('.num-follow')
+                    .text(followsCountText + ' lượt theo dõi');
+                
+                if (currentMangaDetail) {
+                    currentMangaDetail.sourceFollow = followsCount;
                 }
             }
-        } else {
-            listChapters.removeClass('reserve-list');
-            elemListChapters.removeClass('d-none');
         }
+    });
 
-        // Scroll to top of list after filtering
-        listChapters.scrollTop(0);
-    }, 200),
-);
-
-followButton.on('click', async function (e) {
-    e.preventDefault();
-    if (!isLogin()) {
-        return;
-    }
-
-    const response = await followManga(mangaDetail.id);
-    if (response) {
-        if (response.isFollowing) {
-            $(this).addClass('active');
-            ++mangaDetail.sourceFollow;
-        } else {
-            $(this).removeClass('active');
-            --mangaDetail.sourceFollow;
+    $(document).on('click', '.vote-rate .options a.manga-vote-btn', async function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if ($(this).hasClass('login-required')) {
+            return false;
         }
-        $(this)
-            .next()
-            .text(
-                mangaDetail.sourceFollow
-                    .toString()
-                    .replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' lượt theo dõi',
-            );
-    }
-});
-
-$('.vote-rate .options a').on('click', async function (e) {
-    e.preventDefault();
-    if (!isLogin()) {
-        return;
-    }
-    const selectedVoteElem = this;
-    const voteData = parseInt($(this).attr('data-vote'));
-    if (voteData !== userVote) {
-        const response = await voteManga(mangaDetail.id, voteData);
+        
+        if (!isLogin()) {
+            return false;
+        }
+        
+        const currentMangaDetail = window.mangaDetail || (typeof mangaDetail !== 'undefined' ? mangaDetail : null);
+        
+        if (!currentMangaDetail || !currentMangaDetail.id) {
+            return false;
+        }
+        
+        const selectedVoteElem = this;
+        const voteData = parseInt($(this).attr('data-vote'));
+        
+        if (!voteData || voteData < 1 || voteData > 5) {
+            return false;
+        }
+        
+        const response = await voteManga(currentMangaDetail.id, voteData);
+        
         if (response) {
-            userVote = voteData;
+            if (typeof window !== 'undefined') {
+                window.userVote = voteData;
+            }
+            
             $(this)
                 .closest('.options')
-                .find('a')
-                .each(function (_, VoteElem) {
-                    if (selectedVoteElem !== VoteElem) {
-                        $(this).addClass('un-select');
-                    } else {
-                        $(this).removeClass('un-select');
-                    }
-
-                    alertNoti('Cảm ơn bạn đã nhận xét truyện');
-                });
+                .find('a.manga-vote-btn')
+                .addClass('un-select');
+            
+            $(this).removeClass('un-select');
+            
+            if (typeof alertNoti === 'function') {
+                alertNoti('Cảm ơn bạn đã nhận xét truyện');
+            } else {
+                alert('Cảm ơn bạn đã nhận xét truyện');
+            }
         }
-    }
-});
+        
+        return false;
+    });
 
-// action sort list chapter
-let isReversedOrderChapters = false;
-$('.sort-chapter i').on('click', function () {
-    isReversedOrderChapters = !isReversedOrderChapters;
-    if (isReversedOrderChapters) {
-        elemListChapters.parent().append(elemListChapters.get().reverse());
-    } else {
-        elemListChapters.parent().append(elemListChapters.get());
-    }
-});
+    let isReversedOrderChapters = false;
+    $('.sort-chapter i').on('click', function () {
+        isReversedOrderChapters = !isReversedOrderChapters;
+        if (isReversedOrderChapters) {
+            elemListChapters.parent().append(elemListChapters.get().reverse());
+        } else {
+            elemListChapters.parent().append(elemListChapters.get());
+        }
+    });
 
-async function handleGetCurrentReadingChapter() {
-    const user = getUserFromSessionStorage();
-
-    if (!user) {
+    async function handleGetCurrentReadingChapter() {
         return null;
     }
-    const data = await $.ajax({
-        type: 'GET',
-        xhrFields: { withCredentials: true },
-        url: `${apiUrl}/users/mg-cr-rd?mangaId=${mangaDetail.id}&userId=${user.id}`,
-        contentType: 'application/json',
-    })
-        .catch((err) => {
-            // console.log('set user current reading error', err);
-            return null;
-        })
-        .then((res) => {
-            return res;
-        });
 
-    if (!data) {
-        return;
-    }
-
-    const chapter = mangaDetail.chapters.find(
-        (chapter) => chapter.id === data.chapterId,
-    );
-
-    if (!chapter) {
-        return;
-    }
-
-    const nextChapterBtn = $('#btn-read_next');
-    $(nextChapterBtn).removeAttr('hidden');
-    $(nextChapterBtn).attr(
-        'href',
-        `/truyen-tranh/${mangaDetail.rawSlug}/${chapter.slug}`,
-    );
-}
-
-handleCallbackCheckAuthIsDone(handleGetCurrentReadingChapter);
-
-const url = new URL(window.location.href);
-if (url.hash) {
-    const highlightComment = document.querySelector(url.hash);
-    if (highlightComment) {
-        highlightComment.classList.add('mask');
+    const url = new URL(window.location.href);
+    if (url.hash) {
+        const highlightComment = document.querySelector(url.hash);
+        if (highlightComment) {
+            highlightComment.classList.add('mask');
+        }
     }
 }

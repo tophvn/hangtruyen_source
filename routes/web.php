@@ -20,138 +20,1534 @@ Route::get('/auth/google/callback', [App\Http\Controllers\AuthController::class,
 Route::get('/auth/logout', [App\Http\Controllers\AuthController::class, 'logout'])->name('auth.logout');
 Route::post('/auth/logout', [App\Http\Controllers\AuthController::class, 'logout'])->name('auth.logout.post');
 
+Route::post('/truyen-tranh/{slug}/vote', function ($slug) {
+    try {
+        if (!auth()->check()) {
+            return response()->json(['status' => 'error', 'message' => 'Vui lòng đăng nhập'], 401);
+        }
+        
+        // Lấy hoặc tạo mangaMetadata
+        $mangaMetadata = \App\Models\MangaMetadata::where('slug', $slug)->first();
+        if (!$mangaMetadata) {
+            // Nếu chưa có, lấy thông tin từ API và tạo mới
+            $otruyenService = new \App\Services\OTruyenService();
+            $mangaDetail = $otruyenService->getMangaDetail($slug);
+            
+            if (!$mangaDetail) {
+                return response()->json(['status' => 'error', 'message' => 'Truyện không tồn tại'], 404);
+            }
+            
+            $mangaMetadata = \App\Models\MangaMetadata::create([
+                'slug' => $slug,
+                'source_type' => 'otruyen',
+                'source_identifier' => $slug,
+                'title' => $mangaDetail['name'] ?? 'Đang cập nhật',
+                'description' => $mangaDetail['description'] ?? null,
+                'cover_url' => $mangaDetail['cover_url'] ?? null,
+                'author' => is_array($mangaDetail['author'] ?? []) 
+                    ? implode(', ', $mangaDetail['author']) 
+                    : ($mangaDetail['author'] ?? null),
+                'status' => null,
+                'tags' => $mangaDetail['tags'] ?? [],
+                'is_active' => true,
+            ]);
+        }
+        
+        $vote = (int)request()->input('vote');
+        if ($vote < 1 || $vote > 5) {
+            return response()->json(['status' => 'error', 'message' => 'Đánh giá không hợp lệ'], 400);
+        }
+        
+        \App\Models\MangaRating::updateOrCreate(
+            [
+                'manga_id' => $mangaMetadata->id,
+                'user_id' => auth()->id(),
+            ],
+            [
+                'rating' => $vote,
+            ]
+        );
+        
+        $mangaMetadata->updateRating();
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Cảm ơn bạn đã nhận xét truyện',
+            'data' => [
+                'avgRating' => $mangaMetadata->fresh()->rating ?? 0,
+            ]
+        ]);
+    } catch (\Exception $e) {
+        \Log::error('Vote error: ' . $e->getMessage());
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Có lỗi xảy ra khi đánh giá'
+        ], 500);
+    }
+})->middleware('web')->name('manga.vote');
+
+Route::post('/truyen-tranh/{slug}/follow', function ($slug) {
+    try {
+        if (!auth()->check()) {
+            return response()->json(['status' => 'error', 'message' => 'Vui lòng đăng nhập'], 401);
+        }
+
+        $mangaMetadata = \App\Models\MangaMetadata::where('slug', $slug)->first();
+        
+        if (!$mangaMetadata) {
+            return response()->json(['status' => 'error', 'message' => 'Truyện không tồn tại'], 404);
+        }
+
+        $userId = auth()->id();
+        $isFollowing = $mangaMetadata->isFollowedBy($userId);
+
+        if ($isFollowing) {
+            \App\Models\MangaFollow::where('manga_id', $mangaMetadata->id)
+                ->where('user_id', $userId)
+                ->delete();
+            
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Đã bỏ theo dõi',
+                'data' => [
+                    'isFollowing' => false,
+                    'followsCount' => $mangaMetadata->getFollowsCount(),
+                ]
+            ]);
+        } else {
+            \App\Models\MangaFollow::create([
+                'manga_id' => $mangaMetadata->id,
+                'user_id' => $userId,
+            ]);
+            
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Đã theo dõi',
+                'data' => [
+                    'isFollowing' => true,
+                    'followsCount' => $mangaMetadata->getFollowsCount(),
+                ]
+            ]);
+        }
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Có lỗi xảy ra khi theo dõi'
+        ], 500);
+    }
+})->middleware('web')->name('manga.follow');
+
+Route::post('/truyen-tranh/{slug}/comments', function ($slug) {
+    try {
+        if (!auth()->check()) {
+            return response()->json(['status' => 'error', 'message' => 'Vui lòng đăng nhập'], 401);
+        }
+
+        $mangaMetadata = \App\Models\MangaMetadata::where('slug', $slug)->first();
+        
+        if (!$mangaMetadata) {
+            return response()->json(['status' => 'error', 'message' => 'Truyện không tồn tại'], 404);
+        }
+
+        $request = request();
+        $content = $request->input('content');
+        $chapterId = $request->input('chapter_id');
+        $parentId = $request->input('parent_id');
+
+        if (empty($content) || strlen(trim($content)) === 0) {
+            return response()->json(['status' => 'error', 'message' => 'Nội dung bình luận không được để trống'], 400);
+        }
+
+        if (strlen($content) > 3000) {
+            return response()->json(['status' => 'error', 'message' => 'Nội dung bình luận không được vượt quá 3000 ký tự'], 400);
+        }
+
+        $chapter = null;
+        if ($chapterId) {
+            $chapter = \App\Models\MangaChapter::where('id', $chapterId)
+                ->where('manga_id', $mangaMetadata->id)
+                ->first();
+            if (!$chapter) {
+                return response()->json(['status' => 'error', 'message' => 'Chapter không tồn tại'], 404);
+            }
+        }
+
+        if ($parentId) {
+            $parentComment = \App\Models\MangaComment::where('id', $parentId)
+                ->where('manga_id', $mangaMetadata->id)
+                ->first();
+            if (!$parentComment) {
+                return response()->json(['status' => 'error', 'message' => 'Bình luận cha không tồn tại'], 404);
+            }
+        }
+
+        $comment = \App\Models\MangaComment::create([
+            'manga_id' => $mangaMetadata->id,
+            'chapter_id' => $chapter ? $chapter->id : null,
+            'user_id' => auth()->id(),
+            'parent_id' => $parentId,
+            'content' => trim($content),
+        ]);
+
+        $comment->load(['user', 'chapter']);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'id' => $comment->id,
+                'content' => $comment->content,
+                'user' => [
+                    'id' => $comment->user->id,
+                    'name' => $comment->user->name,
+                    'avatar' => $comment->user->avatar ?? null,
+                ],
+                'chapter' => $comment->chapter ? [
+                    'id' => $comment->chapter->id,
+                    'slug' => $comment->chapter->chapter_slug,
+                    'name' => $comment->chapter->chapter_name,
+                ] : null,
+                'created_at' => $comment->created_at->diffForHumans(),
+                'likes_count' => 0,
+            ]
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Có lỗi xảy ra khi đăng bình luận'
+        ], 500);
+    }
+})->middleware('web')->name('manga.comments.store');
+
+Route::get('/truyen-tranh/{slug}/comments', function ($slug) {
+    try {
+        $mangaMetadata = \App\Models\MangaMetadata::where('slug', $slug)->first();
+        
+        if (!$mangaMetadata) {
+            return response()->json(['status' => 'error', 'message' => 'Truyện không tồn tại'], 404);
+        }
+
+        $request = request();
+        $chapterId = $request->input('chapter_id');
+        $page = max(1, (int)$request->input('page', 1));
+        $perPage = 20;
+        $orderBy = $request->input('order', 'latest'); // latest, oldest, most_liked
+
+        $query = \App\Models\MangaComment::where('manga_id', $mangaMetadata->id)
+            ->whereNull('parent_id'); // Chỉ lấy top-level comments
+
+        if ($chapterId) {
+            $query->where('chapter_id', $chapterId);
+        } else {
+
+        }
+
+        // Sorting
+        if ($orderBy === 'oldest') {
+            $query->orderBy('created_at', 'asc');
+        } elseif ($orderBy === 'most_liked') {
+            $query->orderBy('likes_count', 'desc')->orderBy('created_at', 'desc');
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
+
+        $comments = $query->with(['user', 'chapter', 'replies.user', 'replies.chapter'])
+            ->skip(($page - 1) * $perPage)
+            ->take($perPage)
+            ->get();
+
+        $total = $query->count();
+        $totalPages = ceil($total / $perPage);
+
+        $userId = auth()->id();
+        $likedCommentIds = [];
+        if ($userId) {
+            $commentIds = $comments->pluck('id')->toArray();
+            // Get all reply IDs
+            $replyIds = [];
+            foreach ($comments as $comment) {
+                $replyIds = array_merge($replyIds, $comment->replies->pluck('id')->toArray());
+            }
+            $allCommentIds = array_merge($commentIds, $replyIds);
+            
+            if (!empty($allCommentIds)) {
+                $likedCommentIds = \App\Models\MangaCommentLike::whereIn('comment_id', $allCommentIds)
+                    ->where('user_id', $userId)
+                    ->pluck('comment_id')
+                    ->toArray();
+            }
+        }
+
+        $html = '';
+        foreach ($comments as $comment) {
+            $html .= view('manga.components.comment-item', [
+                'comment' => $comment,
+                'isLiked' => in_array($comment->id, $likedCommentIds),
+                'mangaSlug' => $slug,
+                'likedCommentIds' => $likedCommentIds,
+            ])->render();
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'html' => $html,
+                'page' => $page,
+                'total_pages' => $totalPages,
+                'total' => $total,
+            ]
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Có lỗi xảy ra khi tải bình luận'
+        ], 500);
+    }
+})->name('manga.comments.index');
+
+Route::post('/truyen-tranh/{slug}/comments/{commentId}/like', function ($slug, $commentId) {
+    try {
+        if (!auth()->check()) {
+            return response()->json(['status' => 'error', 'message' => 'Vui lòng đăng nhập'], 401);
+        }
+
+        $mangaMetadata = \App\Models\MangaMetadata::where('slug', $slug)->first();
+        
+        if (!$mangaMetadata) {
+            return response()->json(['status' => 'error', 'message' => 'Truyện không tồn tại'], 404);
+        }
+
+        $comment = \App\Models\MangaComment::where('id', $commentId)
+            ->where('manga_id', $mangaMetadata->id)
+            ->first();
+
+        if (!$comment) {
+            return response()->json(['status' => 'error', 'message' => 'Bình luận không tồn tại'], 404);
+        }
+
+        $userId = auth()->id();
+        $like = \App\Models\MangaCommentLike::where('comment_id', $commentId)
+            ->where('user_id', $userId)
+            ->first();
+
+        if ($like) {
+            $like->delete();
+            $comment->decrementLikes();
+            $isLiked = false;
+        } else {
+            \App\Models\MangaCommentLike::create([
+                'comment_id' => $commentId,
+                'user_id' => $userId,
+            ]);
+            $comment->incrementLikes();
+            $isLiked = true;
+        }
+
+        $comment->refresh();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'isLiked' => $isLiked,
+                'totalLike' => $comment->likes_count,
+            ]
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Có lỗi xảy ra khi thích bình luận'
+        ], 500);
+    }
+})->middleware('web')->name('manga.comments.like');
+
+Route::get('/truyen-tranh/{slug}/comments/liked-ids', function ($slug) {
+    try {
+        if (!auth()->check()) {
+            return response()->json(['status' => 'success', 'data' => []]);
+        }
+
+        $mangaMetadata = \App\Models\MangaMetadata::where('slug', $slug)->first();
+        
+        if (!$mangaMetadata) {
+            return response()->json(['status' => 'error', 'message' => 'Truyện không tồn tại'], 404);
+        }
+
+        $commentIds = \App\Models\MangaComment::where('manga_id', $mangaMetadata->id)
+            ->pluck('id')
+            ->toArray();
+
+        $likedCommentIds = \App\Models\MangaCommentLike::whereIn('comment_id', $commentIds)
+            ->where('user_id', auth()->id())
+            ->pluck('comment_id')
+            ->toArray();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $likedCommentIds
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Có lỗi xảy ra'
+        ], 500);
+    }
+})->name('manga.comments.liked-ids');
+
+Route::post('/truyen-tranh/{slug}/report', function ($slug) {
+    try {
+        $mangaMetadata = \App\Models\MangaMetadata::where('slug', $slug)->first();
+        
+        if (!$mangaMetadata) {
+            return response()->json(['status' => 'error', 'message' => 'Truyện không tồn tại'], 404);
+        }
+        
+        $content = request()->input('content');
+        $chapterSlug = request()->input('chapter_slug');
+        
+        if (empty($content) || strlen(trim($content)) < 10) {
+            return response()->json(['status' => 'error', 'message' => 'Nội dung báo cáo phải có ít nhất 10 ký tự'], 400);
+        }
+        
+        if (strlen($content) > 3000) {
+            return response()->json(['status' => 'error', 'message' => 'Nội dung báo cáo không được vượt quá 3000 ký tự'], 400);
+        }
+        
+        \App\Models\MangaReport::create([
+            'manga_id' => $mangaMetadata->id,
+            'user_id' => auth()->id(),
+            'chapter_slug' => $chapterSlug,
+            'content' => trim($content),
+            'status' => 'pending',
+        ]);
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Cảm ơn bạn đã báo cáo. Chúng tôi sẽ xem xét và xử lý sớm nhất có thể.'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Có lỗi xảy ra khi gửi báo cáo'
+        ], 500);
+    }
+})->middleware('web')->name('manga.report');
+
 Route::get('/', function () {
-    return view('home.index');
+    $otruyenService = new \App\Services\OTruyenService();
+    $recentlyUpdated = $otruyenService->getRecentlyUpdated(1, 30);
+    
+    if (isset($recentlyUpdated['mangas']) && is_array($recentlyUpdated['mangas'])) {
+        $slugs = array_column($recentlyUpdated['mangas'], 'slug');
+        $mangaMetadataMap = \App\Models\MangaMetadata::whereIn('slug', $slugs)
+            ->get()
+            ->keyBy('slug');
+        
+        foreach ($recentlyUpdated['mangas'] as &$manga) {
+            $mangaMetadata = $mangaMetadataMap->get($manga['slug'] ?? '');
+            if ($mangaMetadata) {
+                $manga['views'] = (int)($mangaMetadata->views_count ?? 0);
+            } else {
+                $manga['views'] = 0;
+            }
+        }
+        unset($manga);
+    }
+    
+    $suggestedMangas = \App\Models\MangaMetadata::where('is_active', true)
+        ->where('chapters_count', '>', 0)
+        ->inRandomOrder()
+        ->limit(24)
+        ->get()
+        ->map(function($manga) {
+            return [
+                'slug' => $manga->slug,
+                'title' => $manga->title,
+                'posterPath' => $manga->cover_url,
+                'avgVote' => $manga->rating ? (float)$manga->rating : 0,
+                'chapters' => $manga->last_chapter_number ? [
+                    [
+                        'id' => null,
+                        'slug' => 'chapter-' . $manga->last_chapter_number,
+                        'name' => 'Chapter ' . $manga->last_chapter_number,
+                        'releasedAt' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : null,
+                    ],
+                ] : [],
+            ];
+        })
+        ->toArray();
+    
+    $sapRaMatData = $otruyenService->getMangaByList('sap-ra-mat', 1, 24, true);
+    $hoanThanhData = $otruyenService->getMangaByList('hoan-thanh', 1, 24, true);
+    
+    $topComments = \App\Models\MangaComment::whereNull('parent_id')
+        ->join('users', 'manga_comments.user_id', '=', 'users.id')
+        ->join('manga_metadata', 'manga_comments.manga_id', '=', 'manga_metadata.id')
+        ->select(
+            'manga_comments.id',
+            'manga_comments.content',
+            'manga_comments.created_at',
+            'manga_comments.manga_id',
+            'users.id as user_id',
+            'users.name as user_name',
+            'users.avatar as user_avatar',
+            'manga_metadata.id as manga_metadata_id',
+            'manga_metadata.slug as manga_slug',
+            'manga_metadata.title as manga_title',
+            'manga_metadata.cover_url as manga_cover_url'
+        )
+        ->orderBy('manga_comments.created_at', 'desc')
+        ->limit(10)
+        ->get()
+        ->map(function($row) {
+            // Get user avatar or default
+            if ($row->user_avatar) {
+                if (filter_var($row->user_avatar, FILTER_VALIDATE_URL)) {
+                    $avatar = $row->user_avatar;
+                } else {
+                    $avatar = asset('storage/' . $row->user_avatar);
+                }
+            } else {
+                $avatar = asset('images/avatars/type3/' . (($row->user_id % 10) + 1) . '.png');
+            }
+            
+            return [
+                'id' => $row->id,
+                'content' => $row->content,
+                'created_at' => $row->created_at,
+                'user' => [
+                    'id' => $row->user_id,
+                    'name' => $row->user_name ?? 'Người dùng',
+                    'avatar' => $avatar,
+                ],
+                'manga' => [
+                    'id' => $row->manga_metadata_id,
+                    'slug' => $row->manga_slug ?? '',
+                    'title' => $row->manga_title ?? 'Đang cập nhật',
+                    'cover_url' => $row->manga_cover_url ?? asset('images/pre-load1.png'),
+                ],
+            ];
+        });
+    
+    $getTopFollow = function($period) {
+        $today = now()->toDateString();
+        $startDate = null;
+        $endDate = $today;
+        
+        if ($period === 'day') {
+            $startDate = $today;
+        } elseif ($period === 'week') {
+            $startDate = now()->startOfWeek()->toDateString();
+        } elseif ($period === 'month') {
+            $startDate = now()->startOfMonth()->toDateString();
+        }
+        
+        $topMangas = \App\Models\MangaDailyView::whereBetween('view_date', [$startDate, $endDate])
+            ->select('manga_id', \DB::raw('SUM(views_count) as total_views'))
+            ->groupBy('manga_id')
+            ->orderBy('total_views', 'desc')
+            ->limit(6)
+            ->get();
+        
+        if ($topMangas->count() < 6 && $period === 'day') {
+            $existingMangaIds = $topMangas->pluck('manga_id')->toArray();
+            $needed = 6 - $topMangas->count();
+            
+            if ($needed > 0) {
+                $additionalMangas = \App\Models\MangaDailyView::where('view_date', '<', $today)
+                    ->when(count($existingMangaIds) > 0, function($query) use ($existingMangaIds) {
+                        return $query->whereNotIn('manga_id', $existingMangaIds);
+                    })
+                    ->select('manga_id', \DB::raw('SUM(views_count) as total_views'))
+                    ->groupBy('manga_id')
+                    ->orderBy('total_views', 'desc')
+                    ->limit($needed)
+                    ->get();
+                
+                // Merge và sắp xếp lại theo total_views
+                if ($additionalMangas->count() > 0) {
+                    $topMangas = $topMangas->concat($additionalMangas)
+                        ->sortByDesc(function($item) {
+                            return $item->total_views;
+                        })
+                        ->take(6)
+                        ->values();
+                }
+            }
+        }
+        
+        // Lấy thông tin chi tiết của các manga
+        $mangaIds = $topMangas->pluck('manga_id')->toArray();
+        $mangaMetadata = \App\Models\MangaMetadata::whereIn('id', $mangaIds)
+            ->get()
+            ->keyBy('id');
+        
+        $result = [];
+        $rank = 1;
+        foreach ($topMangas as $topManga) {
+            $manga = $mangaMetadata->get($topManga->manga_id);
+            if (!$manga) continue;
+            
+            // Lấy chapter mới nhất
+            $lastChapter = $manga->chapters()
+                ->orderBy('updated_at', 'desc')
+                ->orderBy('chapter_name', 'desc')
+                ->first();
+            
+            $lastChapterData = null;
+            if ($lastChapter) {
+                $lastChapterData = [
+                    'name' => formatChapterNameForDisplay($lastChapter->chapter_name),
+                    'slug' => $lastChapter->chapter_slug,
+                    'updated_at' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                ];
+            }
+            
+            // Format views
+            $viewsCount = (int)$topManga->total_views;
+            $formattedViews = '';
+            if ($viewsCount >= 1000000) {
+                $formattedViews = number_format($viewsCount / 1000000, 1) . 'M';
+            } elseif ($viewsCount >= 1000) {
+                $formattedViews = number_format($viewsCount / 1000, 1) . 'K';
+            } else {
+                $formattedViews = number_format($viewsCount);
+            }
+            
+            $result[] = [
+                'id' => $manga->id,
+                'slug' => $manga->slug,
+                'title' => $manga->title ?? 'Đang cập nhật',
+                'cover_url' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                'rating' => $manga->rating ? (float)$manga->rating : 0,
+                'views_count' => $viewsCount,
+                'views_formatted' => $formattedViews,
+                'last_chapter' => $lastChapterData,
+                'rank' => $rank,
+            ];
+            
+            $rank++;
+        }
+        
+        return $result;
+    };
+    
+    $topFollowDay = $getTopFollow('day');
+    $topFollowWeek = $getTopFollow('week');
+    $topFollowMonth = $getTopFollow('month');
+    
+    return view('home.index', [
+        'recentlyUpdated' => $recentlyUpdated['mangas'] ?? [],
+        'recentlyUpdatedMetadata' => $recentlyUpdated['metadata'] ?? null,
+        'suggestedMangas' => $suggestedMangas,
+        'sapRaMatMangas' => $sapRaMatData['mangas'] ?? [],
+        'hoanThanhMangas' => $hoanThanhData['mangas'] ?? [],
+        'topComments' => $topComments,
+        'topFollowDay' => $topFollowDay,
+        'topFollowWeek' => $topFollowWeek,
+        'topFollowMonth' => $topFollowMonth,
+    ]);
 });
 
 Route::get('/truyen-tranh/{slug}', function ($slug) {
+    $otruyenService = new \App\Services\OTruyenService();
+    $mangaDetail = $otruyenService->getMangaDetail($slug);
+    
+    if (!$mangaDetail) {
+        abort(404, 'Truyện không tồn tại');
+    }
+    
+    // Tìm lại mangaMetadata theo slug từ URL (sau khi getMangaDetail có thể đã tạo/cập nhật)
+    // Đảm bảo luôn dùng slug từ URL, không phải từ API
+    // Sử dụng orderBy để đảm bảo luôn lấy record mới nhất nếu có duplicate
+    $mangaMetadata = \App\Models\MangaMetadata::where('slug', $slug)
+        ->orderBy('id', 'desc')
+        ->first();
+    
+    if (!$mangaMetadata) {
+        abort(404, 'Truyện không tồn tại trong hệ thống');
+    }
+    
+    // Nếu có nhiều record với cùng slug, xóa các record cũ (chỉ giữ lại record mới nhất)
+    if ($mangaMetadata) {
+        $duplicates = \App\Models\MangaMetadata::where('slug', $slug)
+            ->where('id', '!=', $mangaMetadata->id)
+            ->get();
+        if ($duplicates->count() > 0) {
+            foreach ($duplicates as $duplicate) {
+                // Xóa các record duplicate (trừ record hiện tại)
+                $duplicate->delete();
+            }
+        }
+    }
+    
+    // Final verification: Đảm bảo slug khớp với URL
+    if ($mangaMetadata->slug !== $slug) {
+        $mangaMetadata->slug = $slug;
+        $mangaMetadata->save();
+        $mangaMetadata->refresh();
+    }
+    
+    // Update existing metadata if needed (nhưng không thay đổi slug)
+    $mangaMetadata->title = $mangaDetail['name'] ?? $mangaMetadata->title;
+    if (empty($mangaMetadata->cover_url) && !empty($mangaDetail['cover_url'])) {
+        $mangaMetadata->cover_url = $mangaDetail['cover_url'];
+    }
+    if (empty($mangaMetadata->description) && !empty($mangaDetail['description'])) {
+        $mangaMetadata->description = $mangaDetail['description'];
+    }
+    $mangaMetadata->save();
+    
+    // Đảm bảo mangaMetadata có id
+    if (!$mangaMetadata->id) {
+        $mangaMetadata->refresh();
+    }
+    
+    $totalViews = (int)($mangaMetadata->views_count ?? 0);
+    $chapterViews = \App\Models\MangaChapter::where('manga_id', $mangaMetadata->id)
+        ->pluck('views_count', 'chapter_slug')
+        ->toArray();
+    
+    $avgRating = $mangaMetadata->rating ? (float)$mangaMetadata->rating : 0;
+    $userRating = null;
+    $isFollowing = false;
+    $followsCount = $mangaMetadata->getFollowsCount();
+    
+    if (auth()->check()) {
+        $userRating = $mangaMetadata->getUserRating(auth()->id());
+        $isFollowing = $mangaMetadata->isFollowedBy(auth()->id());
+    }
+    
+    $relatedMangas = collect();
+    $attempts = 0;
+    $maxAttempts = 20;
+    
+    while ($relatedMangas->count() < 5 && $attempts < $maxAttempts) {
+        $mangas = \App\Models\MangaMetadata::where('is_active', true)
+            ->where('id', '!=', $mangaMetadata->id)
+            ->whereNotIn('id', $relatedMangas->pluck('id')->toArray())
+            ->inRandomOrder()
+            ->limit(10)
+            ->get();
+        
+        foreach ($mangas as $manga) {
+            if ($relatedMangas->count() >= 5) {
+                break;
+            }
+            
+            $lastChapter = $manga->chapters()
+                ->orderBy('updated_at', 'desc')
+                ->orderBy('chapter_name', 'desc')
+                ->first();
+            
+            $lastChapterData = null;
+            if ($lastChapter) {
+                $lastChapterData = [
+                    'name' => $lastChapter->chapter_name,
+                    'slug' => $lastChapter->chapter_slug,
+                    'updated_at' => $lastChapter->updated_at ? $lastChapter->updated_at->diffForHumans() : null,
+                ];
+            } elseif ($manga->last_chapter_number) {
+                $mangaDetail = $otruyenService->getMangaDetail($manga->slug);
+                if ($mangaDetail && isset($mangaDetail['chapters']) && is_array($mangaDetail['chapters']) && count($mangaDetail['chapters']) > 0) {
+                    $lastChapterFromApi = end($mangaDetail['chapters']);
+                    $lastChapterData = [
+                        'name' => 'Chapter ' . $lastChapterFromApi['name'],
+                        'slug' => $lastChapterFromApi['slug'],
+                        'updated_at' => isset($lastChapterFromApi['updated_at']) ? \Carbon\Carbon::parse($lastChapterFromApi['updated_at'])->diffForHumans() : null,
+                    ];
+                } else {
+                    $lastChapterData = [
+                        'name' => 'Chapter ' . $manga->last_chapter_number,
+                        'slug' => 'chapter-' . $manga->last_chapter_number,
+                        'updated_at' => $manga->last_synced_at ? $manga->last_synced_at->diffForHumans() : null,
+                    ];
+                }
+            }
+            
+            if ($lastChapterData) {
+                $viewsCount = $manga->views_count ?? 0;
+                $viewsFormatted = $viewsCount >= 1000000 
+                    ? number_format($viewsCount / 1000000, 1) . 'M'
+                    : ($viewsCount >= 1000 
+                        ? number_format($viewsCount / 1000, 1) . 'K'
+                        : $viewsCount);
+                
+                $relatedMangas->push([
+                    'id' => $manga->id,
+                    'slug' => $manga->slug,
+                    'title' => $manga->title,
+                    'cover_url' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                    'rating' => $manga->rating ? (float)$manga->rating : 0,
+                    'views_count' => $viewsFormatted . ' lượt xem',
+                    'last_chapter' => $lastChapterData,
+                ]);
+            }
+        }
+        
+        $attempts++;
+    }
+    
+    $relatedMangas = $relatedMangas->take(5)->values();
+    
+    // Load initial comments
+    $comments = \App\Models\MangaComment::where('manga_id', $mangaMetadata->id)
+        ->whereNull('parent_id')
+        ->orderBy('created_at', 'desc')
+        ->with(['user', 'chapter', 'replies.user', 'replies.chapter'])
+        ->take(20)
+        ->get();
+    
+    $commentIds = $comments->pluck('id')->toArray();
+    $replyIds = [];
+    foreach ($comments as $comment) {
+        $replyIds = array_merge($replyIds, $comment->replies->pluck('id')->toArray());
+    }
+    $allCommentIds = array_merge($commentIds, $replyIds);
+    
+    $likedCommentIds = [];
+    if (auth()->check() && !empty($allCommentIds)) {
+        $likedCommentIds = \App\Models\MangaCommentLike::whereIn('comment_id', $allCommentIds)
+            ->where('user_id', auth()->id())
+            ->pluck('comment_id')
+            ->toArray();
+    }
+    
+    $commentsCount = \App\Models\MangaComment::where('manga_id', $mangaMetadata->id)
+        ->whereNull('parent_id')
+        ->count();
+    
+    // Build $manga array từ $mangaMetadata để đảm bảo luôn hiển thị đúng dữ liệu từ database
+    // Chỉ lấy chapters từ API, còn lại lấy từ database
+    $tagsFromDb = $mangaMetadata->tags;
+    if (is_string($tagsFromDb)) {
+        $tagsFromDb = json_decode($tagsFromDb, true) ?? [];
+    }
+    if (!is_array($tagsFromDb)) {
+        $tagsFromDb = [];
+    }
+    
+    // Convert tags to format expected by view
+    $tagsFormatted = [];
+    if (is_array($tagsFromDb) && count($tagsFromDb) > 0) {
+        foreach ($tagsFromDb as $tag) {
+            if (is_string($tag)) {
+                $tagSlug = \Illuminate\Support\Str::slug($tag);
+                $tagsFormatted[] = [
+                    'name' => $tag,
+                    'slug' => $tagSlug
+                ];
+            } elseif (is_array($tag)) {
+                // Đảm bảo có cả name và slug
+                if (isset($tag['name'])) {
+                    $tagSlug = $tag['slug'] ?? \Illuminate\Support\Str::slug($tag['name']);
+                    $tagsFormatted[] = [
+                        'name' => $tag['name'],
+                        'slug' => $tagSlug
+                    ];
+                }
+            }
+        }
+    }
+    // Fallback to API tags if database tags are empty
+    if (empty($tagsFormatted) && isset($mangaDetail['tags']) && is_array($mangaDetail['tags'])) {
+        $tagsFormatted = $mangaDetail['tags'];
+    }
+    
+    // Handle author - could be string or array
+    $authorFromDb = $mangaMetadata->author;
+    $authorFormatted = [];
+    if (is_string($authorFromDb) && !empty($authorFromDb)) {
+        $authorFormatted = explode(',', $authorFromDb);
+        $authorFormatted = array_map('trim', $authorFormatted);
+    } elseif (is_array($authorFromDb)) {
+        $authorFormatted = $authorFromDb;
+    }
+    if (empty($authorFormatted) && isset($mangaDetail['author'])) {
+        if (is_array($mangaDetail['author'])) {
+            $authorFormatted = $mangaDetail['author'];
+        } elseif (is_string($mangaDetail['author'])) {
+            $authorFormatted = [$mangaDetail['author']];
+        }
+    }
+    
+    $mangaForView = [
+        'id' => $mangaMetadata->id,
+        'name' => $mangaMetadata->title,
+        'slug' => $mangaMetadata->slug,
+        'cover_url' => $mangaMetadata->cover_url ?? $mangaDetail['cover_url'] ?? asset('images/pre-load1.png'),
+        'description' => $mangaMetadata->description ?? $mangaDetail['description'] ?? '',
+        'author' => $authorFormatted,
+        'status' => $mangaMetadata->status ?? $mangaDetail['status'] ?? 'ongoing',
+        'tags' => $tagsFormatted,
+        'chapters' => $mangaDetail['chapters'] ?? [], // Chỉ chapters lấy từ API
+        'updated_at' => $mangaMetadata->updated_at ? $mangaMetadata->updated_at->toDateTimeString() : ($mangaDetail['updated_at'] ?? null),
+        'type' => $mangaDetail['type'] ?? null, 
+    ];
+    
     return view('manga.detail', [
+        'manga' => $mangaForView, 
         'mangaSlug' => $slug,
-        'mangaTitle' => 'GTO: Fury of Death Yamada',
-        'mangaImage' => 'https://prvhtr.mgbucket.xyz/posters/bd/f3/gto-fury-of-death-yamada.jpeg',
-        'rating' => 0,
-        'status' => 'Đang tiến hành',
-        'author' => 'Tohru Fujisawa',
-        'updatedAt' => '17h29 01/01/2026',
-        'views' => '284',
-        'description' => 'Bộ phim kể về Phó Hiệu trưởng Hiroshi Uchiyamada, người vô tình lạc vào một cơn ác mộng xuyên không gian sau khi đến Kabukicho để tìm kiếm nữ sinh mất tích Nanami.',
-        'fullDescription' => 'Bộ phim kể về Phó Hiệu trưởng Hiroshi Uchiyamada, người vô tình lạc vào một cơn ác mộng xuyên không gian sau khi đến Kabukicho để tìm kiếm nữ sinh mất tích Nanami.',
-        'followCount' => 0,
+        'totalViews' => $totalViews,
+        'chapterViews' => $chapterViews,
+        'avgRating' => $avgRating,
+        'userRating' => $userRating,
+        'mangaMetadata' => $mangaMetadata,
+        'relatedMangas' => $relatedMangas,
+        'isFollowing' => $isFollowing,
+        'followsCount' => $followsCount,
+        'comments' => $comments,
+        'likedCommentIds' => $likedCommentIds,
+        'commentsCount' => $commentsCount,
     ]);
 })->name('manga.detail');
 
+// API route to get comment's manga_id
+Route::get('/api/comment/{commentId}/manga-id', function ($commentId) {
+    $comment = \App\Models\MangaComment::with('manga')->find($commentId);
+    if (!$comment) {
+        return response()->json(['error' => 'Comment not found'], 404);
+    }
+    
+    return response()->json([
+        'comment_id' => $comment->id,
+        'manga_id' => $comment->manga_id,
+        'manga_slug' => $comment->manga ? $comment->manga->slug : null,
+    ]);
+});
+
+// Helper function to format chapter name
+if (!function_exists('formatChapterNameForDisplay')) {
+    function formatChapterNameForDisplay($chapterName) {
+        if (empty($chapterName)) {
+            return 'Chapter';
+        }
+        // Remove existing "Chapter" prefix if exists (case insensitive)
+        $cleaned = trim(preg_replace('/^Chapter\s+/i', '', $chapterName));
+        // Add "Chapter" prefix
+        return 'Chapter ' . $cleaned;
+    }
+}
+
+// Account page
+Route::get('/tai-khoan', function () {
+    if (!auth()->check()) {
+        return redirect('/')->with('error', 'Vui lòng đăng nhập để xem tài khoản');
+    }
+    
+    $user = auth()->user();
+    $otruyenService = new \App\Services\OTruyenService();
+    
+    // Get all categories for suggestion settings
+    // Note: categories table doesn't have 'type' column, so we get all active categories
+    $allCategories = \App\Models\Category::where('is_active', true)
+        ->orderBy('sort_order')
+        ->orderBy('name')
+        ->get();
+    
+    // Get all tags for suggestion settings (same as categories for now)
+    $allTags = \App\Models\Category::where('is_active', true)
+        ->orderBy('sort_order')
+        ->orderBy('name')
+        ->get();
+    
+    // Get reading history with pagination (9 per page)
+    $readingPage = max(1, (int)request()->get('reading_page', 1));
+    $followingPage = max(1, (int)request()->get('following_page', 1));
+    $perPage = 9;
+    
+    $readingHistoryQuery = \App\Models\MangaReadingHistory::where('user_id', $user->id)
+        ->with(['manga', 'chapter'])
+        ->orderBy('last_read_at', 'desc')
+        ->get()
+        ->unique('manga_id');
+    
+    $totalReadingItems = $readingHistoryQuery->count();
+    $totalReadingPages = (int)ceil($totalReadingItems / $perPage);
+    $readingHistoryPaginated = $readingHistoryQuery->slice(($readingPage - 1) * $perPage, $perPage);
+    
+    $readingHistory = $readingHistoryPaginated->map(function($history) use ($otruyenService) {
+            $manga = $history->manga;
+            $chapter = $history->chapter;
+            
+            if (!$manga) {
+                return null;
+            }
+            
+            // Get manga detail from API to get total chapters
+            $mangaDetail = $otruyenService->getMangaDetail($manga->slug);
+            $totalChapters = count($mangaDetail['chapters'] ?? []);
+            
+            // Find current chapter number and calculate progress
+            $currentChapterNumber = 0;
+            if ($chapter && $chapter->chapter_slug) {
+                $chapterSlug = $chapter->chapter_slug;
+                $chapterNumberStr = preg_replace('/^chapter-/', '', $chapterSlug);
+                
+                // Try to extract numeric chapter number
+                if (preg_match('/^(\d+)/', $chapterNumberStr, $matches)) {
+                    $currentChapterNumber = (int)$matches[1];
+                } elseif (is_numeric($chapterNumberStr)) {
+                    $currentChapterNumber = (int)$chapterNumberStr;
+                }
+            }
+            
+            // Find max chapter number from chapters list
+            $maxChapterNumber = 0;
+            if (isset($mangaDetail['chapters']) && is_array($mangaDetail['chapters']) && count($mangaDetail['chapters']) > 0) {
+                // Get the first chapter (newest) to find max number
+                $firstChapter = $mangaDetail['chapters'][0];
+                $firstChapterSlug = $firstChapter['slug'] ?? '';
+                $firstChapterNumberStr = preg_replace('/^chapter-/', '', $firstChapterSlug);
+                if (preg_match('/^(\d+)/', $firstChapterNumberStr, $matches)) {
+                    $maxChapterNumber = (int)$matches[1];
+                } elseif (is_numeric($firstChapterNumberStr)) {
+                    $maxChapterNumber = (int)$firstChapterNumberStr;
+                }
+            }
+            
+            // If we couldn't determine from slug, use total chapters as fallback
+            if ($maxChapterNumber === 0) {
+                $maxChapterNumber = $totalChapters;
+            }
+            
+            // Calculate progress: current chapter / max chapter
+            // Progress shows how many chapters have been read
+            $progressPercent = $maxChapterNumber > 0 && $currentChapterNumber > 0 
+                ? ($currentChapterNumber / $maxChapterNumber) * 100 
+                : 0;
+            
+            return [
+                'id' => $manga->id,
+                'slug' => $manga->slug,
+                'title' => $manga->title ?? 'Đang cập nhật',
+                'cover_url' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                'rating' => $manga->rating ? (float)$manga->rating : 0,
+                'views_count' => $manga->views_count ?? 0,
+                'last_chapter' => $chapter ? [
+                    'name' => formatChapterNameForDisplay($chapter->chapter_name),
+                    'slug' => $chapter->chapter_slug,
+                    'updated_at' => $chapter->updated_at ? formatVietnameseTime($chapter->updated_at) : null,
+                ] : null,
+                'last_read_at' => $history->last_read_at ? formatVietnameseTime($history->last_read_at) : null,
+                'progress' => [
+                    'current' => $currentChapterNumber,
+                    'total' => $maxChapterNumber > 0 ? $maxChapterNumber : $totalChapters,
+                    'percent' => $progressPercent,
+                ],
+            ];
+        })
+        ->filter(function($manga) {
+            return $manga !== null;
+        });
+    
+    // Get following mangas with pagination (9 per page)
+    
+    $followingQuery = \App\Models\MangaFollow::where('user_id', $user->id)
+        ->with('manga')
+        ->orderBy('created_at', 'desc')
+        ->get();
+    
+    $totalFollowingItems = $followingQuery->count();
+    $totalFollowingPages = (int)ceil($totalFollowingItems / $perPage);
+    $followingPaginated = $followingQuery->slice(($followingPage - 1) * $perPage, $perPage);
+    
+    $followingMangas = $followingPaginated->map(function($follow) use ($otruyenService) {
+            $manga = $follow->manga;
+            
+            if (!$manga) {
+                return null;
+            }
+            
+            // Get last chapter from database
+            $lastChapter = $manga->chapters()
+                ->orderBy('updated_at', 'desc')
+                ->orderBy('chapter_name', 'desc')
+                ->first();
+            
+            $lastChapterData = null;
+            if ($lastChapter) {
+                $lastChapterData = [
+                    'name' => $lastChapter->chapter_name,
+                    'slug' => $lastChapter->chapter_slug,
+                    'updated_at' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                ];
+            } else {
+                // Fallback: get from API
+                $mangaDetail = $otruyenService->getMangaDetail($manga->slug);
+                if ($mangaDetail && isset($mangaDetail['chapters']) && is_array($mangaDetail['chapters']) && count($mangaDetail['chapters']) > 0) {
+                    $lastChapterFromApi = $mangaDetail['chapters'][0];
+                    $lastChapterData = [
+                        'name' => 'Chapter ' . $lastChapterFromApi['name'],
+                        'slug' => $lastChapterFromApi['slug'],
+                        'updated_at' => isset($lastChapterFromApi['updated_at']) ? formatVietnameseTime($lastChapterFromApi['updated_at']) : null,
+                    ];
+                }
+            }
+            
+            return [
+                'id' => $manga->id,
+                'slug' => $manga->slug,
+                'title' => $manga->title ?? 'Đang cập nhật',
+                'cover_url' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                'rating' => $manga->rating ? (float)$manga->rating : 0,
+                'last_chapter' => $lastChapterData,
+            ];
+        })
+        ->filter(function($manga) {
+            return $manga !== null;
+        });
+    
+    return view('account.index', [
+        'user' => $user,
+        'allCategories' => $allCategories,
+        'allTags' => $allTags,
+        'readingHistory' => $readingHistory,
+        'readingPage' => $readingPage,
+        'totalReadingPages' => $totalReadingPages,
+        'followingMangas' => $followingMangas,
+        'followingPage' => $followingPage,
+        'totalFollowingPages' => $totalFollowingPages,
+    ]);
+})->name('account.index')->middleware('auth');
+
 Route::get('/truyen-tranh/{mangaSlug}/{chapterSlug}', function ($mangaSlug, $chapterSlug) {
+    $otruyenService = new \App\Services\OTruyenService();
+    $mangaDetail = $otruyenService->getMangaDetail($mangaSlug);
+    
+    if (!$mangaDetail) {
+        abort(404, 'Truyện không tồn tại');
+    }
+    
+    $mangaMetadata = \App\Models\MangaMetadata::where('slug', $mangaSlug)->first();
+    if (!$mangaMetadata) {
+        abort(404, 'Truyện không tồn tại trong hệ thống');
+    }
+    
+    $chapters = $mangaDetail['chapters'] ?? [];
+    $currentChapter = null;
+    $currentIndex = -1;
+    
+    // Try exact match first
+    foreach ($chapters as $index => $chapter) {
+        if ($chapter['slug'] === $chapterSlug) {
+            $currentChapter = $chapter;
+            $currentIndex = $index;
+            break;
+        }
+    }
+    
+    // If not found, try to match by extracting chapter number
+    if (!$currentChapter) {
+        // Extract number from chapterSlug (e.g., "chapter-53" -> "53")
+        $chapterNumber = preg_replace('/^chapter-/', '', $chapterSlug);
+        
+        foreach ($chapters as $index => $chapter) {
+            $chapterSlugFromData = $chapter['slug'] ?? '';
+            $chapterNumberFromData = preg_replace('/^chapter-/', '', $chapterSlugFromData);
+            
+            // Try to match by number
+            if ($chapterNumberFromData === $chapterNumber) {
+                $currentChapter = $chapter;
+                $currentIndex = $index;
+                break;
+            }
+            
+            // Also try matching by chapter name
+            $chapterName = $chapter['name'] ?? '';
+            if ($chapterName && (strpos($chapterName, $chapterNumber) !== false || $chapterName === $chapterNumber)) {
+                $currentChapter = $chapter;
+                $currentIndex = $index;
+                break;
+            }
+        }
+    }
+    
+    if (!$currentChapter) {
+        abort(404, 'Chapter không tồn tại');
+    }
+    
+    $chapterRecord = \App\Models\MangaChapter::firstOrNew([
+        'manga_id' => $mangaMetadata->id,
+        'chapter_slug' => $chapterSlug,
+    ]);
+    
+    if (!$chapterRecord->exists) {
+        $chapterRecord->chapter_name = $currentChapter['name'];
+        $chapterRecord->chapter_api_id = $currentChapter['api_data'] ?? null;
+        $chapterRecord->views_count = 1;
+        $chapterRecord->first_viewed_at = now();
+        $chapterRecord->last_viewed_at = now();
+        $chapterRecord->save();
+    } else {
+        $chapterRecord->increment('views_count');
+        $chapterRecord->last_viewed_at = now();
+        $chapterRecord->save();
+    }
+    
+    $chapterRecord->refresh();
+    
+    $mangaMetadata->updateViewsCount();
+    
+    // Lưu views theo ngày để tính top theo dõi
+    \App\Models\MangaDailyView::incrementTodayViews($mangaMetadata->id);
+    
+    // Lưu lịch sử đọc cho user đã đăng nhập
+    if (auth()->check()) {
+        \App\Models\MangaReadingHistory::updateOrCreate(
+            [
+                'user_id' => auth()->id(),
+                'manga_id' => $mangaMetadata->id,
+            ],
+            [
+                'chapter_id' => $chapterRecord->id,
+                'chapter_slug' => $chapterSlug,
+                'last_read_at' => now(),
+            ]
+        );
+    }
+    
+    $chapterImages = null;
+    if (!empty($currentChapter['api_data'])) {
+        $chapterImages = $otruyenService->getChapterImages($currentChapter['api_data']);
+    }
+    
+    $prevChapter = null;
+    $nextChapter = null;
+    
+    if ($currentIndex < count($chapters) - 1) {
+        $prevChapterData = $chapters[$currentIndex + 1];
+        $prevChapter = [
+            'name' => 'Chapter ' . $prevChapterData['name'],
+            'url' => route('manga.chapter', ['mangaSlug' => $mangaSlug, 'chapterSlug' => $prevChapterData['slug']]),
+        ];
+    }
+    
+    if ($currentIndex > 0) {
+        $nextChapterData = $chapters[$currentIndex - 1];
+        $nextChapter = [
+            'name' => 'Chapter ' . $nextChapterData['name'],
+            'url' => route('manga.chapter', ['mangaSlug' => $mangaSlug, 'chapterSlug' => $nextChapterData['slug']]),
+        ];
+    }
+    
+    // Load comments for this chapter
+    $comments = \App\Models\MangaComment::where('manga_id', $mangaMetadata->id)
+        ->where('chapter_id', $chapterRecord->id)
+        ->whereNull('parent_id')
+        ->orderBy('created_at', 'desc')
+        ->with(['user', 'chapter', 'replies.user', 'replies.chapter'])
+        ->take(20)
+        ->get();
+    
+    $commentIds = $comments->pluck('id')->toArray();
+    $replyIds = [];
+    foreach ($comments as $comment) {
+        $replyIds = array_merge($replyIds, $comment->replies->pluck('id')->toArray());
+    }
+    $allCommentIds = array_merge($commentIds, $replyIds);
+    
+    $likedCommentIds = [];
+    if (auth()->check() && !empty($allCommentIds)) {
+        $likedCommentIds = \App\Models\MangaCommentLike::whereIn('comment_id', $allCommentIds)
+            ->where('user_id', auth()->id())
+            ->pluck('comment_id')
+            ->toArray();
+    }
+    
+    $commentsCount = \App\Models\MangaComment::where('manga_id', $mangaMetadata->id)
+        ->where('chapter_id', $chapterRecord->id)
+        ->whereNull('parent_id')
+        ->count();
+    
     return view('manga.chapter', [
         'mangaSlug' => $mangaSlug,
         'chapterSlug' => $chapterSlug,
-        'mangaTitle' => 'GTO: Fury of Death Yamada',
-        'chapterName' => 'Chapter 13',
-        'chapterId' => 2169687,
-        'chapterImages' => [
-            'https://prvhtr.mgbucket.xyz/chapters/1277938/2169687/1.jpg',
-            'https://prvhtr.mgbucket.xyz/chapters/1277938/2169687/2.jpg',
-            'https://prvhtr.mgbucket.xyz/chapters/1277938/2169687/3.jpg',
-            'https://prvhtr.mgbucket.xyz/chapters/1277938/2169687/4.jpg',
-            'https://prvhtr.mgbucket.xyz/chapters/1277938/2169687/5.jpg',
-        ],
-        'prevChapter' => [
-            'slug' => 'chapter-12',
-            'name' => 'Chapter 12',
-            'url' => '/truyen-tranh/' . $mangaSlug . '/chapter-12',
-        ],
-        'nextChapter' => [
-            'slug' => 'chapter-14',
-            'name' => 'Chapter 14',
-            'url' => '/truyen-tranh/' . $mangaSlug . '/chapter-14',
-        ],
+        'mangaTitle' => $mangaDetail['name'] ?? 'Đang cập nhật',
+        'chapterName' => 'Chapter ' . ($currentChapter['name'] ?? ''),
+        'chapterId' => $chapterRecord->id,
+        'chapterImages' => $chapterImages,
+        'prevChapter' => $prevChapter,
+        'nextChapter' => $nextChapter,
+        'manga' => $mangaDetail,
+        'mangaMetadata' => $mangaMetadata,
+        'comments' => $comments,
+        'likedCommentIds' => $likedCommentIds,
+        'commentsCount' => $commentsCount,
     ]);
 })->name('manga.chapter');
 
 Route::get('/tim-kiem', function () {
-    $keyword = request()->get('keyword', '');
-    $page = request()->get('page', 1);
+    $request = request();
+    $keyword = trim($request->get('keyword', ''));
+    $page = max(1, (int)$request->get('page', 1));
+    $perPage = 10;
     
-    // Demo data - 6 truyện mẫu
-    $results = [
-        [
-            'slug' => 'one-punch-man',
-            'title' => 'One Punch Man',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/2024.11.13/eFBaGhXD2T5EBvM4el.jpg',
-            'avgVote' => 5,
-            'countView' => 208330,
-            'chapters' => [
-                ['id' => 2170271, 'slug' => 'chapter-294', 'name' => 'Chapter 294', 'releasedAt' => '18 giờ trước'],
-                ['id' => 2168449, 'slug' => 'chapter-293', 'name' => 'Chapter 293', 'releasedAt' => '1 tháng trước'],
-            ],
-        ],
-        [
-            'slug' => 'blue-lock',
-            'title' => 'Blue Lock',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/5f/cf/blue-lock.jpg',
-            'avgVote' => 3.1,
-            'countView' => 62970,
-            'chapters' => [
-                ['id' => 2170270, 'slug' => 'chapter-331', 'name' => 'Chapter 331', 'releasedAt' => '1 ngày trước'],
-                ['id' => 2169975, 'slug' => 'chapter-330', 'name' => 'Chapter 330', 'releasedAt' => '8 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'yeu-than-ky',
-            'title' => 'Yêu Thần Ký',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/a5/ee/yeu-than-ky.png',
-            'avgVote' => 4.9,
-            'countView' => 69420,
-            'chapters' => [
-                ['id' => 2170269, 'slug' => 'chapter-665', 'name' => 'Chapter #665', 'releasedAt' => '2 ngày trước'],
-                ['id' => 2170025, 'slug' => 'chapter-664', 'name' => 'Chapter #664', 'releasedAt' => '6 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'tuyet-the-vo-than',
-            'title' => 'Tuyệt Thế Võ Thần',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/fe/f3/tuyet-the-vo-than.png',
-            'avgVote' => 4.2,
-            'countView' => 10240000,
-            'chapters' => [
-                ['id' => 2170268, 'slug' => 'chapter-1106', 'name' => 'Chapter #1106', 'releasedAt' => '2 ngày trước'],
-                ['id' => 2170267, 'slug' => 'chapter-1105', 'name' => 'Chapter #1105', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'su-tro-lai-cua-phap-su-vi-dai-sau-4000-nam',
-            'title' => 'Sự Trở Lại Của Pháp Sư Vĩ Đại Sau 4000 Năm',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/dc/2d/su-tro-lai-cua-phap-su-vi-dai-sau-4000-nam.png',
-            'avgVote' => 4.8,
-            'countView' => 2000000,
-            'chapters' => [
-                ['id' => 2170266, 'slug' => 'chapter-234', 'name' => 'Chapter #234', 'releasedAt' => '2 ngày trước'],
-                ['id' => 2170252, 'slug' => 'chapter-233', 'name' => 'Chapter #233', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'ta-co-mot-son-trai',
-            'title' => 'Ta Có Một Sơn Trại',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/62/dc/ta-co-mot-son-trai.jpg',
-            'avgVote' => 4.2,
-            'countView' => 111390,
-            'chapters' => [
-                ['id' => 2170265, 'slug' => 'chapter-1273', 'name' => 'Chapter #1273', 'releasedAt' => '2 ngày trước'],
-                ['id' => 2170264, 'slug' => 'chapter-1272', 'name' => 'Chapter #1272', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
+    // Filter parameters
+    $sort = $request->get('sort', 'updated_at_desc');
+    $orderBy = $request->get('orderBy', $sort); // Support both sort and orderBy
+    $sort = $orderBy ?: $sort;
+    $categories = $request->get('categories', []);
+    $categoryIds = $request->get('categoryIds', []); // Support both
+    $tags = $request->get('tags', []);
+    $genreIds = $request->get('genreIds', []); // Support both tags and genreIds
+    
+    // Use genreIds if available, otherwise use tags
+    if (!empty($genreIds)) {
+        $tags = $genreIds;
+    }
+    // Use categoryIds if available, otherwise use categories
+    if (!empty($categoryIds)) {
+        $categories = $categoryIds;
+    }
+    
+    if (!is_array($categories)) {
+        $categories = $categories ? explode(',', $categories) : [];
+    }
+    if (!is_array($tags)) {
+        $tags = $tags ? explode(',', $tags) : [];
+    }
+    // Filter out empty values
+    $tags = array_filter($tags);
+    $categories = array_filter($categories);
+    
+    $query = \App\Models\MangaMetadata::where('is_active', true);
+    
+    // Search by keyword
+    if (!empty($keyword)) {
+        $query->where(function($q) use ($keyword) {
+            $q->where('title', 'LIKE', '%' . $keyword . '%')
+              ->orWhere('slug', 'LIKE', '%' . $keyword . '%');
+        });
+    }
+    
+    // Filter by tags (tags are category IDs, need to get category name/slug to search in manga_metadata.tags JSON)
+    if (!empty($tags)) {
+        // Get category names and slugs from IDs
+        $categoryIds = array_filter(array_map('intval', $tags));
+        $categories = \App\Models\Category::whereIn('id', $categoryIds)->get();
+        
+        $tagSearchValues = [];
+        foreach ($categories as $category) {
+            $tagSearchValues[] = $category->name;
+            $tagSearchValues[] = $category->slug;
+        }
+        
+        // Also check if tags contain string values (for backward compatibility)
+        foreach ($tags as $tagValue) {
+            if (!is_numeric($tagValue)) {
+                $tagSearchValues[] = $tagValue;
+            }
+        }
+        
+        $tagSearchValues = array_unique($tagSearchValues);
+        
+        if (!empty($tagSearchValues)) {
+            $query->where(function($q) use ($tagSearchValues) {
+                foreach ($tagSearchValues as $tagValue) {
+                    $q->orWhereJsonContains('tags', $tagValue);
+                }
+            });
+        }
+    }
+    
+    // Sorting
+    switch ($sort) {
+        case 'view_desc':
+            $query->orderBy('views_count', 'desc');
+            break;
+        case 'view_asc':
+            $query->orderBy('views_count', 'asc');
+            break;
+        case 'updated_at_date_desc':
+        case 'udpated_at_date_desc':
+            $query->orderBy('updated_at', 'desc');
+            break;
+        case 'updated_at_date_asc':
+        case 'udpated_at_date_asc':
+            $query->orderBy('updated_at', 'asc');
+            break;
+        case 'created_at_date_desc':
+            $query->orderBy('created_at', 'desc');
+            break;
+        case 'created_at_date_asc':
+            $query->orderBy('created_at', 'asc');
+            break;
+        case 'rating_desc':
+            $query->orderBy('rating', 'desc')->orderBy('updated_at', 'desc');
+            break;
+        case 'rating_asc':
+            $query->orderBy('rating', 'asc')->orderBy('updated_at', 'desc');
+            break;
+        default:
+            $query->orderBy('updated_at', 'desc');
+            break;
+    }
+    
+    $total = $query->count();
+    $totalPages = max(1, ceil($total / $perPage));
+    
+    $mangas = $query->skip(($page - 1) * $perPage)
+        ->take($perPage)
+        ->get();
+    
+    $mangas = $query->get();
+    
+    // Load chapters for each manga
+    $results = [];
+    foreach ($mangas as $manga) {
+        $chapters = $manga->chapters()
+            ->orderBy('updated_at', 'desc')
+            ->take(2)
+            ->get();
+        
+        $chapterData = [];
+        foreach ($chapters as $chapter) {
+            $chapterData[] = [
+                'id' => $chapter->id,
+                'slug' => $chapter->chapter_slug,
+                'name' => 'Chapter ' . $chapter->chapter_name,
+                'releasedAt' => $chapter->updated_at ? $chapter->updated_at->diffForHumans() : null,
+            ];
+        }
+        
+        // If no chapters, try to get from last_chapter_number
+        if (empty($chapterData) && $manga->last_chapter_number) {
+            $chapterData[] = [
+                'id' => null,
+                'slug' => 'chapter-' . $manga->last_chapter_number,
+                'name' => 'Chapter ' . $manga->last_chapter_number,
+                'releasedAt' => $manga->last_synced_at ? $manga->last_synced_at->diffForHumans() : null,
+            ];
+        }
+        
+        $results[] = [
+            'slug' => $manga->slug,
+            'title' => $manga->title,
+            'posterPath' => $manga->cover_url ?: asset('images/pre-load1.png'),
+            'avgVote' => (float)($manga->rating ?? 0),
+            'countView' => (int)($manga->views_count ?? 0),
+            'chapters' => $chapterData,
+        ];
+    }
+    
+    // Get all categories from database (these are used as tags)
+    // Define the default display order for first 23 tags
+    $defaultTagOrder = [
+        '16+', 'Action', 'Adult', 'Adventure', 'Anime', 'Chuyển Sinh', 'Cổ Đại',
+        'Comedy', 'Comic', 'Cooking', 'Doujinshi', 'Drama', 'Đam Mỹ',
+        'Ecchi', 'Fantasy', 'Gender Bender', 'Harem', 'Historical', 'Horror',
+        'Josei', 'Live action', 'Manga', 'Manhua'
     ];
+    
+    $allCategories = \App\Models\Category::where('is_active', true)->get();
+    
+    // Separate tags into default (first 23) and remaining
+    $defaultTags = [];
+    $remainingTags = [];
+    
+    foreach ($defaultTagOrder as $tagName) {
+        $category = $allCategories->first(function($cat) use ($tagName) {
+            return $cat->name === $tagName;
+        });
+        if ($category) {
+            $defaultTags[] = [
+                'id' => $category->id,
+                'slug' => $category->slug,
+                'name' => $category->name,
+            ];
+        }
+    }
+    
+    // Add remaining tags (not in default list)
+    foreach ($allCategories as $category) {
+        if (!in_array($category->name, $defaultTagOrder)) {
+            $remainingTags[] = [
+                'id' => $category->id,
+                'slug' => $category->slug,
+                'name' => $category->name,
+            ];
+        }
+    }
+    
+    // Sort remaining tags by sort_order and name
+    usort($remainingTags, function($a, $b) use ($allCategories) {
+        $catA = $allCategories->firstWhere('id', $a['id']);
+        $catB = $allCategories->firstWhere('id', $b['id']);
+        if ($catA && $catB) {
+            if ($catA->sort_order != $catB->sort_order) {
+                return $catA->sort_order <=> $catB->sort_order;
+            }
+            return strcmp($catA->name, $catB->name);
+        }
+        return 0;
+    });
+    
+    // Combine: default tags first, then remaining tags
+    $allTags = array_merge($defaultTags, $remainingTags);
     
     return view('search.index', [
         'keyword' => $keyword,
         'results' => $results,
-        'totalResults' => 14387,
+        'totalResults' => $total,
         'currentPage' => $page,
-        'totalPages' => 1439,
+        'totalPages' => $totalPages,
+        'sort' => $sort,
+        'categories' => $categories,
+        'tags' => $tags,
+        'allTags' => $allTags,
     ]);
 })->name('search');
 
 Route::get('/genre', function () {
-    // Demo data - các genres với truyện mẫu
+    $allowedSlugs = ['action', 'romance', 'comedy', 'fantasy', 'drama', 'ngon-tinh'];
+    
+    $categories = \App\Models\Category::where('is_active', true)
+        ->whereIn('slug', $allowedSlugs)
+        ->orderByRaw('FIELD(slug, "' . implode('","', $allowedSlugs) . '")')
+        ->get();
+    
+    $genres = [];
+    
+    foreach ($categories as $category) {
+        $mangas = \App\Models\MangaMetadata::where('is_active', true)
+            ->where('chapters_count', '>', 0)
+            ->where(function($query) use ($category) {
+                $query->whereJsonContains('tags', $category->name)
+                      ->orWhereJsonContains('tags', $category->slug);
+            })
+            ->inRandomOrder()
+            ->limit(24)
+            ->get()
+            ->map(function($manga) {
+                return [
+                    'slug' => $manga->slug,
+                    'title' => $manga->title,
+                    'posterPath' => $manga->cover_url,
+                    'avgVote' => $manga->rating ? (float)$manga->rating : 0,
+                    'chapters' => $manga->last_chapter_number ? [
+                        [
+                            'id' => null,
+                            'slug' => 'chapter-' . $manga->last_chapter_number,
+                            'name' => 'Chapter ' . $manga->last_chapter_number,
+                            'releasedAt' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : null,
+                        ],
+                    ] : [],
+                ];
+            })
+            ->toArray();
+        
+        $genres[] = [
+            'slug' => $category->slug,
+            'name' => $category->name,
+            'mangas' => $mangas,
+        ];
+    }
+    
+    return view('genre.all', [
+        'genres' => $genres,
+    ]);
+})->name('genre.all');
+
+Route::get('/genre/demo', function () {
     $genres = [
         'action' => [
             'name' => 'Action',
@@ -716,140 +2112,157 @@ Route::get('/genre', function () {
 })->name('genre.all');
 
 Route::get('/genre/{slug}', function ($slug) {
-    $page = request()->get('page', 1);
+    $page = (int)request()->get('page', 1);
     
-    // Map genre slug to name and description
-    $genreMap = [
-        'action' => [
-            'name' => 'Action',
-            'title' => 'Truyện tranh Action',
-            'description' => 'Truyện tranh Action là thể loại thường có nội dung về đánh nhau, bạo lực, hỗn loạn, với diễn biến nhanh',
-        ],
-        'romance' => [
-            'name' => 'Romance',
-            'title' => 'Truyện tranh Romance',
-            'description' => 'Truyện tranh Romance là thể loại tập trung vào tình yêu và các mối quan hệ lãng mạn',
-        ],
-        'comedy' => [
-            'name' => 'Comedy',
-            'title' => 'Truyện tranh Comedy',
-            'description' => 'Truyện tranh Comedy là thể loại hài hước, vui nhộn với các tình huống gây cười',
-        ],
+    $otruyenService = new \App\Services\OTruyenService();
+    $data = $otruyenService->getMangaByGenre($slug, $page);
+    
+    if (!$data) {
+        abort(404, 'Thể loại không tồn tại');
+    }
+    
+    $category = \App\Models\Category::where('slug', $slug)->first();
+    $genreName = $category ? $category->name : ($data['titlePage'] ?? ucfirst($slug));
+    
+    $genre = [
+        'name' => $genreName,
+        'title' => 'Truyện tranh ' . $genreName,
+        'description' => 'Danh sách truyện tranh ' . $genreName,
     ];
     
-    $genre = $genreMap[$slug] ?? [
-        'name' => ucfirst($slug),
-        'title' => 'Truyện tranh ' . ucfirst($slug),
-        'description' => 'Danh sách truyện tranh ' . ucfirst($slug),
-    ];
-    
-    // Demo data - 10 truyện mẫu cho Action
-    $results = [
-        [
-            'slug' => 'alice-in-borderland',
-            'title' => 'Alice in Borderland',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/1a/98/alice-in-borderland.png',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2157002, 'slug' => 'chapter-65', 'name' => 'Chapter #65', 'releasedAt' => '3 tháng trước'],
-            ],
-        ],
-        [
-            'slug' => 'tham-tu-lung-danh-conan-gio-tra-cua-zero-nxb-kim-dong',
-            'title' => 'Thám tử lừng danh Conan - Giờ trà của Zero (NXB Kim Đồng)',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/d1/f3/tham-tu-lung-danh-conan-gio-tra-cua-zero-nxb-kim-dong.jpg',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2150372, 'slug' => 'time-60-thuong-that', 'name' => 'Time #60: Thường thật', 'releasedAt' => '3 tháng trước'],
-            ],
-        ],
-        [
-            'slug' => 'astro-boy-atom-cau-be-tay-sat',
-            'title' => 'Astro Boy (Atom - Cậu bé tay sắt)',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/22/1e/astro-boy-atom-cau-be-tay-sat.png',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2166903, 'slug' => 'chuong-69-meeva', 'name' => 'Chương #69: Meeva', 'releasedAt' => '2 tháng trước'],
-            ],
-        ],
-        [
-            'slug' => 'cau-chuyen-sinh-ton-cua-kiem-vuong-o-the-gioi-khac',
-            'title' => 'Câu Chuyện Sinh Tồn Của Kiếm Vương Ở Thế Giới Khác',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/2b/9d/cau-chuyen-sinh-ton-cua-kiem-vuong-o-the-gioi-khac.png',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2167092, 'slug' => 'chapter-132', 'name' => 'Chapter #132', 'releasedAt' => '1 tháng trước'],
-            ],
-        ],
-        [
-            'slug' => 'toi-necromancer-co-doc',
-            'title' => 'Tôi - Necromancer Cô Độc',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/d5/0f/toi-necromancer-co-doc.png',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2168495, 'slug' => 'chapter-76', 'name' => 'Chapter #76', 'releasedAt' => '23 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'dragon-ball-super-nxb-kim-dong',
-            'title' => 'Dragon Ball Super (NXB Kim Đồng)',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/09/90/dragon-ball-super-nxb-kim-dong.jpg',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2151377, 'slug' => 'chuong-100-ma-quang-sat-phao-bung-no', 'name' => 'Chương #100: Ma quang sát pháo bùng nổ!', 'releasedAt' => '3 tháng trước'],
-            ],
-        ],
-        [
-            'slug' => 'khi-toi-chuyen-sinh-thanh-mot-thanh-kiem',
-            'title' => 'Khi Tôi Chuyển Sinh Thành Một Thanh Kiếm',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/bb/cf/khi-toi-chuyen-sinh-thanh-mot-thanh-kiem.jpg',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2167854, 'slug' => 'chapter-59', 'name' => 'Chapter #59', 'releasedAt' => '1 tháng trước'],
-            ],
-        ],
-        [
-            'slug' => 'jujutsu-kaisen-modulo',
-            'title' => 'Jujutsu Kaisen Modulo',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/49/d7/jujutsu-kaisen-modulo.png',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2170261, 'slug' => 'chapter-17', 'name' => 'Chapter #17', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'chu-thuat-hoi-chien-nxb-kim-dong',
-            'title' => 'Chú thuật hồi chiến (NXB Kim Đồng)',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2169342, 'slug' => 'chuong-124-bien-co-shibuya-42', 'name' => 'Chương #124: Biến cố Shibuya 42', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'phap-su-manh-nhat-dung-sach-chien-luoc-tu-minh-tieu-diet-ma-vuong',
-            'title' => 'Pháp Sư Mạnh Nhất Dùng Sách Chiến Lược, Tự Mình Tiêu Diệt Ma Vương',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2160395, 'slug' => 'chapter-68', 'name' => 'Chapter #68', 'releasedAt' => '3 tháng trước'],
-            ],
-        ],
-    ];
+    $pagination = $data['pagination'] ?? [];
+    $totalPages = 1;
+    if (isset($pagination['totalItems']) && isset($pagination['totalItemsPerPage']) && $pagination['totalItemsPerPage'] > 0) {
+        $totalPages = (int)ceil($pagination['totalItems'] / $pagination['totalItemsPerPage']);
+    }
     
     return view('genre.index', [
         'slug' => $slug,
         'genre' => $genre,
-        'results' => $results,
+        'results' => $data['mangas'] ?? [],
         'currentPage' => $page,
-        'totalPages' => 227,
+        'totalPages' => $totalPages,
     ]);
 })->name('genre');
 
+Route::get('/the-loai', function () {
+    $otruyenService = new \App\Services\OTruyenService();
+    $types = [
+        ['slug' => 'manga', 'name' => 'Manga'],
+        ['slug' => 'manhua', 'name' => 'Manhua'],
+        ['slug' => 'manhwa', 'name' => 'Manhwa'],
+        ['slug' => 'viet-nam', 'name' => 'Việt Nam'],
+    ];
+    
+    $genres = [];
+    
+    foreach ($types as $type) {
+        $data = $otruyenService->getMangaByType($type['slug'], 1, 24);
+        
+        if ($data && isset($data['mangas']) && count($data['mangas']) > 0) {
+            $genres[] = [
+                'slug' => $type['slug'],
+                'name' => $type['name'],
+                'mangas' => $data['mangas'],
+            ];
+        } else {
+            $genres[] = [
+                'slug' => $type['slug'],
+                'name' => $type['name'],
+                'mangas' => [],
+            ];
+        }
+    }
+    
+    return view('genre.all', [
+        'genres' => $genres,
+    ]);
+})->name('the-loai.all');
+
 Route::get('/the-loai/{slug}', function ($slug) {
+    $page = (int)request()->get('page', 1);
+    
+    $otruyenService = new \App\Services\OTruyenService();
+    $data = $otruyenService->getMangaByGenre($slug, $page);
+    
+    if (!$data) {
+        abort(404, 'Thể loại không tồn tại');
+    }
+    
+    $categoryMap = [
+        'manga' => [
+            'name' => 'Manga',
+            'title' => 'Truyện tranh Manga',
+            'description' => 'Truyện tranh Nhật Bản',
+        ],
+        'manhua' => [
+            'name' => 'Manhua',
+            'title' => 'Truyện tranh Manhua',
+            'description' => 'Truyện tranh Trung Quốc',
+        ],
+        'manhwa' => [
+            'name' => 'Manhwa',
+            'title' => 'Truyện tranh Manhwa',
+            'description' => 'Truyện tranh Hàn Quốc',
+        ],
+    ];
+    
+    $categoryName = $data['titlePage'] ?? ($categoryMap[$slug]['name'] ?? ucfirst($slug));
+    
+    $category = $categoryMap[$slug] ?? [
+        'name' => $categoryName,
+        'title' => 'Truyện tranh ' . $categoryName,
+        'description' => 'Danh sách truyện tranh ' . $categoryName,
+    ];
+    
+    $pagination = $data['pagination'] ?? [];
+    $totalPages = 1;
+    if (isset($pagination['totalItems']) && isset($pagination['totalItemsPerPage']) && $pagination['totalItemsPerPage'] > 0) {
+        $totalPages = (int)ceil($pagination['totalItems'] / $pagination['totalItemsPerPage']);
+    }
+    
+    return view('category.index', [
+        'slug' => $slug,
+        'category' => $category,
+        'results' => $data['mangas'] ?? [],
+        'currentPage' => $page,
+        'totalPages' => $totalPages,
+    ]);
+})->name('category');
+
+Route::get('/da-hoan-thanh', function () {
+    $page = (int)request()->get('page', 1);
+    
+    $otruyenService = new \App\Services\OTruyenService();
+    $data = $otruyenService->getMangaByList('hoan-thanh', $page, 24, false);
+    
+    if (!$data) {
+        abort(404, 'Không tìm thấy dữ liệu');
+    }
+    
+    $pagination = $data['pagination'] ?? [];
+    $totalPages = 1;
+    if (isset($pagination['totalItems']) && isset($pagination['totalItemsPerPage']) && $pagination['totalItemsPerPage'] > 0) {
+        $totalPages = (int)ceil($pagination['totalItems'] / $pagination['totalItemsPerPage']);
+    }
+    
+    $category = [
+        'name' => 'Truyện đã hoàn thành',
+        'title' => 'Truyện tranh Truyện đã hoàn thành',
+        'description' => 'Danh sách truyện Truyện đã hoàn thành hot nhất được gợi ý',
+    ];
+    
+    return view('completed.index', [
+        'category' => $category,
+        'results' => $data['mangas'] ?? [],
+        'currentPage' => $page,
+        'totalPages' => $totalPages,
+    ]);
+})->name('completed');
+
+Route::get('/the-loai/{slug}/demo', function ($slug) {
     $page = request()->get('page', 1);
     
-    // Map category slug to name and description
     $categoryMap = [
         'manga' => [
             'name' => 'Manga',
@@ -884,7 +2297,6 @@ Route::get('/the-loai/{slug}', function ($slug) {
         'description' => 'Danh sách truyện tranh ' . ucfirst($slug),
     ];
     
-    // Demo data - 10 truyện mẫu cho Manga
     $results = [
         [
             'slug' => 'one-punch-man',
@@ -990,144 +2402,141 @@ Route::get('/the-loai/{slug}', function ($slug) {
 Route::get('/hot-nhat', function () {
     $type = request()->get('type', 'all');
     
-    // Demo data - 12 truyện hot nhất
-    $results = [
-        [
-            'slug' => 'vo-luyen-dinh-phong',
-            'title' => 'Võ Luyện Đỉnh Phong',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/c8/1e/vo-luyen-dinh-phong.png',
-            'avgVote' => 3.3,
-            'countView' => 66400000,
-            'chapters' => [
-                ['id' => 2168858, 'slug' => 'chapter-3860', 'name' => 'Chapter #3860', 'releasedAt' => '23 ngày trước'],
-                ['id' => 2168451, 'slug' => 'chapter-3859', 'name' => 'Chapter #3859', 'releasedAt' => '1 tháng trước'],
-            ],
-        ],
-        [
-            'slug' => 'ta-co-mot-son-trai',
-            'title' => 'Ta Có Một Sơn Trại',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/62/dc/ta-co-mot-son-trai.jpg',
-            'avgVote' => 4.2,
-            'countView' => 80730,
-            'chapters' => [
-                ['id' => 2170265, 'slug' => 'chapter-1273', 'name' => 'Chapter #1273', 'releasedAt' => '2 ngày trước'],
-                ['id' => 2170264, 'slug' => 'chapter-1272', 'name' => 'Chapter #1272', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'dai-quan-gia-la-ma-hoang',
-            'title' => 'Đại Quản Gia Là Ma Hoàng',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/4b/24/dai-quan-gia-la-ma-hoang.png',
-            'avgVote' => 5,
-            'countView' => 120750,
-            'chapters' => [
-                ['id' => 2170224, 'slug' => 'chapter-804', 'name' => 'Chapter 804', 'releasedAt' => '2 ngày trước'],
-                ['id' => 2170223, 'slug' => 'chapter-803', 'name' => 'Chapter 803', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'nguoi-trong-giang-ho',
-            'title' => 'Người Trong Giang Hồ',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/18/e8/nguoi-trong-giang-ho.jpg',
-            'avgVote' => 5,
-            'countView' => 360620,
-            'chapters' => [
-                ['id' => 595991, 'slug' => 'chapter-2335', 'name' => 'Chapter 2335', 'releasedAt' => '5 năm trước'],
-                ['id' => 595993, 'slug' => 'chapter-2334', 'name' => 'Chapter 2334', 'releasedAt' => '5 năm trước'],
-            ],
-        ],
-        [
-            'slug' => 'chang-re-manh-nhat-lich-su',
-            'title' => 'Chàng Rể Mạnh Nhất Lịch Sử',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/0d/92/chang-re-manh-nhat-lich-su.jpg',
-            'avgVote' => 5,
-            'countView' => 2280000,
-            'chapters' => [
-                ['id' => 2170242, 'slug' => 'chapter-368', 'name' => 'Chapter #368', 'releasedAt' => '2 ngày trước'],
-                ['id' => 2170243, 'slug' => 'chapter-367', 'name' => 'Chapter #367', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'shangri-la-frontier',
-            'title' => 'Shangri-La Frontier',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/b4/61/crappy-game-hunter-challenges-god-tier-game.jpg',
-            'avgVote' => 3.5,
-            'countView' => 40940,
-            'chapters' => [
-                ['id' => 2170258, 'slug' => 'chapter-249', 'name' => 'Chapter #249', 'releasedAt' => '2 ngày trước'],
-                ['id' => 2169625, 'slug' => 'chapter-248', 'name' => 'Chapter #248', 'releasedAt' => '14 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'a-wonderful-new-world',
-            'title' => 'A Wonderful New World',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/8d/30/a-wonderful-new-world.png',
-            'avgVote' => 0,
-            'countView' => 0,
-            'chapters' => [
-                ['id' => 2028109, 'slug' => 'chapter-262-end', 'name' => 'Chapter #262 END', 'releasedAt' => '4 tháng trước'],
-                ['id' => 2028108, 'slug' => 'chapter-261', 'name' => 'Chapter #261', 'releasedAt' => '5 tháng trước'],
-            ],
-        ],
-        [
-            'slug' => 'nguyen-ton',
-            'title' => 'Nguyên Tôn',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/93/53/nguyen-ton.png',
-            'avgVote' => 4.6,
-            'countView' => 13280000,
-            'chapters' => [
-                ['id' => 1873512, 'slug' => 'chapter-951', 'name' => 'Chapter 951', 'releasedAt' => '9 tháng trước'],
-            ],
-        ],
-        [
-            'slug' => 'shuumatsu-no-valkyrie',
-            'title' => 'Shuumatsu no Valkyrie',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/4e/08/shuumatsu-no-valkyrie.jpg',
-            'avgVote' => 3.1,
-            'countView' => 80230,
-            'chapters' => [
-                ['id' => 2064446, 'slug' => 'chapter-107', 'name' => 'Chapter 107', 'releasedAt' => '4 tháng trước'],
-                ['id' => 2064380, 'slug' => 'chapter-106', 'name' => 'Chapter 106', 'releasedAt' => '4 tháng trước'],
-            ],
-        ],
-        [
-            'slug' => 'tuyet-the-vo-than',
-            'title' => 'Tuyệt Thế Võ Thần',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/fe/f3/tuyet-the-vo-than.png',
-            'avgVote' => 4.2,
-            'countView' => 10240000,
-            'chapters' => [
-                ['id' => 2170268, 'slug' => 'chapter-1106', 'name' => 'Chapter #1106', 'releasedAt' => '2 ngày trước'],
-                ['id' => 2170267, 'slug' => 'chapter-1105', 'name' => 'Chapter #1105', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'one-punch-man',
-            'title' => 'One Punch Man',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/2024.11.13/eFBaGhXD2T5EBvM4el.jpg',
-            'avgVote' => 5,
-            'countView' => 208330,
-            'chapters' => [
-                ['id' => 2170271, 'slug' => 'chapter-294', 'name' => 'Chapter 294', 'releasedAt' => '19 giờ trước'],
-            ],
-        ],
-        [
-            'slug' => 'blue-lock',
-            'title' => 'Blue Lock',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/5f/cf/blue-lock.jpg',
-            'avgVote' => 3.1,
-            'countView' => 62970,
-            'chapters' => [
-                ['id' => 2170270, 'slug' => 'chapter-331', 'name' => 'Chapter 331', 'releasedAt' => '1 ngày trước'],
-            ],
-        ],
-    ];
+    $getHotMangas = function($period) {
+        $today = now()->toDateString();
+        $startDate = null;
+        $endDate = $today;
+        
+        if ($period === 'all') {
+            // Lấy top 12 theo tổng views từ tất cả thời gian (từ manga_metadata.views_count)
+            $topMangas = \App\Models\MangaMetadata::where('is_active', true)
+                ->where('views_count', '>', 0)
+                ->orderBy('views_count', 'desc')
+                ->limit(12)
+                ->get();
+            
+            $mangaIds = $topMangas->pluck('id')->toArray();
+            $mangaMetadata = $topMangas->keyBy('id');
+            
+            $result = [];
+            foreach ($topMangas as $manga) {
+                // Lấy chapter mới nhất
+                $lastChapter = $manga->chapters()
+                    ->orderBy('updated_at', 'desc')
+                    ->orderBy('chapter_name', 'desc')
+                    ->first();
+                
+                $chapters = [];
+                if ($lastChapter) {
+                    $chapters[] = [
+                        'id' => $lastChapter->id,
+                        'slug' => $lastChapter->chapter_slug,
+                        'name' => formatChapterNameForDisplay($lastChapter->chapter_name),
+                        'releasedAt' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                    ];
+                }
+                
+                // Format views
+                $viewsCount = (int)($manga->views_count ?? 0);
+                
+                $result[] = [
+                    'slug' => $manga->slug,
+                    'title' => $manga->title ?? 'Đang cập nhật',
+                    'posterPath' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                    'avgVote' => $manga->rating ? (float)$manga->rating : 0,
+                    'countView' => $viewsCount,
+                    'chapters' => $chapters,
+                ];
+            }
+            
+            return $result;
+        } else {
+            // Lấy top 12 theo views trong khoảng thời gian
+            if ($period === 'day') {
+                $startDate = $today;
+            } elseif ($period === 'week') {
+                $startDate = now()->startOfWeek()->toDateString();
+            } elseif ($period === 'month') {
+                $startDate = now()->startOfMonth()->toDateString();
+            }
+            
+            $topMangas = \App\Models\MangaDailyView::whereBetween('view_date', [$startDate, $endDate])
+                ->select('manga_id', \DB::raw('SUM(views_count) as total_views'))
+                ->groupBy('manga_id')
+                ->orderBy('total_views', 'desc')
+                ->limit(12)
+                ->get();
+            
+            // Lấy thông tin chi tiết của các manga
+            $mangaIds = $topMangas->pluck('manga_id')->toArray();
+            $mangaMetadata = \App\Models\MangaMetadata::whereIn('id', $mangaIds)
+                ->where('is_active', true)
+                ->get()
+                ->keyBy('id');
+            
+            $result = [];
+            foreach ($topMangas as $topManga) {
+                $manga = $mangaMetadata->get($topManga->manga_id);
+                if (!$manga) continue;
+                
+                // Lấy chapter mới nhất
+                $lastChapter = $manga->chapters()
+                    ->orderBy('updated_at', 'desc')
+                    ->orderBy('chapter_name', 'desc')
+                    ->first();
+                
+                $chapters = [];
+                if ($lastChapter) {
+                    $chapters[] = [
+                        'id' => $lastChapter->id,
+                        'slug' => $lastChapter->chapter_slug,
+                        'name' => formatChapterNameForDisplay($lastChapter->chapter_name),
+                        'releasedAt' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                    ];
+                }
+                
+                // Format views
+                $viewsCount = (int)$topManga->total_views;
+                
+                $result[] = [
+                    'slug' => $manga->slug,
+                    'title' => $manga->title ?? 'Đang cập nhật',
+                    'posterPath' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                    'avgVote' => $manga->rating ? (float)$manga->rating : 0,
+                    'countView' => $viewsCount,
+                    'chapters' => $chapters,
+                ];
+            }
+            
+            return $result;
+        }
+    };
+    
+    $results = $getHotMangas($type);
     
     return view('hot.index', [
         'type' => $type,
         'results' => $results,
     ]);
 })->name('hot');
+
+// Random truyện
+Route::get('/random', function () {
+    // Lấy random 1 truyện có ít nhất 1 chapter
+    $manga = \App\Models\MangaMetadata::where('is_active', true)
+        ->whereHas('chapters', function($query) {
+            $query->whereNotNull('chapter_slug');
+        })
+        ->inRandomOrder()
+        ->first();
+    
+    if (!$manga) {
+        return redirect('/')->with('error', 'Không tìm thấy truyện nào');
+    }
+    
+    // Redirect đến trang detail truyện
+    return redirect(route('manga.detail', ['slug' => $manga->slug]));
+})->name('random');
 
 // Trang tin tức
 Route::get('/tin-tuc', function () {
@@ -1222,123 +2631,140 @@ Route::get('/tin-tuc', function () {
 
 // Trang truyện mới nhất
 Route::get('/new', function () {
-    $currentPage = request()->get('page', 1);
-    $totalPages = 516;
+    $page = max(1, (int)request()->get('page', 1));
     
-    $results = [
-        [
-            'slug' => 'kiep-nay-toi-se-tro-thanh-gia-chu',
-            'title' => 'Kiếp Này, Tôi Sẽ Trở Thành Gia Chủ',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/e3/f7/kiep-nay-toi-se-tro-thanh-gia-chu.png',
-            'avgVote' => 3,
-            'chapters' => [
-                ['id' => 2170215, 'slug' => 'chapter-203', 'name' => 'Chapter 203', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'gacha-vo-han',
-            'title' => 'Gacha Vô Hạn',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/d8/bb/gacha-vo-han.png',
-            'avgVote' => 5,
-            'chapters' => [
-                ['id' => 2170213, 'slug' => 'chapter-183', 'name' => 'Chapter #183', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'toan-tri-doc-gia',
-            'title' => 'Toàn Trí Độc Giả',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/77/55/toan-tri-doc-gia.png',
-            'avgVote' => 3.9,
-            'chapters' => [
-                ['id' => 2170205, 'slug' => 'chapter-296', 'name' => 'Chapter #296', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'ban-hoc-cua-toi-la-linh-danh-thue',
-            'title' => 'Bạn Học Của Tôi Là Lính Đánh Thuê',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/76/6b/ban-hoc-cua-toi-la-linh-danh-thue.png',
-            'avgVote' => 4.6,
-            'chapters' => [
-                ['id' => 2170203, 'slug' => 'chapter-270', 'name' => 'Chapter #270', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'dai-tuong-vo-hinh',
-            'title' => 'Đại Tượng Vô Hình',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/0f/91/dai-tuong-vo-hinh.png',
-            'avgVote' => 4.7,
-            'chapters' => [
-                ['id' => 2170201, 'slug' => 'chapter-542', 'name' => 'Chapter #542', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'cau-ut-nha-cong-tuoc-la-sat-thu-hoi-quy',
-            'title' => 'Cậu Út Nhà Công Tước Là Sát Thủ Hồi Quy',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/1a/7d/cau-ut-nha-cong-tuoc-la-sat-thu-hoi-quy.png',
-            'avgVote' => 4.9,
-            'chapters' => [
-                ['id' => 2170191, 'slug' => 'chapter-103', 'name' => 'Chapter #103', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'tro-lai-voi-chanbi',
-            'title' => 'Trở lại với Chanbi',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/08/b9/tro-lai-voi-chanbi.png',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2170189, 'slug' => 'chapter-082', 'name' => 'Chapter #082', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'bang-xep-hang-quan-vuong-nxb-kim-dong',
-            'title' => 'Bảng xếp hạng quân vương (NXB Kim Đồng)',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/5a/3b/bang-xep-hang-quan-vuong-nxb-kim-dong.jpg',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2164485, 'slug' => 'hoi-193-5-chuyen-ve-thong-linh-bang-dao-tac-lon', 'name' => 'Hồi #193.5: CHUYỆN VỀ THỐNG LĨNH BĂNG ĐẠO TẶC LỚN', 'releasedAt' => '2 tháng trước'],
-            ],
-        ],
-        [
-            'slug' => 'diet-slime-suot-300-nam-toi-levelmax-luc-nao-chang-hay-nxb-the-gioi',
-            'title' => 'Diệt Slime Suốt 300 Năm, Tôi Levelmax Lúc Nào Chẳng Hay (NXB Thế Giới)',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/27/15/diet-slime-suot-300-nam-toi-levelmax-luc-nao-chang-hay-nxb-the-gioi.jpg',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2169729, 'slug' => 'chapter-68-den-hon-dao-khong-nguoi', 'name' => 'Chapter #68: Đến hòn đảo không người', 'releasedAt' => '14 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'gto-fury-of-death-yamada',
-            'title' => 'GTO: Fury of Death Yamada',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/bd/f3/gto-fury-of-death-yamada.jpeg',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2169687, 'slug' => 'chapter-13', 'name' => 'Chapter 13', 'releasedAt' => '14 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'the-boys',
-            'title' => 'The Boys',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/a6/11/the-boys.jpeg',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2169654, 'slug' => 'chapter-29', 'name' => 'Chapter 29', 'releasedAt' => '14 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'one-piece',
-            'title' => 'One Piece',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/op/one-piece.jpg',
-            'avgVote' => 4.8,
-            'chapters' => [
-                ['id' => 2169650, 'slug' => 'chapter-1100', 'name' => 'Chapter 1100', 'releasedAt' => '1 ngày trước'],
-            ],
-        ],
-    ];
+    $otruyenService = new \App\Services\OTruyenService();
+    $data = $otruyenService->getOngoingMangas($page);
+    
+    if (!$data) {
+        abort(404, 'Không thể tải dữ liệu');
+    }
+    
+    $pagination = $data['pagination'] ?? [];
+    $totalPages = 1;
+    if (isset($pagination['totalItems']) && isset($pagination['totalItemsPerPage']) && $pagination['totalItemsPerPage'] > 0) {
+        $totalPages = (int)ceil($pagination['totalItems'] / $pagination['totalItemsPerPage']);
+    }
+    
+    $titlePage = $data['titlePage'] ?? 'Truyện đang phát hành';
     
     return view('new.index', [
-        'currentPage' => $currentPage,
+        'currentPage' => $page,
         'totalPages' => $totalPages,
-        'results' => $results,
+        'results' => $data['mangas'] ?? [],
+        'titlePage' => $titlePage,
     ]);
 })->name('new');
+
+// Trang thông tin
+Route::get('/trang/chinh-sach-bao-mat', function () {
+    return view('page.chinh-sach-bao-mat');
+})->name('page.privacy');
+
+Route::get('/trang/dieu-khoan-dich-vu', function () {
+    return view('page.dieu-khoan-dich-vu');
+})->name('page.terms');
+
+Route::get('/trang/tuyen-bo-mien-tru-trach-nhiem', function () {
+    return view('page.tuyen-bo-mien-tru-trach-nhiem');
+})->name('page.disclaimer');
+
+Route::get('/trang/ve-chung-toi', function () {
+    return view('page.ve-chung-toi');
+})->name('page.about');
+
+// Account routes
+Route::middleware('auth')->group(function () {
+    Route::put('/tai-khoan', function () {
+        $user = auth()->user();
+        
+        $request = request();
+        $name = $request->input('name');
+        $avatar = $request->input('avatar');
+        
+        if ($name) {
+            $user->name = $name;
+        }
+        if ($avatar) {
+            $user->avatar = $avatar;
+        }
+        $user->save();
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Cập nhật thông tin thành công',
+            'data' => [
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'avatar' => $user->avatar,
+                ]
+            ]
+        ]);
+    })->name('account.update');
+    
+    Route::post('/tai-khoan/upload-avatar', function () {
+        $request = request();
+        
+        if (!$request->hasFile('avatar')) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Không có file được upload'
+            ], 400);
+        }
+        
+        $file = $request->file('avatar');
+        
+        // Validate file
+        if (!$file->isValid()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'File không hợp lệ'
+            ], 400);
+        }
+        
+        // Validate image type
+        $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/jpg'];
+        if (!in_array($file->getMimeType(), $allowedMimes)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Chỉ chấp nhận file ảnh (jpg, png, gif)'
+            ], 400);
+        }
+        
+        // Store file
+        $path = $file->store('avatars', 'public');
+        $url = asset('storage/' . $path);
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Upload ảnh thành công',
+            'data' => [
+                'url' => $url,
+                'path' => $path
+            ]
+        ]);
+    })->name('account.upload-avatar');
+    
+    Route::post('/tai-khoan/clear-reading', function () {
+        $user = auth()->user();
+        $mangaId = request()->input('manga_id');
+        
+        if (!$mangaId) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Thiếu thông tin manga_id'
+            ], 400);
+        }
+        
+        \App\Models\MangaReadingHistory::where('user_id', $user->id)
+            ->where('manga_id', $mangaId)
+            ->delete();
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Xóa lịch sử đọc thành công'
+        ]);
+    })->name('account.clear-reading');
+});

@@ -31,8 +31,7 @@
                         <span><a class="dropdown-item" href="/the-loai/manga">Manga (Nhật)</a></span>
                         <span><a class="dropdown-item" href="/the-loai/manhua">Manhua (Trung)</a></span>
                         <span><a class="dropdown-item" href="/the-loai/manhwa">Manhwa (Hàn)</a></span>
-                        <span><a class="dropdown-item" href="/the-loai/marvel-comics">Marvel Comics (Mỹ)</a></span>
-                        <span><a class="dropdown-item" href="/the-loai/dc-comics">DC Comics (Mỹ)</a></span>
+                        <span><a class="dropdown-item" href="/genre/viet-nam">Việt Nam</a></span>
                     </div>
                 </li>
                 <li class="has-sub menu-tag">
@@ -40,18 +39,23 @@
                         <i class="icon-arrow-down-1"></i>
                     </a>
                     <div class="dropdown-menu">
-                        <span><a class="dropdown-item" href="/genre/hangtruyen">HangTruyen (471)</a></span>
-                        <span><a class="dropdown-item" href="/genre/action">Action (6028)</a></span>
-                        <span><a class="dropdown-item" href="/genre/romance">Romance (5931)</a></span>
-                        <span><a class="dropdown-item" href="/genre/comedy">Comedy (5548)</a></span>
-                        <span><a class="dropdown-item" href="/genre/fantasy">Fantasy (3983)</a></span>
-                        <span><a class="dropdown-item" href="/genre/drama">Drama (3644)</a></span>
-                        <span><a class="dropdown-item" href="/genre/adventure">Adventure (3114)</a></span>
-                        <span><a class="dropdown-item" href="/genre/ngon-tinh">Ngôn Tình (2790)</a></span>
-                        <span><a class="dropdown-item" href="/genre/school-life">School Life (2449)</a></span>
+                        @php
+                            $displayCategories = $categories->take(9);
+                        @endphp
+                        @if($displayCategories->count() > 0)
+                            @foreach($displayCategories as $category)
+                                <span><a class="dropdown-item" href="/genre/{{ $category->slug }}">{{ $category->name }}@if($category->manga_count > 0) ({{ number_format($category->manga_count) }})@endif</a></span>
+                            @endforeach
+                        @else
+                            <span><a class="dropdown-item" href="/genre/action">Action</a></span>
+                            <span><a class="dropdown-item" href="/genre/romance">Romance</a></span>
+                            <span><a class="dropdown-item" href="/genre/comedy">Comedy</a></span>
+                        @endif
                         <span><button class="view-all" onclick="viewAllTags()">Xem tất cả</button></span>
                         <div class="more-tags" style="display: none;">
-                            <!-- More tags sẽ được thêm sau -->
+                            @foreach($categories->skip(9) as $category)
+                                <span><a class="dropdown-item" href="/genre/{{ $category->slug }}">{{ $category->name }}@if($category->manga_count > 0) ({{ number_format($category->manga_count) }})@endif</a></span>
+                            @endforeach
                         </div>
                     </div>
                 </li>
@@ -119,10 +123,18 @@
                         <span id="username" class="d-none d-xl-block">Marriage Gray</span>
                     </button>
                     <div class="dropdown-menu" aria-labelledby="menuAccount">
-                        <span><a class="dropdown-item" href="/tai-khoan">Tài khoản</a></span>
-                        <span><a class="dropdown-item" href="/tai-khoan#reading">Truyện đang đọc</a></span>
-                        <span><a class="dropdown-item" href="/tai-khoan#following">Truyện đã lưu</a></span>
-                        <span><a id="logout" class="dropdown-item user-logout" href="#">Đăng xuất</a></span>
+                        <span>
+                            <a class="dropdown-item account-link" href="{{ route('account.index') }}">Tài khoản</a>
+                        </span>
+                        <span>
+                            <a class="dropdown-item account-link" href="{{ route('account.index') }}#reading">Truyện đang đọc</a>
+                        </span>
+                        <span>
+                            <a class="dropdown-item account-link" href="{{ route('account.index') }}#following">Truyện đã lưu</a>
+                        </span>
+                        <span>
+                            <a id="logout" class="dropdown-item user-logout" href="#">Đăng xuất</a>
+                        </span>
                     </div>
                 </div>
             </div>

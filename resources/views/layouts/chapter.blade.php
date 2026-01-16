@@ -58,11 +58,8 @@
     <script>
         async function getUser() {
             var response = await $.ajax({
-                type: 'POST',
-                xhrFields: {
-                    withCredentials: true
-                },
-                url: 'https://api.hangtruyen.vip/auth/user',
+                type: 'GET',
+                url: '/api/auth/user',
                 contentType: 'application/json',
             }).catch(() => {
                 console.log('getUser error');
@@ -76,31 +73,13 @@
         }
 
         async function refreshToken(newToken = false) {
-            var response = await $.ajax({
-                type: 'POST',
-                xhrFields: {
-                    withCredentials: true
-                },
-                url: 'https://api.hangtruyen.vip/auth/refresh-token',
-                contentType: 'application/json',
-            }).catch(() => {
-                console.log('refreshToken error');
-                return null;
-            });
-
-            if (response && response.status === 1) {
-                return response.user;
-            }
-            return null;
+            return await getUser();
         }
 
         async function logout(newToken = false) {
             await $.ajax({
                 type: 'POST',
-                xhrFields: {
-                    withCredentials: true
-                },
-                url: 'https://api.hangtruyen.vip/auth/logout',
+                url: '/api/auth/logout',
                 contentType: 'application/json',
                 error: function(data) {
                     console.log('logout error');
@@ -135,7 +114,6 @@
     <script src="{{ asset('js/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ asset('js/splide.min.js') }}"></script>
     <script>
-        // Check darkmode config
         function checkDarkModeConfig() {
             const lightMode = localStorage.getItem('lm');
             if (lightMode === 'true') {
@@ -192,9 +170,10 @@
                         <i class="icon-arrow-left"></i>
                     </button>
                 @endif
-                <div id="dd-chapters" class="dropdown">
+                <div id="dd-chapters" class="dropdown" data-value="{{ $chapterSlug ?? '' }}">
                     <a href="" class="dropdown-toggle" id="dropdownChaps" data-bs-toggle="dropdown" aria-expanded="false">
                         <span>{{ isset($chapterName) ? $chapterName : 'Chapter 13' }}</span>
+                        <sub>{{ isset($chapterName) ? $chapterName : 'Chapter 13' }}</sub>
                         <i class="icon-arrow-down-1"></i>
                     </a>
                     <div class="dropdown-menu" aria-labelledby="dropdownChaps">
@@ -204,25 +183,25 @@
                         </form>
                         <div class="list-chap">
                             @php
-                                $chapters = $chapters ?? [];
-                                $currentChapterSlug = $chapterSlug ?? 'chapter-13';
+                                $mangaChapters = $manga['chapters'] ?? [];
+                                $currentChapterSlug = $chapterSlug ?? '';
                             @endphp
-                            @if(count($chapters) > 0)
-                                @foreach($chapters as $chapter)
-                                    <span class="l-chapter">
-                                        <a class="dropdown-item" data-value="{{ $chapter['name'] }}" href="/truyen-tranh/{{ isset($mangaSlug) ? $mangaSlug : 'gto-fury-of-death-yamada' }}/{{ $chapter['slug'] }}" title="{{ $chapter['name'] }}">
-                                            {{ $chapter['name'] }}
+                            @if(count($mangaChapters) > 0)
+                                @foreach($mangaChapters as $chapter)
+                                    @php
+                                        $chapterDisplayName = 'Chapter ' . ($chapter['name'] ?? '');
+                                        $isActive = ($chapter['slug'] ?? '') === $currentChapterSlug;
+                                    @endphp
+                                    <span class="l-chapter {{ $isActive ? 'selected' : '' }}">
+                                        <a class="dropdown-item" data-value="{{ $chapter['name'] ?? '' }}" href="{{ route('manga.chapter', ['mangaSlug' => $mangaSlug ?? '', 'chapterSlug' => $chapter['slug'] ?? '']) }}" title="{{ $chapterDisplayName }}">
+                                            {{ $chapterDisplayName }}
                                         </a>
                                     </span>
                                 @endforeach
                             @else
-                                @for($i = 1; $i <= 20; $i++)
-                                    <span class="l-chapter">
-                                        <a class="dropdown-item" data-value="Chapter {{ $i }}" href="/truyen-tranh/{{ isset($mangaSlug) ? $mangaSlug : 'gto-fury-of-death-yamada' }}/chapter-{{ $i }}" title="Chapter {{ $i }}">
-                                            Chapter {{ $i }}
-                                        </a>
-                                    </span>
-                                @endfor
+                                <span class="l-chapter">
+                                    <span class="dropdown-item">Đang cập nhật danh sách chapter</span>
+                                </span>
                             @endif
                         </div>
                     </div>
@@ -378,16 +357,19 @@
 
     <!-- Comments Offcanvas -->
     <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasComment" aria-labelledby="offcanvasCommentLabel">
-        <div class="offcanvas-header">
-            <h5 class="offcanvas-title" id="offcanvasCommentLabel">Bình luận</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close">
-                <i class="icon-close-circle"></i>
-            </button>
-        </div>
-        <div class="offcanvas-body">
-            <div class="comments-section">
-                <p class="text-muted">Bình luận sẽ được hiển thị ở đây</p>
-            </div>
+        <div class="offcanvas-body" style="padding: 0; overflow-y: auto; height: 100vh;">
+            @if(isset($comments) && isset($mangaSlug))
+                @include('manga.components.comments', [
+                    'mangaSlug' => $mangaSlug ?? '',
+                    'comments' => $comments ?? collect(),
+                    'likedCommentIds' => $likedCommentIds ?? [],
+                    'commentsCount' => $commentsCount ?? 0,
+                ])
+            @else
+                <div class="comments-section">
+                    <p class="text-muted">Bình luận sẽ được hiển thị ở đây</p>
+                </div>
+            @endif
         </div>
     </div>
 
@@ -402,34 +384,46 @@
         if (typeof jQuery === 'undefined') {
             console.error('jQuery is not loaded');
         }
-        // Reading header toggle
         let lastScrollTop = 0;
         const readingHeader = document.getElementById('readingHeader');
         const readingHeaderBtn = document.getElementById('reading-header-btn');
+        let isHeaderExpanded = false;
         
         if (readingHeader && readingHeaderBtn) {
             window.addEventListener('scroll', function() {
                 const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
                 
+                if (isHeaderExpanded) {
+                    return;
+                }
+                
                 if (scrollTop > lastScrollTop && scrollTop > 100) {
-                    // Scrolling down
                     readingHeader.style.top = '-100%';
                     readingHeaderBtn.style.opacity = '1';
                     readingHeaderBtn.style.visibility = 'visible';
-                } else {
-                    // Scrolling up
+                } else if (scrollTop < lastScrollTop) {
                     readingHeader.style.top = '0';
                     readingHeaderBtn.style.opacity = '0';
                     readingHeaderBtn.style.visibility = 'hidden';
                 }
                 
-                lastScrollTop = scrollTop;
+                lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
             });
             
             readingHeaderBtn.addEventListener('click', function() {
+                isHeaderExpanded = !isHeaderExpanded;
                 readingHeader.classList.toggle('expanded');
-                if (readingHeader.classList.contains('expanded')) {
+                if (isHeaderExpanded) {
                     readingHeader.style.top = '0';
+                    readingHeaderBtn.style.opacity = '0';
+                    readingHeaderBtn.style.visibility = 'hidden';
+                } else {
+                    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                    if (scrollTop > 100) {
+                        readingHeader.style.top = '-100%';
+                        readingHeaderBtn.style.opacity = '1';
+                        readingHeaderBtn.style.visibility = 'visible';
+                    }
                 }
             });
         }

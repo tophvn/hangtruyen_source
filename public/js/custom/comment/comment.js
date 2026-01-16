@@ -1,6 +1,6 @@
 var listCommentsElem = $('.list-comments');
 var templateCommentElem = $('.template-comment').children();
-$(document).on(
+$(document).off('click', '.btn-cmt').on(
     'click',
     '.btn-cmt',
     debounce(async function () {
@@ -25,7 +25,11 @@ $(document).on(
                 parentCommentId = parentCommentElem.attr('data-parent-id');
             }
 
-            $(this).addClass('disabled');
+            const $btn = $(this);
+            if ($btn.hasClass('processing')) {
+                return;
+            }
+            $btn.addClass('disabled processing');
 
             const response = await postComment(
                 mangaDetail.id,
@@ -34,21 +38,53 @@ $(document).on(
                 parentCommentId,
             );
 
+            $btn.removeClass('processing');
+
             if (response) {
                 const commentId = response.id;
-                const newComment = templateCommentElem.clone(true, true);
+                
+                // Kiểm tra xem comment đã tồn tại chưa (tránh duplicate)
+                if ($(`#cmt-${commentId}`).length > 0) {
+                    $btn.removeClass('disabled');
+                    return;
+                }
+                
+                const newComment = templateCommentElem.clone(false, true);
                 commentTextareaElem.val('');
                 newComment.attr('id', `cmt-${commentId}`);
+                newComment.attr('data-parent-id', commentId);
+                
                 newComment.find('.user-name').text(user.name);
+                
+                const avatarElem = newComment.find('.user-avatar-img');
                 if (user.avatar) {
-                    newComment
-                        .find('.user-avatar-img')
+                    avatarElem
                         .text('')
-                        .css('background-image', `url(${user.avatar})`);
+                        .css('background-image', `url(${user.avatar})`)
+                        .css('background-size', 'cover')
+                        .css('background-position', 'center')
+                        .css('background-repeat', 'no-repeat')
+                        .css('background-color', '#787978');
+                } else {
+                    const firstLetter = user.name ? user.name[0].toUpperCase() : '?';
+                    avatarElem
+                        .text(firstLetter)
+                        .css('background-color', '#787978')
+                        .css('background-image', '');
                 }
+                avatarElem.attr('data-name', user.name);
 
                 newComment.find('.ibody').children('p').text(response.content);
-                // newComment.find('#avatar-temp-hs').attr('data-name', user.name);
+                newComment.find('.time').text(response.created_at || 'Vừa xong');
+                newComment.find('.value').text(response.likes_count || 0);
+                
+                // Add chapter link if exists
+                if (response.chapter) {
+                    const chapterLink = $(`<a href="/truyen-tranh/${mangaDetail.rawSlug}/${response.chapter.slug}" class="link-cmt-chap">Chapter ${response.chapter.name}</a>`);
+                    const ihead = newComment.find('.ihead');
+                    const timeElem = newComment.find('.time');
+                    timeElem.before(chapterLink);
+                }
 
                 if (parentCommentId) {
                     newComment.attr('data-parent-id', parentCommentId);
@@ -57,23 +93,63 @@ $(document).on(
                         repliesElem
                             .children('.replies-wrap')
                             .append(newComment);
+                        
+                        // Update replies count
+                        const repMore = repliesElem.find('.rep-more');
+                        if (repMore.length) {
+                            const currentCount = parseInt(repMore.find('span').text().match(/\d+/)?.[0] || '0');
+                            repMore.find('span').html(`${currentCount + 1} ${currentCount + 1 === 1 ? 'câu trả lời' : 'câu trả lời'}`);
+                        } else {
+                            // Create replies section if doesn't exist
+                            const repliesHtml = `
+                                <div class="replies" id="block-reply-${parentCommentId}">
+                                    <div class="rep-more rep-in">
+                                        <a class="cm-btn-show-rep" data-bs-toggle="collapse" href="#collapseReply${parentCommentId}" role="button" aria-expanded="true" aria-controls="collapseReply${parentCommentId}">
+                                            <ion-icon name="caret-down"></ion-icon><span>1 câu trả lời</span>
+                                        </a>
+                                    </div>
+                                    <div class="replies-wrap collapse show" id="collapseReply${parentCommentId}">
+                                    </div>
+                                </div>
+                            `;
+                            const repliesSection = $(repliesHtml);
+                            repliesSection.find('.replies-wrap').append(newComment);
+                            parentCommentElem.find('.ibottom').after(repliesSection);
+                        }
                     } else {
                         repliesElem = $('<div />')
                             .addClass('replies')
+                            .attr('id', `block-reply-${parentCommentId}`)
                             .append(
                                 $('<div />')
+                                    .addClass('rep-more rep-in')
+                                    .append(
+                                        $(`<a class="cm-btn-show-rep" data-bs-toggle="collapse" href="#collapseReply${parentCommentId}" role="button" aria-expanded="true" aria-controls="collapseReply${parentCommentId}">
+                                            <ion-icon name="caret-down"></ion-icon><span>1 câu trả lời</span>
+                                        </a>`)
+                                    ),
+                                $('<div />')
                                     .addClass('replies-wrap collapse show')
+                                    .attr('id', `collapseReply${parentCommentId}`)
                                     .append(newComment),
                             );
                         parentCommentElem.find('.ibottom').after(repliesElem);
                     }
                 } else {
-                    newComment.attr('data-parent-id', commentId);
                     listCommentsElem.prepend(newComment);
+                }
+                
+                // Update comment count
+                const countElem = $('.countComment');
+                if (countElem.length) {
+                    const currentCount = parseInt(countElem.text().match(/\d+/)?.[0] || '0');
+                    if (!parentCommentId) {
+                        countElem.text(`(${currentCount + 1})`);
+                    }
                 }
             }
 
-            $(this).removeClass('disabled');
+            $btn.removeClass('disabled');
         }
     }, 150),
 );
@@ -184,10 +260,16 @@ function handleAvaAuth() {
 }
 
 async function handleGetLikedCommentIds() {
+    // Đảm bảo mangaDetail đã được định nghĩa
+    const currentMangaDetail = window.mangaDetail || (typeof mangaDetail !== 'undefined' ? mangaDetail : null);
+    if (!currentMangaDetail || !currentMangaDetail.id) {
+        return;
+    }
+    
     const hasComment =
         document.querySelectorAll('.list-comments > .cmt-line').length > 0;
     if (hasComment) {
-        const likedCommentIds = await getLikedCommentIds(mangaDetail.id);
+        const likedCommentIds = await getLikedCommentIds(currentMangaDetail.id);
         document.querySelectorAll('.cm-btn-like').forEach((likeBtn) => {
             const commentId = likeBtn
                 .closest('.cmt-line')
@@ -204,7 +286,13 @@ handleCallbackCheckAuthIsDone(handleCheckLoginCommentInput);
 handleCallbackCheckAuthIsDone(() => addModalLogin($('a.btn-reply')));
 handleCallbackCheckAuthIsDone(() => addModalLogin($('.ib-like span')));
 handleCallbackCheckAuthIsDone(handleAvaAuth);
-handleCallbackCheckAuthIsDone(handleGetLikedCommentIds);
+
+// Đảm bảo mangaDetail đã được định nghĩa trước khi chạy callback
+$(document).ready(function() {
+    if ((typeof window.mangaDetail !== 'undefined' || typeof mangaDetail !== 'undefined') && typeof handleGetLikedCommentIds === 'function') {
+        handleCallbackCheckAuthIsDone(handleGetLikedCommentIds);
+    }
+});
 
 $('#content-comments').on('click', '.btn-reply', function (e) {
     e.preventDefault();

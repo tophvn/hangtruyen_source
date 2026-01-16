@@ -18,24 +18,27 @@
                 <div class="tl-update">Người đăng</div>
             </div>
             <div class="list-chapters">
-                <!-- Chapter 1 -->
-                <div class="l-chapter">
-                    <a href="/truyen-tranh/{{ $mangaSlug ?? 'gto-fury-of-death-yamada' }}/chapter-13" title="Chapter 13" data-cid="2169687" class="ll-chap">
-                        <img src="{{ asset('images/book.svg') }}" /> Chapter 13
-                    </a>
-                    <span class="ll-update">14 ngày trước</span>
-                    <span class="ll-update">12</span>
-                    <span class="ll-trans">Hang truyện</span>
-                </div>
-                <!-- Chapter 2 -->
-                <div class="l-chapter">
-                    <a href="/truyen-tranh/{{ $mangaSlug ?? 'gto-fury-of-death-yamada' }}/chapter-12" title="Chapter 12" data-cid="2169688" class="ll-chap">
-                        <img src="{{ asset('images/book.svg') }}" /> Chapter 12
-                    </a>
-                    <span class="ll-update">14 ngày trước</span>
-                    <span class="ll-update">4</span>
-                    <span class="ll-trans">Hang truyện</span>
-                </div>
+                @if(isset($manga['chapters']) && count($manga['chapters']) > 0)
+                    @foreach($manga['chapters'] as $chapter)
+                        @php
+                            $chapterUrl = route('manga.chapter', ['mangaSlug' => $mangaSlug, 'chapterSlug' => $chapter['slug']]);
+                            $chapterName = 'Chapter ' . ($chapter['name'] ?? '');
+                            $cv = (int)(($chapterViews[$chapter['slug']] ?? 0));
+                        @endphp
+                        <div class="l-chapter">
+                            <a href="{{ $chapterUrl }}" title="{{ $chapterName }}" class="ll-chap">
+                                <img src="{{ asset('images/book.svg') }}" /> {{ $chapterName }}
+                            </a>
+                            <span class="ll-update">Đang cập nhật</span>
+                            <span class="ll-update">{{ number_format($cv) }}</span>
+                            <span class="ll-trans">HangTruyen</span>
+                        </div>
+                    @endforeach
+                @else
+                    <div class="l-chapter">
+                        <span class="ll-chap">Đang cập nhật danh sách chapter</span>
+                    </div>
+                @endif
             </div>
         </div>
     </div>

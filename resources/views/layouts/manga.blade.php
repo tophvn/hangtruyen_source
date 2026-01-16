@@ -29,6 +29,7 @@
     <meta property="og:image" content="@yield('og:image', asset('images/logo-dark.png'))" />
 
     <meta http-equiv="content-language" content="vi" />
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
     <link rel="shortcut icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
     
@@ -50,6 +51,8 @@
         gtag('config', 'G-LYBKW914VZ');
     </script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="{{ asset('js/utils/cookie.js') }}"></script>
+    <script src="{{ asset('js/utils/common.js') }}"></script>
     @include('components.header-scripts')
 </head>
 
@@ -110,8 +113,6 @@
             }
         }
     </script>
-    <script src="{{ asset('js/utils/cookie.js') }}"></script>
-    <script src="{{ asset('js/utils/common.js') }}"></script>
     <script src="{{ asset('js/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ asset('js/splide.min.js') }}"></script>
     <script>

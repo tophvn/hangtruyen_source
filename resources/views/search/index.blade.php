@@ -22,15 +22,27 @@
         </div>
         <div class="row flex-lg-row-reverse">
             <div class="col-lg-4">
-                @include('search.components.sidebar-filter', ['keyword' => $keyword])
+                @include('search.components.sidebar-filter', [
+                    'keyword' => $keyword,
+                    'allTags' => $allTags ?? [],
+                    'tags' => $tags ?? [],
+                    'sort' => $sort ?? 'updated_at_desc',
+                ])
             </div>
             <div class="col-lg-8">
                 <div class="group-title">
                     <div class="only-title">
-                        <h1 class="m-title title">Kết quả tìm kiếm</h1>
-                        <h2 class="sub">Kết quả được lọc theo mong muốn của bạn</h2>
+                        @php
+                            $hasFilters = !empty($keyword) || (isset($tags) && count($tags) > 0) || (isset($categories) && count($categories) > 0) || (isset($sort) && $sort != 'updated_at_desc');
+                        @endphp
+                        <h1 class="m-title title">{{ $hasFilters ? 'Kết quả tìm kiếm' . ($keyword ? ': ' . $keyword : '') : 'Truyện mới nhất' }}</h1>
+                        <h2 class="sub">{{ $hasFilters ? 'Kết quả được lọc theo mong muốn của bạn' : 'Danh sách 10 truyện mới cập nhật' }}</h2>
                     </div>
-                    <span>Có <strong class="color">{{ number_format($totalResults) }}</strong> kết quả liên quan</span>
+                    @if($hasFilters)
+                        <span>Có <strong class="color">{{ number_format($totalResults) }}</strong> kết quả liên quan</span>
+                    @else
+                        <span>Có <strong class="color">{{ number_format($totalResults) }}</strong> truyện trong hệ thống</span>
+                    @endif
                 </div>
 
                 <div class="search-result">
@@ -89,10 +101,26 @@
                     </div>
 
                     @if($totalPages > 1)
+                        @php
+                            $queryParams = [];
+                            if ($keyword) {
+                                $queryParams['keyword'] = $keyword;
+                            }
+                            if (isset($sort) && $sort) {
+                                $queryParams['sort'] = $sort;
+                            }
+                            if (isset($categories) && is_array($categories) && count($categories) > 0) {
+                                $queryParams['categories'] = implode(',', $categories);
+                            }
+                            if (isset($tags) && is_array($tags) && count($tags) > 0) {
+                                $queryParams['tags'] = implode(',', $tags);
+                            }
+                            $queryString = http_build_query($queryParams);
+                        @endphp
                         <ul class="pagination" data-count-page="{{ $totalPages }}">
                             @if($currentPage > 1)
                                 <li data-page="0">
-                                    <a class="prev-page" href="{{ url('/tim-kiem') }}?page={{ $currentPage - 1 }}{{ $keyword ? '&keyword=' . urlencode($keyword) : '' }}" title="Chuyển đến trang {{ $currentPage - 1 }}" data-page="{{ $currentPage - 1 }}">
+                                    <a class="prev-page" href="{{ url('/tim-kiem') }}?page={{ $currentPage - 1 }}{{ $queryString ? '&' . $queryString : '' }}" title="Chuyển đến trang {{ $currentPage - 1 }}" data-page="{{ $currentPage - 1 }}">
                                         <i class="icon-arrow-left"></i>
                                     </a>
                                 </li>
@@ -112,13 +140,13 @@
 
                             @for($i = $startPage; $i <= $endPage; $i++)
                                 <li class="{{ $i == $currentPage ? 'active' : 'false' }}" data-page="{{ $i }}">
-                                    <a href="{{ url('/tim-kiem') }}?page={{ $i }}{{ $keyword ? '&keyword=' . urlencode($keyword) : '' }}" data-page="{{ $i }}">{{ $i }}</a>
+                                    <a href="{{ url('/tim-kiem') }}?page={{ $i }}{{ $queryString ? '&' . $queryString : '' }}" data-page="{{ $i }}">{{ $i }}</a>
                                 </li>
                             @endfor
 
                             @if($currentPage < $totalPages)
                                 <li data-page="0">
-                                    <a class="next-page" href="{{ url('/tim-kiem') }}?page={{ $currentPage + 1 }}{{ $keyword ? '&keyword=' . urlencode($keyword) : '' }}" title="Chuyển đến trang {{ $currentPage + 1 }}" data-page="{{ $currentPage + 1 }}">
+                                    <a class="next-page" href="{{ url('/tim-kiem') }}?page={{ $currentPage + 1 }}{{ $queryString ? '&' . $queryString : '' }}" title="Chuyển đến trang {{ $currentPage + 1 }}" data-page="{{ $currentPage + 1 }}">
                                         <i class="icon-arrow-right"></i>
                                     </a>
                                 </li>
@@ -132,12 +160,13 @@
 </div>
 
 @push('scripts')
+<script src="{{ asset('js/custom/search-advanced/index.js') }}"></script>
 <script>
     $(document).ready(function() {
         // Toggle hiển thị tags khi bấm "Xem tất cả"
         $('#view-all-tags').on('click', function(e) {
             e.preventDefault();
-            const $hiddenTags = $('.list-genres .d-none');
+            const $hiddenTags = $('.list-genres .tag-item.d-none');
             const $link = $(this);
             
             if ($hiddenTags.length > 0) {
@@ -145,14 +174,205 @@
                 $hiddenTags.removeClass('d-none');
                 $link.text('Ẩn bớt');
             } else {
-                // Ẩn lại các tags (trừ 2 tags đầu tiên)
-                $('.list-genres span').each(function(index) {
-                    if (index >= 2) {
+                // Ẩn lại các tags (trừ 23 tags đầu tiên)
+                $('.list-genres .tag-item').each(function(index) {
+                    if (index >= 23) {
                         $(this).addClass('d-none');
                     }
                 });
                 $link.text('Xem tất cả');
             }
+        });
+        
+        // Handle tag click - ensure it works even if custom.js runs
+        // Use both jQuery and native DOM to ensure compatibility
+        function bindTagClickHandlers() {
+            // Remove any existing handlers first
+            $('.list-genres span.tag-item').off('click.tagClick');
+            
+            // Bind with namespace
+            $('.list-genres span.tag-item').on('click.tagClick', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                
+                const $tag = $(this);
+                const element = this;
+                
+                // Toggle using both methods
+                $tag.toggleClass('active');
+                element.classList.toggle('active');
+                
+                return false;
+            });
+        }
+        
+        // Bind immediately
+        bindTagClickHandlers();
+        
+        // Re-bind after a delay to ensure it works even if custom.js runs later
+        setTimeout(bindTagClickHandlers, 1000);
+        
+        // Handle category checkbox
+        $('.list-cats input[type="checkbox"]').on('change', function() {
+            if ($(this).hasClass('checkbox-all')) {
+                if ($(this).is(':checked')) {
+                    $('.list-cats input[type="checkbox"]').not('.checkbox-all').prop('checked', false);
+                }
+            } else {
+                $('.list-cats .checkbox-all').prop('checked', false);
+            }
+        });
+        
+        // Handle sort dropdown
+        $('#dd-sort .dropdown-item').on('click', function(e) {
+            e.preventDefault();
+            const sortValue = $(this).data('value');
+            $('#dd-sort .dropdown-toggle span').text($(this).text());
+            $('#dd-sort').attr('data-value', sortValue);
+        });
+        
+        // Set current sort value
+        @if(isset($sort) && $sort)
+            const currentSort = '{{ $sort }}';
+            let sortFound = false;
+            $('#dd-sort .dropdown-item').each(function() {
+                if ($(this).data('value') === currentSort) {
+                    $('#dd-sort .dropdown-toggle span').text($(this).text());
+                    $('#dd-sort').attr('data-value', currentSort);
+                    sortFound = true;
+                }
+            });
+            if (!sortFound) {
+                $('#dd-sort').attr('data-value', 'updated_at_desc');
+            }
+        @else
+            $('#dd-sort').attr('data-value', 'updated_at_desc');
+        @endif
+        
+        // Set selected tags from URL (like original search-advanced/index.js)
+        // Only set from URL, don't remove user-selected tags
+        function setActiveTagsFromURL() {
+            const url = new URL(window.location.href);
+            const chosenGenreIds = url.searchParams.get('genreIds') ? url.searchParams.get('genreIds').split(',').map(id => id.trim()).filter(id => id) : [];
+            const chosenTags = url.searchParams.get('tags') ? url.searchParams.get('tags').split(',').map(id => id.trim()).filter(id => id) : [];
+            const allChosenTags = [...chosenGenreIds, ...chosenTags];
+            
+            if (allChosenTags.length === 0) {
+                // No tags in URL, don't modify anything (let user click to select)
+                return;
+            }
+            
+            // Remove all active classes first, but preserve user-selected ones
+            $('.list-genres span').each(function() {
+                const tagId = $(this).attr('data-value');
+                if (!userSelectedTags.has(tagId)) {
+                    $(this).removeClass('active');
+                }
+            });
+            
+            // Set active tags (like original code)
+            const genreElements = $('.list-genres span');
+            
+            for (let i = 0; i < genreElements.length; i++) {
+                const $element = $(genreElements[i]);
+                const genreId = $element.attr('data-value');
+                
+                // Check if this tag should be active
+                if (genreId) {
+                    // Try both string and number comparison (loose equality)
+                    const isActive = allChosenTags.some(tagId => {
+                        // Convert both to strings for comparison
+                        const genreIdStr = String(genreId).trim();
+                        const tagIdStr = String(tagId).trim();
+                        return genreIdStr === tagIdStr || genreId == tagId;
+                    });
+                    
+                    if (isActive) {
+                        $element.addClass('active');
+                    }
+                }
+            }
+            
+            // Also support tags from server-side (backward compatibility)
+            @if(isset($tags) && is_array($tags) && count($tags) > 0)
+                const serverTags = @json($tags);
+                for (let i = 0; i < genreElements.length; i++) {
+                    const $element = $(genreElements[i]);
+                    const genreId = $element.attr('data-value');
+                    if (genreId) {
+                        const isActive = serverTags.some(tagId => {
+                            return genreId == tagId || genreId === tagId || String(genreId) === String(tagId);
+                        });
+                        if (isActive) {
+                            $element.addClass('active');
+                        }
+                    }
+                }
+            @endif
+        }
+        
+        // Call only once when page loads (to set from URL)
+        setActiveTagsFromURL();
+        
+        // Handle filter submit
+        $('#btn-filter-submit').on('click', function(e) {
+            e.preventDefault();
+            
+            const keyword = $('.form-search input[name="keyword"]').val();
+            const sort = $('#dd-sort').attr('data-value') || 'updated_at_desc';
+            const selectedCategories = [];
+            const selectedTags = [];
+            
+            // Get selected categories
+            $('.list-cats input[type="checkbox"]:checked').not('.checkbox-all').each(function() {
+                selectedCategories.push($(this).val());
+            });
+            
+            // Get selected tags
+            $('.list-genres span.active').each(function() {
+                selectedTags.push($(this).data('value'));
+            });
+            
+            // Build URL using URLSearchParams (like original code)
+            const url = new URL(window.location.origin + '/tim-kiem');
+            
+            if (keyword) {
+                url.searchParams.set('keyword', keyword);
+            } else {
+                url.searchParams.delete('keyword');
+            }
+            
+            if (sort) {
+                url.searchParams.set('orderBy', sort);
+                url.searchParams.set('sort', sort); // Also set sort for backward compatibility
+            } else {
+                url.searchParams.delete('orderBy');
+                url.searchParams.delete('sort');
+            }
+            
+            if (selectedCategories.length > 0) {
+                url.searchParams.set('categoryIds', selectedCategories.filter(c => !isNaN(c)).join(','));
+            } else {
+                url.searchParams.delete('categoryIds');
+            }
+            
+            if (selectedTags.length > 0) {
+                url.searchParams.set('genreIds', selectedTags.join(','));
+            } else {
+                url.searchParams.delete('genreIds');
+            }
+            
+            // Reset to page 1 when filtering
+            url.searchParams.set('page', '1');
+            
+            window.location.href = url.href;
+        });
+        
+        // Handle form search submit
+        $('.form-search').on('submit', function(e) {
+            e.preventDefault();
+            $('#btn-filter-submit').click();
         });
     });
 </script>

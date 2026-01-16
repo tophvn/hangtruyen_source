@@ -1,4 +1,3 @@
-@php($demoMangaUrl = route('manga.detail', ['slug' => 'gto-fury-of-death-yamada']))
 <section class="container">
     <div class="row">
         <div class="col-12 col-xl-3">
@@ -11,61 +10,58 @@
                 <h3 class="title">Bình luận mới nhất</h3>
                 <div class="splide__track">
                     <ul class="splide__list">
-                        <!-- Bình luận 1 -->
-                        <li class="splide__slide">
-                            <div class="tc-item">
-                                <div class="tc-v">
-                                    <div class="tc-header">
-                                        <div class="user-avatar"><img alt="" rel="nofollow" src="{{ asset('images/avatars/type3/8.png') }}" /></div>
-                                        <div class="info">
-                                            <div class="user-name">GunGoo </div>
-                                            <span class="tc-time">3 giờ trước</span>
+                        @forelse($topComments ?? [] as $comment)
+                            @php
+                                $mangaUrl = $comment['manga']['slug'] 
+                                    ? route('manga.detail', ['slug' => $comment['manga']['slug']])
+                                    : '#';
+                                $commentUrl = $mangaUrl . '#cmt-' . $comment['id'];
+                                $timeAgo = formatVietnameseTime($comment['created_at']);
+                            @endphp
+                            <li class="splide__slide">
+                                <div class="tc-item">
+                                    <div class="tc-v">
+                                        <div class="tc-header">
+                                            <div class="user-avatar">
+                                                <img alt="{{ $comment['user']['name'] }}" 
+                                                     rel="nofollow" 
+                                                     src="{{ $comment['user']['avatar'] }}" />
+                                            </div>
+                                            <div class="info">
+                                                <div class="user-name">{{ $comment['user']['name'] }}</div>
+                                                <span class="tc-time">{{ $timeAgo }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="tc-thumb">
+                                            <a class="tc-thumbnail" 
+                                               title="{{ $comment['manga']['title'] }}" 
+                                               href="{{ $mangaUrl }}">
+                                                <img class="lzl" 
+                                                     data-src="{{ $comment['manga']['cover_url'] }}" 
+                                                     rel="nofollow"
+                                                     alt="{{ $comment['manga']['title'] }}" 
+                                                     src="{{ asset('images/pre-load1.png') }}" 
+                                                     width="100%" 
+                                                     height="100%">
+                                            </a>
                                         </div>
                                     </div>
-                                    <div class="tc-thumb">
-                                        <a class="tc-thumbnail" title="" href="{{ $demoMangaUrl }}">
-                                            <img class="lzl" data-src="https://img.htrcdn.com/fast/0x150/oss.cdnfastest.com/90htr/posters/01/c5/hoan-doi-dieu-ky.png" rel="nofollow"
-                                                alt="Hoán Đổi Diệu Kỳ" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
-                                        </a>
+                                    <div class="cmt-description">
+                                        {{ Str::limit($comment['content'], 100) }}
                                     </div>
-                                </div>
-                                <div class="cmt-description">
-                                    A Jay ở sạch quá r=)))) a Vasco mà bt Dan đớp 1 đóng calo chắc tức xỉu:))))
-                                </div>
-                                <div class="tc-footer">
-                                    <a href="{{ $demoMangaUrl }}" class="tc-name">Hoán Đổi Diệu Kỳ</a>
-                                </div>
-                                <a class="tc-link" href="{{ $demoMangaUrl }}#cmt-3744"></a>
-                            </div>
-                        </li>
-
-                        <!-- Bình luận 2 -->
-                        <li class="splide__slide">
-                            <div class="tc-item">
-                                <div class="tc-v">
-                                    <div class="tc-header">
-                                        <div class="user-avatar"><img alt="" rel="nofollow" src="{{ asset('images/avatars/type2/3.png') }}" /></div>
-                                        <div class="info">
-                                            <div class="user-name">tuongvinhbaolong</div>
-                                            <span class="tc-time">21 giờ trước</span>
-                                        </div>
+                                    <div class="tc-footer">
+                                        <a href="{{ $mangaUrl }}" class="tc-name">{{ $comment['manga']['title'] }}</a>
                                     </div>
-                                    <div class="tc-thumb">
-                                        <a class="tc-thumbnail" title="" href="{{ $demoMangaUrl }}">
-                                            <img class="lzl" data-src="https://img.htrcdn.com/fast/0x150/oss.cdnfastest.com/90htr/posters/5f/cf/blue-lock.jpg" rel="nofollow"
-                                                alt="Blue Lock" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
-                                        </a>
-                                    </div>
+                                    <a class="tc-link" href="{{ $commentUrl }}"></a>
                                 </div>
-                                <div class="cmt-description">
-                                    quá ảo
+                            </li>
+                        @empty
+                            <li class="splide__slide">
+                                <div class="tc-item">
+                                    <p class="text-center p-3">Chưa có bình luận nào</p>
                                 </div>
-                                <div class="tc-footer">
-                                    <a href="{{ $demoMangaUrl }}" class="tc-name">Blue Lock</a>
-                                </div>
-                                <a class="tc-link" href="{{ $demoMangaUrl }}#cmt-3739"></a>
-                            </div>
-                        </li>
+                            </li>
+                        @endforelse
                     </ul>
                 </div>
             </div>

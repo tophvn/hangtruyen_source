@@ -53,11 +53,25 @@ submitButtonElem.on('click', async function (e) {
         return;
     }
 
-    const response = await postReport(mangaDetail.id, reasons);
+    const currentMangaDetail = window.mangaDetail || (typeof mangaDetail !== 'undefined' ? mangaDetail : null);
+    if (!currentMangaDetail || !currentMangaDetail.id) {
+        alert('Không thể xác định truyện để báo cáo');
+        return;
+    }
 
-    if (response) {
-        alertNoti(
-            'Cảm ơn bạn đã báo cáo. Chúng tôi sẽ fix trong thời gian sớm nhất',
-        );
+    const response = await postReport(currentMangaDetail.id, reasons);
+
+    if (response && response.status === 'success') {
+        const message = response.message || 'Cảm ơn bạn đã báo cáo. Chúng tôi sẽ xem xét và xử lý sớm nhất có thể.';
+        
+        if (typeof alertNoti === 'function') {
+            alertNoti(message);
+        } else {
+            alert(message);
+        }
+        
+        reportModalElem.modal('hide');
+        formReasonsReportElem.find('input[type="checkbox"]').prop('checked', false);
+        formReasonsReportElem.find('textarea').val('');
     }
 });

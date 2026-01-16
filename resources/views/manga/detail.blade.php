@@ -1,18 +1,18 @@
 @extends('layouts.manga')
 
-@section('title', 'Truyện tranh ' . ($mangaTitle ?? 'GTO: Fury of Death Yamada') . ' mới nhất miễn phí - HangTruyen')
-@section('description', 'Đọc ' . ($mangaTitle ?? 'GTO: Fury of Death Yamada') . ' mới update full miễn phí tại HangTruyen cập nhật chương nhanh nhất')
-@section('keywords', ($mangaTitle ?? 'GTO: Fury of Death Yamada') . ' truyện tranh, ' . ($mangaTitle ?? 'GTO: Fury of Death Yamada') . ' full, đọc truyện tranh ' . ($mangaTitle ?? 'GTO: Fury of Death Yamada') . ' online')
-@section('canonical', url('/truyen-tranh/' . ($mangaSlug ?? 'gto-fury-of-death-yamada')))
-@section('og:url', url('/truyen-tranh/' . ($mangaSlug ?? 'gto-fury-of-death-yamada')))
-@section('og:title', 'Truyện tranh ' . ($mangaTitle ?? 'GTO: Fury of Death Yamada') . ' mới nhất miễn phí - HangTruyen')
-@section('og:description', 'Đọc ' . ($mangaTitle ?? 'GTO: Fury of Death Yamada') . ' mới update full miễn phí tại HangTruyen cập nhật chương nhanh nhất')
+@section('title', 'Truyện tranh ' . ($manga['name'] ?? 'Đang cập nhật') . ' mới nhất miễn phí - HangTruyen')
+@section('description', 'Đọc ' . ($manga['name'] ?? 'Đang cập nhật') . ' mới update full miễn phí tại HangTruyen cập nhật chương nhanh nhất')
+@section('keywords', ($manga['name'] ?? 'Đang cập nhật') . ' truyện tranh, ' . ($manga['name'] ?? 'Đang cập nhật') . ' full, đọc truyện tranh ' . ($manga['name'] ?? 'Đang cập nhật') . ' online')
+@section('canonical', url('/truyen-tranh/' . ($mangaSlug ?? '')))
+@section('og:url', url('/truyen-tranh/' . ($mangaSlug ?? '')))
+@section('og:title', 'Truyện tranh ' . ($manga['name'] ?? 'Đang cập nhật') . ' mới nhất miễn phí - HangTruyen')
+@section('og:description', 'Đọc ' . ($manga['name'] ?? 'Đang cập nhật') . ' mới update full miễn phí tại HangTruyen cập nhật chương nhanh nhất')
 
 @section('content')
 <div class="container">
         @include('manga.components.breadcrumb', [
-            'mangaTitle' => $mangaTitle ?? 'GTO: Fury of Death Yamada',
-            'mangaSlug' => $mangaSlug ?? 'gto-fury-of-death-yamada'
+            'mangaTitle' => $manga['name'] ?? 'Đang cập nhật',
+            'mangaSlug' => $mangaSlug ?? ''
         ])
         
         @include('manga.components.manga-detail')
@@ -29,186 +29,330 @@
         </div>
     </div>
 
-    <!-- Tracking pixel to count view -->
-    <img src="https://api.hangtruyen.vip/tracking/manga?mangaId=1277938" alt="" width="1" height="1" style="display:none;" />
-
     @include('manga.components.modals')
 @endsection
 
 @push('scripts')
 <script>
-    var userVote = null;
-    const mangaDetail = {
-        "id": 1277938,
-        "title": "GTO: Fury of Death Yamada",
-        "slug": "/truyen-tranh/gto-fury-of-death-yamada",
-        "avgVote": 0,
-        "posterPath": "https://prvhtr.mgbucket.xyz/posters/bd/f3/gto-fury-of-death-yamada.jpeg",
-        "overview": "<p><span style=\"font-size: 16px\">Bộ phim kể về Phó Hiệu trưởng Hiroshi Uchiyamada, người vô tình lạc vào một cơn ác mộng xuyên không gian sau khi đến Kabukicho để tìm kiếm nữ sinh mất tích Nanami.</span></p>",
-        "countView": 284,
-        "categoryId": 1,
-        "status": 0,
-        "author": "Tohru Fujisawa",
-        "sourceAllView": 0,
-        "sourceFollow": 0,
-        "recentlyUpdatedAt": "2026-01-01T17:29:25.000Z",
-        "isWebtoon": false,
-        "isIndexing": 1,
-        "genres": [
-            {"name": "School Life", "slug": "school-life", "id": 28},
-            {"name": "Comedy", "slug": "comedy", "id": 98},
-            {"name": "Romance", "slug": "romance", "id": 101},
-            {"name": "Action", "slug": "action", "id": 97},
-            {"name": "HangTruyen", "slug": "hangtruyen", "id": 238}
-        ],
-        "chapters": [
-            {"id": 2169687, "name": "Chapter 13", "index": 13, "slug": "chapter-13", "countView": 12, "releasedAt": "2026-01-01T17:26:40.000Z", "translators": []},
-            {"id": 2169688, "name": "Chapter 12", "index": 12, "slug": "chapter-12", "countView": 4, "releasedAt": "2026-01-01T17:27:02.000Z", "translators": []}
-        ],
-        "category": {"id": 1, "name": "Manga", "slug": "manga"},
-        "rawSlug": "gto-fury-of-death-yamada",
-        "sourceAllViewString": "284",
+    window.userVote = {{ $userRating ? $userRating : 'null' }};
+    var userVote = window.userVote;
+    @php
+        $chaptersForJs = [];
+        foreach ($manga['chapters'] ?? [] as $ch) {
+            $chaptersForJs[] = [
+                'id' => null,
+                'name' => 'Chapter ' . $ch['name'],
+                'index' => preg_match('/^(\d+)/', $ch['name'], $m) ? (float)$m[1] : 0,
+                'slug' => $ch['slug'],
+                'countView' => $chapterViews[$ch['slug']] ?? 0,
+                'releasedAt' => null,
+                'translators' => []
+            ];
+        }
+    @endphp
+    @php
+        $mangaId = $mangaMetadata && $mangaMetadata->id ? $mangaMetadata->id : null;
+    @endphp
+    @if($mangaId)
+    window.mangaDetail = {
+        "id": {{ $mangaId }},
+            "title": {!! json_encode($manga['name'] ?? 'Đang cập nhật') !!},
+            "slug": "/truyen-tranh/{{ $mangaSlug }}",
+            "avgVote": {{ $avgRating ?? 0 }},
+            "posterPath": {!! json_encode($manga['cover_url'] ?? '') !!},
+            "overview": {!! json_encode($manga['description'] ?? 'Đang cập nhật') !!},
+            "countView": 0,
+            "categoryId": {{ isset($manga['type']['id']) && $manga['type']['id'] ? (int)$manga['type']['id'] : 'null' }},
+            "status": 0,
+            "author": {!! json_encode(is_array($manga['author'] ?? []) ? implode(', ', $manga['author']) : ($manga['author'] ?? 'Đang cập nhật')) !!},
+            "sourceAllView": 0,
+            "sourceFollow": {{ $followsCount ?? 0 }},
+            "isFollowing": {{ ($isFollowing ?? false) ? 'true' : 'false' }},
+            "recentlyUpdatedAt": {!! json_encode($manga['updated_at'] ?? '') !!},
+            "isWebtoon": false,
+            "isIndexing": 1,
+            "genres": {!! json_encode($manga['tags'] ?? []) !!},
+            "chapters": {!! json_encode($chaptersForJs) !!},
+            "category": {!! json_encode($manga['type'] ?? null) !!},
+            "rawSlug": {!! json_encode($mangaSlug) !!},
+        "sourceAllViewString": "0",
         "sourceFollowString": "0"
     };
+    const mangaDetail = window.mangaDetail;
     const chapterDetail = null;
+    @else
+    window.mangaDetail = null;
+    @endif
+    
+    // Check if URL has comment fragment and verify it belongs to current manga
+    (function() {
+        const hash = window.location.hash;
+        const commentMatch = hash.match(/cmt-(\d+)/);
+        if (commentMatch && window.mangaDetail && window.mangaDetail.id) {
+            const commentId = parseInt(commentMatch[1]);
+            // Fetch comment info to verify it belongs to current manga
+            fetch('/api/comment/' + commentId + '/manga-id')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data && data.manga_id) {
+                        if (data.manga_id !== window.mangaDetail.id) {
+                            // Comment belongs to different manga, redirect to correct manga
+                            if (data.manga_slug) {
+                                window.location.replace('/truyen-tranh/' + data.manga_slug + hash);
+                                return;
+                            }
+                        }
+                    }
+                    // If comment belongs to current manga, scroll to it
+                    setTimeout(() => {
+                        const commentElement = document.getElementById('cmt-' + commentId);
+                        if (commentElement) {
+                            commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }, 100);
+                })
+                .catch(error => {
+                    console.error('Error checking comment:', error);
+                    // If API fails, try to check from DOM
+                    setTimeout(() => {
+                        const commentElement = document.getElementById('cmt-' + commentId);
+                        if (!commentElement) {
+                            // Comment not found on this page, might be wrong manga
+                            console.warn('Comment #' + commentId + ' not found on current page');
+                        } else {
+                            commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }, 500);
+                });
+        } else if (hash && hash.match(/cmt-(\d+)/)) {
+            // If we have a comment hash but no mangaDetail, try to get comment's manga
+            const commentMatch = hash.match(/cmt-(\d+)/);
+            if (commentMatch) {
+                const commentId = parseInt(commentMatch[1]);
+                fetch('/api/comment/' + commentId + '/manga-id')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data && data.manga_slug) {
+                            window.location.replace('/truyen-tranh/' + data.manga_slug + hash);
+                        }
+                    })
+                    .catch(() => {});
+            }
+        }
+    })();
 </script>
 
 <script>
     async function postComment(mangaId, chapterId, content, parentCommentId) {
-        const response = await $.ajax({
-            type: 'POST',
-            xhrFields: { withCredentials: true },
-            url: 'https://api.hangtruyen.vip/comments' + (!!parentCommentId ? `/${parentCommentId}/reply` : ''),
-            contentType: 'application/json',
-            data: JSON.stringify({ mangaId, chapterId, content }),
-            dataType: 'json',
-        }).catch(() => {
-            return null;
-        });
+        try {
+            const response = await $.ajax({
+                type: 'POST',
+                url: '/truyen-tranh/{{ $mangaSlug }}/comments',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                data: {
+                    content: content,
+                    chapter_id: chapterId,
+                    parent_id: parentCommentId,
+                },
+                dataType: 'json',
+            });
 
-        if (response && response.status === 200) {
-            return response.data;
+            if (response && response.status === 'success') {
+                return response.data;
+            }
+            return null;
+        } catch (error) {
+            if (error.responseJSON && error.responseJSON.message) {
+                alert(error.responseJSON.message);
+            } else if (error.status === 401) {
+                alert('Vui lòng đăng nhập để bình luận');
+            } else {
+                alert('Có lỗi xảy ra khi đăng bình luận. Vui lòng thử lại.');
+            }
+            return null;
         }
-        return null;
     }
 
     async function getComment(mangaId, chapterId, page, pageSize, orderBy) {
-        const url = new URL('https://api.hangtruyen.vip/comments');
-        url.searchParams.append('mangaId', mangaId);
-        if (chapterId) {
-            url.searchParams.append('chapterId', chapterId);
-        }
-        if (page) {
-            url.searchParams.append('page', page);
-        }
-        if (pageSize) {
-            url.searchParams.append('pageSize', pageSize);
-        }
-        if (orderBy) {
-            url.searchParams.append('orderBy[]', orderBy);
-        }
+        try {
+            const response = await $.ajax({
+                type: 'GET',
+                url: '/truyen-tranh/{{ $mangaSlug }}/comments',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                data: {
+                    chapter_id: chapterId,
+                    page: page,
+                    order: orderBy || 'latest',
+                },
+                dataType: 'json',
+            });
 
-        const response = await $.ajax({
-            type: 'GET',
-            xhrFields: { withCredentials: true },
-            url: url.toString(),
-            contentType: 'application/json',
-        }).catch(() => {
-            return null;
-        });
-
-        if (response && response.status === 200) {
-            return response.data;
+            if (response && response.status === 'success') {
+                return response.data.html;
+            }
+            return '';
+        } catch (error) {
+            console.error('Error loading comments:', error);
+            return '';
         }
-        return null;
     }
 
     async function getLikedCommentIds(mangaId) {
-        const response = await $.ajax({
-            type: 'GET',
-            xhrFields: { withCredentials: true },
-            url: `https://api.hangtruyen.vip/comments/liked-comments?mangaId=${mangaId}`,
-            contentType: 'application/json',
-            dataType: 'json',
-        }).catch(() => {
-            return null;
-        });
+        try {
+            const response = await $.ajax({
+                type: 'GET',
+                url: '/truyen-tranh/{{ $mangaSlug }}/comments/liked-ids',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                dataType: 'json',
+            });
 
-        if (response && response.status === 200) {
-            return response.data;
+            if (response && response.status === 'success') {
+                return response.data;
+            }
+            return [];
+        } catch (error) {
+            return [];
         }
-        return [];
     }
 
     async function likeComment(commentId) {
-        const response = await $.ajax({
-            type: 'PATCH',
-            xhrFields: { withCredentials: true },
-            url: `https://api.hangtruyen.vip/comments/${commentId}/like`,
-            contentType: 'application/json',
-            dataType: 'json',
-        }).catch(() => {
-            return null;
-        });
+        try {
+            const response = await $.ajax({
+                type: 'POST',
+                url: '/truyen-tranh/{{ $mangaSlug }}/comments/' + commentId + '/like',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                data: {},
+                dataType: 'json',
+            });
 
-        if (response && response.status === 200) {
-            return response.data;
+            if (response && response.status === 'success') {
+                return response.data;
+            }
+            return null;
+        } catch (error) {
+            if (error.responseJSON && error.responseJSON.message) {
+                alert(error.responseJSON.message);
+            } else if (error.status === 401) {
+                alert('Vui lòng đăng nhập để thích bình luận');
+            } else {
+                alert('Có lỗi xảy ra. Vui lòng thử lại.');
+            }
+            return null;
         }
-        return null;
     }
 
     async function postReport(mangaId, reasons, chapterId) {
-        const response = await $.ajax({
-            type: 'POST',
-            xhrFields: { withCredentials: true },
-            url: chapterId
-                ? `https://api.hangtruyen.vip/mangas/${mangaId}/${chapterId}/report`
-                : `https://api.hangtruyen.vip/mangas/${mangaId}/report`,
-            contentType: 'application/json',
-            data: JSON.stringify({ reasons }),
-            dataType: 'json',
-        }).catch(() => {
-            return null;
-        });
+        try {
+            const content = Array.isArray(reasons) ? reasons.join('\n') : reasons;
+            
+            const response = await $.ajax({
+                type: 'POST',
+                url: '/truyen-tranh/{{ $mangaSlug }}/report',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                data: {
+                    content: content,
+                    chapter_slug: chapterId || null
+                },
+                dataType: 'json',
+            });
 
-        if (response && response.status === 200) {
-            return response.data;
+            if (response && response.status === 'success') {
+                return response;
+            }
+            return null;
+        } catch (error) {
+            if (error.responseJSON && error.responseJSON.message) {
+                alert(error.responseJSON.message);
+            } else {
+                alert('Có lỗi xảy ra khi gửi báo cáo. Vui lòng thử lại.');
+            }
+            return null;
         }
-        return null;
     }
 
     async function voteManga(mangaId, vote) {
-        const response = await $.ajax({
-            type: 'POST',
-            xhrFields: { withCredentials: true },
-            url: 'https://api.hangtruyen.vip/mangas/' + mangaId + '/vote',
-            contentType: 'application/json',
-            data: JSON.stringify({ vote }),
-            dataType: 'json',
-        }).catch(() => {
-            return null;
-        });
+        try {
+            const response = await $.ajax({
+                type: 'POST',
+                url: '/truyen-tranh/{{ $mangaSlug }}/vote',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                data: { 
+                    vote: vote
+                },
+                dataType: 'json',
+            });
 
-        if (response && response.status === 200) {
-            return response.data;
+            if (response && response.status === 'success') {
+                if (response.data && response.data.avgRating !== undefined) {
+                    const avgRating = parseFloat(response.data.avgRating);
+                    const ratingPercent = (avgRating / 5) * 100;
+                    $('.m-star .star-rating span').css('width', ratingPercent + '%');
+                    $('.m-star span:last-child').text(avgRating.toFixed(1));
+                    if (window.mangaDetail) {
+                        window.mangaDetail.avgVote = avgRating;
+                    }
+                    if (typeof mangaDetail !== 'undefined') {
+                        mangaDetail.avgVote = avgRating;
+                    }
+                }
+                return response.data;
+            }
+            return null;
+        } catch (error) {
+            if (error.responseJSON && error.responseJSON.message) {
+                alert(error.responseJSON.message);
+            } else if (error.status === 401) {
+                alert('Vui lòng đăng nhập để đánh giá');
+            } else {
+                alert('Có lỗi xảy ra khi đánh giá. Vui lòng thử lại.');
+            }
+            return null;
         }
-        return null;
     }
 
     async function followManga(mangaId) {
-        const response = await $.ajax({
-            type: 'POST',
-            xhrFields: { withCredentials: true },
-            url: 'https://api.hangtruyen.vip/mangas/' + mangaId + '/follow',
-            contentType: 'application/json',
-        }).catch(() => {
-            return null;
-        });
+        try {
+            const response = await $.ajax({
+                type: 'POST',
+                url: '/truyen-tranh/{{ $mangaSlug }}/follow',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                data: {},
+                dataType: 'json',
+            });
 
-        if (response && response.status === 200) {
-            return response.data;
+            if (response && response.status === 'success') {
+                return response.data;
+            }
+            return null;
+        } catch (error) {
+            if (error.responseJSON && error.responseJSON.message) {
+                alert(error.responseJSON.message);
+            } else if (error.status === 401) {
+                alert('Vui lòng đăng nhập để theo dõi truyện');
+            } else {
+                alert('Có lỗi xảy ra khi theo dõi. Vui lòng thử lại.');
+            }
+            return null;
         }
-        return null;
     }
 </script>
 

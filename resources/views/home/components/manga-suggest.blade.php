@@ -1,4 +1,6 @@
-@php($demoMangaUrl = route('manga.detail', ['slug' => 'gto-fury-of-death-yamada']))
+@php
+    $suggestedMangas = $suggestedMangas ?? [];
+@endphp
 <section id="m-suggest" class="container">
     <div class="m-suggest splide splide-navtop">
         <div class="group-title justify-content-between">
@@ -14,69 +16,46 @@
         </div>
         <div class="splide__track">
             <div class="splide__list">
-                <!-- Truyện 1 -->
-                <div class="m-post horizontal splide__slide">
-                    <div class="p-thumb flex-shrink-0">
-                        <a title="Thánh Nữ, Xin Hãy Dừng Ngay Những Trò Quái Đản Của Cô Đi!!" href="{{ $demoMangaUrl }}">
-                            <span class="img-poster">
-                                <img class="lzl" data-src="https://prvhtr.mgbucket.xyz/posters/2024.11.03/Dg0e6L6TxjGFbwl9sZ.jpg" rel="nofollow"
-                                    data-original="https://prvhtr.mgbucket.xyz/posters/2024.11.03/Dg0e6L6TxjGFbwl9sZ.jpg" alt="Thánh Nữ, Xin Hãy Dừng Ngay Những Trò Quái Đản Của Cô Đi!!" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
-                            </span>
-                        </a>
-                    </div>
-                    <div class="p-content flex-grow-1">
-                        <h3 class="m-name">
-                            <a href="{{ $demoMangaUrl }}">Thánh Nữ, Xin Hãy Dừng Ngay Những Trò Quái Đản Của Cô Đi!!</a>
-                        </h3>
-                        <div class="group-star">
-                            <div class="m-star">
-                                <span class="star-rating">
-                                    <span style="width: 72%;"></span>
+                @foreach($suggestedMangas as $manga)
+                    <div class="m-post horizontal splide__slide">
+                        <div class="p-thumb flex-shrink-0">
+                            <a title="{{ $manga['title'] }}" href="/truyen-tranh/{{ $manga['slug'] }}">
+                                <span class="img-poster">
+                                    <img class="lzl" data-src="{{ $manga['posterPath'] }}" rel="nofollow"
+                                        data-original="{{ $manga['posterPath'] }}" alt="{{ $manga['title'] }}" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
                                 </span>
-                                <span>3.6</span>
-                            </div>
+                            </a>
                         </div>
-                        <ul class="list-chaps">
-                            <li class="chapter">
-                                <a data-id="2022966" href="{{ $demoMangaUrl }}" title="Chapter 142">
-                                    Chapter 142<span>5 tháng trước</span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
-                <!-- Truyện 2 -->
-                <div class="m-post horizontal splide__slide">
-                    <div class="p-thumb flex-shrink-0">
-                        <a title="Bắt Đầu Với Chí Tôn Đan Điền" href="{{ $demoMangaUrl }}">
-                            <span class="img-poster">
-                                <img class="lzl" data-src="https://prvhtr.mgbucket.xyz/posters/df/45/bat-dau-voi-chi-ton-dan-dien.jpg" rel="nofollow"
-                                    data-original="https://prvhtr.mgbucket.xyz/posters/df/45/bat-dau-voi-chi-ton-dan-dien.jpg" alt="Bắt Đầu Với Chí Tôn Đan Điền" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
-                            </span>
-                        </a>
-                    </div>
-                    <div class="p-content flex-grow-1">
-                        <h3 class="m-name">
-                            <a href="{{ $demoMangaUrl }}">Bắt Đầu Với Chí Tôn Đan Điền</a>
-                        </h3>
-                        <div class="group-star">
-                            <div class="m-star">
-                                <span class="star-rating">
-                                    <span style="width: 94%;"></span>
-                                </span>
-                                <span>4.7</span>
+                        <div class="p-content flex-grow-1">
+                            <h3 class="m-name">
+                                <a href="/truyen-tranh/{{ $manga['slug'] }}">{{ $manga['title'] }}</a>
+                            </h3>
+                            <div class="group-star">
+                                <div class="m-star">
+                                    <span class="star-rating">
+                                        <span style="width: {{ ($manga['avgVote'] ?? 0) * 20 }}%;"></span>
+                                    </span>
+                                    <span>{{ number_format($manga['avgVote'] ?? 0, 1) }}</span>
+                                </div>
                             </div>
+                            <ul class="list-chaps">
+                                @if(isset($manga['chapters']) && is_array($manga['chapters']) && count($manga['chapters']) > 0)
+                                    @foreach(array_slice($manga['chapters'], 0, 1) as $chapter)
+                                        <li class="chapter">
+                                            <a data-id="{{ $chapter['id'] ?? '' }}" href="{{ route('manga.chapter', ['mangaSlug' => $manga['slug'], 'chapterSlug' => $chapter['slug']]) }}" title="{{ $chapter['name'] }}">
+                                                {{ $chapter['name'] }}<span>{{ $chapter['releasedAt'] ?? '' }}</span>
+                                            </a>
+                                        </li>
+                                    @endforeach
+                                @else
+                                    <li class="chapter">
+                                        <span>Đang cập nhật</span>
+                                    </li>
+                                @endif
+                            </ul>
                         </div>
-                        <ul class="list-chaps">
-                            <li class="chapter">
-                                <a data-id="2038436" href="{{ $demoMangaUrl }}" title="Chapter 375">
-                                    Chapter 375<span>5 tháng trước</span>
-                                </a>
-                            </li>
-                        </ul>
                     </div>
-                </div>
+                @endforeach
             </div>
         </div>
     </div>

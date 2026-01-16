@@ -598,6 +598,13 @@ a.toggle-formsearch {
     background: transparent;
 }
 
+/* Account dropdown menu - align to right */
+#has-login .dropdown-menu {
+    right: 0 !important;
+    left: auto !important;
+    min-width: 180px;
+}
+
 .dropdown-item {
     color: #1e201e;
     padding: 4px 0;
@@ -1907,8 +1914,17 @@ section {
     padding: 30px 0;
 }
 
+#top-follow {
+    position: relative;
+    overflow: visible;
+}
+
 #top-follow .nav-tabs .nav-link {
     padding-top: 0;
+}
+
+#top-follow .tab-content {
+    overflow: visible;
 }
 
 .nav-tabs {
@@ -1980,6 +1996,7 @@ section {
     margin-bottom: 16px;
     position: relative;
     padding-right: 70px;
+    overflow: visible;
 }
 
 .list-unstyled .p-thumb .img-poster {
@@ -1999,6 +2016,8 @@ section {
 
 .list-unstyled .p-content {
     padding: 0;
+    position: relative;
+    z-index: 1;
 }
 
 .list-unstyled .p-content .m-name {
@@ -2049,6 +2068,7 @@ section {
     transform: translateY(-50%);
     color: #fff;
     background: #2b4992;
+    z-index: 10;
 }
 
 #mg-continue .chapter a {

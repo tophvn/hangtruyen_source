@@ -54,7 +54,6 @@ document.addEventListener('DOMContentLoaded', lazyImg('lzl'), {
     passive: true,
 });
 
-// Fix click modal search
 document.addEventListener('DOMContentLoaded', function() {
     var modalContent = document.querySelector('#searchModal .modal-content');
     if (modalContent) {
@@ -64,7 +63,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Enter for search form
 const form = document.getElementById('form-search');
 if (form) {
     form.addEventListener('submit', function(event) {
@@ -75,8 +73,6 @@ if (form) {
         window.location.href = action + '?keyword=' + query;
     });
 }
-
-//Hover trend manga item
 
 document.addEventListener('DOMContentLoaded', function() {
     var posts = document.querySelectorAll('.m-trend .m-post');
@@ -103,34 +99,27 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-//Show/off Password
-
 //Back to top
 var button = document.getElementById('back-to-top');
 
 if (button) {
-    // Hide button initially
     button.style.opacity = '0';
     button.style.display = 'flex';
     button.style.transition = 'opacity 0.3s';
 
     var lastScrollTop = 0;
 
-    // Show/hide button based on scroll direction
     window.addEventListener('scroll', function() {
         var scrollTop =
             window.pageYOffset || document.documentElement.scrollTop;
         if (scrollTop < lastScrollTop && scrollTop > 100) {
-            // Scrolling up
             button.style.opacity = '1';
         } else {
-            // Scrolling down
             button.style.opacity = '0';
         }
         lastScrollTop = scrollTop <= 0 ? 0 : scrollTop; // For Mobile or negative scrolling
     });
 
-    // Add click event to scroll to top
     button.addEventListener('click', function() {
         window.scrollTo({
             top: 0,
@@ -151,7 +140,6 @@ if (btnDarkmode) {
     });
 }
 
-// Button nav toggle mobile header
 const [btnSearchMobile, btnMenuMobile] = document.querySelectorAll(
     '.top-right-mb button',
 );
@@ -186,7 +174,6 @@ DropdownMobile.forEach(function(dropdown) {
     });
 });
 
-//Check spoil comment
 const btnSpoil = document.querySelector('.btn-spoil');
 
 function btnCheckSpoil(event) {
@@ -208,7 +195,6 @@ if (btnSpoil) {
     this.addEventListener('click', btnCheckSpoil);
 }
 
-//Close group button Comment
 const btnCloseCmts = document.querySelectorAll('.btn-close-cmt');
 
 function handleCloseCmt(event) {
@@ -227,7 +213,6 @@ btnCloseCmts.forEach((btnCloseCmt) => {
     btnCloseCmt.addEventListener('click', handleCloseCmt);
 });
 
-//Spoil comments
 const btnSpamComments = document.querySelectorAll('.btn-spam');
 btnSpamComments.forEach((button) => {
     button.addEventListener('click', function() {
@@ -246,8 +231,6 @@ btnSpamComments.forEach((button) => {
         }
     });
 });
-
-//Show comment form
 
 var commentInput = document.querySelector('.comment-input');
 var userNameElement = commentInput ? commentInput.querySelector('.user-name') : null;
@@ -269,20 +252,29 @@ function alertNoti(content) {
     }, 5000);
 }
 
-//Tag genres
-const genresHashTag = document.querySelectorAll('.list-genres > span');
-genresHashTag.forEach((genreTag) => {
-    genreTag.addEventListener('click', function() {
-        genreTag.classList.toggle('active');
+function initTagGenres() {
+    const genresHashTag = document.querySelectorAll('.list-genres > span, .list-genres span.tag-item');
+    genresHashTag.forEach((genreTag) => {
+        const newTag = genreTag.cloneNode(true);
+        genreTag.parentNode.replaceChild(newTag, genreTag);
+        
+        newTag.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.classList.toggle('active');
+        });
     });
-});
+}
 
-// Function to reapply lazy loading to newly added images
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTagGenres);
+} else {
+    initTagGenres();
+}
+
+setTimeout(initTagGenres, 500);
+
 var observeNewImages = function() {
-    // var newLazyImages = document.querySelectorAll('.lzl:not([data-observed])');
-    // newLazyImages.forEach(function (img) {
-    //     img.setAttribute('data-observed', true); // Mark image as observed to avoid duplication
-    // });
     lazyImg('lzl')();
 };
 
@@ -291,12 +283,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     offcanvasElements.forEach(function(offcanvasElement) {
         offcanvasElement.addEventListener('shown.bs.offcanvas', function() {
-            // Thêm lớp open-offcanvas vào body khi offcanvas được hiển thị
             document.body.classList.add('open-offcanvas');
         });
 
         offcanvasElement.addEventListener('hidden.bs.offcanvas', function() {
-            // Loại bỏ lớp open-offcanvas khỏi body khi offcanvas bị ẩn
             document.body.classList.remove('open-offcanvas');
         });
     });
@@ -304,6 +294,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
 $(document).ready(function() {
     $('.dropdown .dropdown-item').on('click', function(e) {
+        // Skip account links - let them navigate normally
+        if ($(this).hasClass('account-link') || $(this).attr('href') && ($(this).attr('href').includes('/tai-khoan') || $(this).attr('href').includes('account'))) {
+            return true; // Let browser handle navigation
+        }
+        
         e.preventDefault();
 
         var selectedText = $(this).text();
@@ -324,7 +319,6 @@ $(document).ready(function() {
     });
 });
 
-// handle checkbox all
 $('input.checkbox-all').on('change', function() {
     const isChecked = $(this).is(':checked');
     $(this)
@@ -333,7 +327,6 @@ $('input.checkbox-all').on('change', function() {
         .prop('checked', isChecked);
 });
 
-// View all tags
 function viewAllTags(e) {
     if (e) {
         e.preventDefault();

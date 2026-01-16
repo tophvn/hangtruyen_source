@@ -1,8 +1,10 @@
-@php($demoMangaUrl = route('manga.detail', ['slug' => 'gto-fury-of-death-yamada']))
+@php
+    $sapRaMatMangas = $sapRaMatMangas ?? [];
+@endphp
 <section id="manga-select" class="container">
     <div class="m-suggest splide splide-navtop">
         <div class="group-title">
-            <h2 class="m-title title">Truyện tuyển chọn<span class="sub">Truyện được chọn lọc từ hệ thống</span></h2>
+            <h2 class="m-title title">Truyện sắp ra mắt<span class="sub">Truyện được chọn lọc từ hệ thống</span></h2>
             <div class="swiper-btn__group">
                 <div class="splide__arrows position-relative">
                     <button class="splide__arrow splide__arrow--prev">
@@ -16,69 +18,46 @@
         </div>
         <div class="splide__track">
             <div class="splide__list">
-                <!-- Truyện 1 -->
-                <div class="m-post horizontal splide__slide">
-                    <div class="p-thumb flex-shrink-0">
-                        <a title="Kỵ Sĩ Chuyển Sinh Bị Lưu Đày, Trở Nên Bất Bại Nhờ Trò Chơi" href="{{ $demoMangaUrl }}">
-                            <span class="img-poster">
-                                <img class="lzl" data-src="https://prvhtr.mgbucket.xyz/posters/ed/86/ky-si-chuyen-sinh-bi-luu-day-tro-nen-bat-bai-nho-tro-choi.png" rel="nofollow"
-                                    data-original="https://prvhtr.mgbucket.xyz/posters/ed/86/ky-si-chuyen-sinh-bi-luu-day-tro-nen-bat-bai-nho-tro-choi.png" alt="Kỵ Sĩ Chuyển Sinh Bị Lưu Đày, Trở Nên Bất Bại Nhờ Trò Chơi" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
-                            </span>
-                        </a>
-                    </div>
-                    <div class="p-content flex-grow-1">
-                        <h3 class="m-name">
-                            <a href="{{ $demoMangaUrl }}">Kỵ Sĩ Chuyển Sinh Bị Lưu Đày, Trở Nên Bất Bại Nhờ Trò Chơi</a>
-                        </h3>
-                        <div class="group-star">
-                            <div class="m-star">
-                                <span class="star-rating">
-                                    <span style="width: 0%;"></span>
+                @foreach($sapRaMatMangas as $manga)
+                    <div class="m-post horizontal splide__slide">
+                        <div class="p-thumb flex-shrink-0">
+                            <a title="{{ $manga['title'] }}" href="/truyen-tranh/{{ $manga['slug'] }}">
+                                <span class="img-poster">
+                                    <img class="lzl" data-src="{{ $manga['posterPath'] }}" rel="nofollow"
+                                        data-original="{{ $manga['posterPath'] }}" alt="{{ $manga['title'] }}" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
                                 </span>
-                                <span>0</span>
-                            </div>
+                            </a>
                         </div>
-                        <ul class="list-chaps">
-                            <li class="chapter">
-                                <a data-id="2170255" href="{{ $demoMangaUrl }}" title="Chapter #152">
-                                    Chapter #152<span>2 ngày trước</span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
-                <!-- Truyện 2 -->
-                <div class="m-post horizontal splide__slide">
-                    <div class="p-thumb flex-shrink-0">
-                        <a title="Thám tử lừng danh Conan - Giờ trà của Zero (NXB Kim Đồng)" href="{{ $demoMangaUrl }}">
-                            <span class="img-poster">
-                                <img class="lzl" data-src="https://prvhtr.mgbucket.xyz/posters/d1/f3/tham-tu-lung-danh-conan-gio-tra-cua-zero-nxb-kim-dong.jpg" rel="nofollow"
-                                    data-original="https://prvhtr.mgbucket.xyz/posters/d1/f3/tham-tu-lung-danh-conan-gio-tra-cua-zero-nxb-kim-dong.jpg" alt="Thám tử lừng danh Conan - Giờ trà của Zero (NXB Kim Đồng)" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
-                            </span>
-                        </a>
-                    </div>
-                    <div class="p-content flex-grow-1">
-                        <h3 class="m-name">
-                            <a href="{{ $demoMangaUrl }}">Thám tử lừng danh Conan - Giờ trà của Zero (NXB Kim Đồng)</a>
-                        </h3>
-                        <div class="group-star">
-                            <div class="m-star">
-                                <span class="star-rating">
-                                    <span style="width: 0%;"></span>
-                                </span>
-                                <span>0</span>
+                        <div class="p-content flex-grow-1">
+                            <h3 class="m-name">
+                                <a href="/truyen-tranh/{{ $manga['slug'] }}">{{ $manga['title'] }}</a>
+                            </h3>
+                            <div class="group-star">
+                                <div class="m-star">
+                                    <span class="star-rating">
+                                        <span style="width: {{ ($manga['avgVote'] ?? 0) * 20 }}%;"></span>
+                                    </span>
+                                    <span>{{ number_format($manga['avgVote'] ?? 0, 1) }}</span>
+                                </div>
                             </div>
+                            <ul class="list-chaps">
+                                @if(isset($manga['chapters']) && is_array($manga['chapters']) && count($manga['chapters']) > 0)
+                                    @foreach(array_slice($manga['chapters'], 0, 1) as $chapter)
+                                        <li class="chapter">
+                                            <a data-id="{{ $chapter['id'] ?? '' }}" href="{{ route('manga.chapter', ['mangaSlug' => $manga['slug'], 'chapterSlug' => $chapter['slug']]) }}" title="{{ $chapter['name'] }}">
+                                                {{ $chapter['name'] }}<span>{{ $chapter['releasedAt'] ?? '' }}</span>
+                                            </a>
+                                        </li>
+                                    @endforeach
+                                @else
+                                    <li class="chapter">
+                                        <span>Đang cập nhật</span>
+                                    </li>
+                                @endif
+                            </ul>
                         </div>
-                        <ul class="list-chaps">
-                            <li class="chapter">
-                                <a data-id="2150372" href="{{ $demoMangaUrl }}" title="Time #60: Thường thật">
-                                    Time #60: Thường thật<span>3 tháng trước</span>
-                                </a>
-                            </li>
-                        </ul>
                     </div>
-                </div>
+                @endforeach
             </div>
         </div>
     </div>

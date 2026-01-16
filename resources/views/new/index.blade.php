@@ -1,8 +1,8 @@
 @extends('layouts.app')
 
-@section('title', 'Hangtruyen - Trang web đọc truyện tranh Online' . ($currentPage > 1 ? ' - page ' . $currentPage : ''))
-@section('description', 'Đọc truyện tranh manga, manhua, manhwa miễn phí được cập nhật liên tục hàng ngày.' . ($currentPage > 1 ? ' - page ' . $currentPage : ''))
-@section('keywords', 'đọc truyện, truyện tranh, hangtruyen')
+@section('title', 'Truyện tranh Truyện mới nhất' . ($currentPage > 1 ? ' - Trang ' . $currentPage : '') . ' - HangTruyen')
+@section('description', 'Danh sách Truyện mới nhất hot nhất được gợi ý, cập nhật liên tục hàng ngày.' . ($currentPage > 1 ? ' - Trang ' . $currentPage : ''))
+@section('keywords', 'truyện mới nhất, đọc truyện, truyện tranh, hangtruyen')
 
 @push('meta')
     <link rel="canonical" href="{{ url('/new' . ($currentPage > 1 ? '?page=' . $currentPage : '')) }}" />
