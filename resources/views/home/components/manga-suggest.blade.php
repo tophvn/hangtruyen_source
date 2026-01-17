@@ -1,6 +1,7 @@
 @php
     $suggestedMangas = $suggestedMangas ?? [];
 @endphp
+@if(!empty($suggestedMangas))
 <section id="m-suggest" class="container">
     <div class="m-suggest splide splide-navtop">
         <div class="group-title justify-content-between">
@@ -60,3 +61,4 @@
         </div>
     </div>
 </section>
+@endif

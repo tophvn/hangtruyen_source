@@ -14,6 +14,11 @@
                             Liên kết mạng xã hội
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#gtag" type="button" role="tab">
+                            Google Tag
+                        </button>
+                    </li>
                 </ul>
             </div>
             <div class="card-body">
@@ -51,6 +56,33 @@
                                     </button>
                                     <button type="button" class="btn btn-danger" id="clear-social-btn">
                                         <i class="bi bi-trash"></i> Xóa tất cả
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <div class="tab-pane fade" id="gtag" role="tabpanel">
+                        <form id="gtag-form">
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label for="gtag_code" class="form-label">Google Tag (gtag.js) Code:</label>
+                                    <textarea class="form-control" id="gtag_code" name="gtag_code" rows="10" placeholder="Dán code Google Tag Manager hoặc Google Analytics vào đây...">{{ $settings['gtag_code'] ?? '' }}</textarea>
+                                    <small class="form-text text-muted">
+                                        Dán toàn bộ code Google Tag (gtag.js) vào đây. Ví dụ:<br>
+                                        <code>&lt;script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXX"&gt;&lt;/script&gt;<br>
+                                        &lt;script&gt;...&lt;/script&gt;</code>
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-save"></i> Lưu Google Tag
+                                    </button>
+                                    <button type="button" class="btn btn-danger" id="clear-gtag-btn">
+                                        <i class="bi bi-trash"></i> Xóa
                                     </button>
                                 </div>
                             </div>
@@ -107,6 +139,54 @@
                             $('#twitter_url').val('');
                             $('#gmail_url').val('');
                             alert('Đã xóa cấu hình thành công');
+                        } else {
+                            alert('Có lỗi xảy ra');
+                        }
+                    },
+                    error: function() {
+                        alert('Có lỗi xảy ra');
+                    }
+                });
+            }
+        });
+        
+        $('#gtag-form').on('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                gtag_code: $('#gtag_code').val(),
+                _token: '{{ csrf_token() }}'
+            };
+            
+            $.ajax({
+                url: '/admin/settings/gtag',
+                method: 'POST',
+                data: formData,
+                success: function(response) {
+                    if (response.status === 'success') {
+                        alert('Đã lưu Google Tag thành công');
+                    } else {
+                        alert('Có lỗi xảy ra');
+                    }
+                },
+                error: function() {
+                    alert('Có lỗi xảy ra');
+                }
+            });
+        });
+        
+        $('#clear-gtag-btn').on('click', function() {
+            if (confirm('Bạn chắc chắn muốn xóa Google Tag?')) {
+                $.ajax({
+                    url: '/admin/settings/gtag/clear',
+                    method: 'POST',
+                    data: {
+                        _token: '{{ csrf_token() }}'
+                    },
+                    success: function(response) {
+                        if (response.status === 'success') {
+                            $('#gtag_code').val('');
+                            alert('Đã xóa Google Tag thành công');
                         } else {
                             alert('Có lỗi xảy ra');
                         }

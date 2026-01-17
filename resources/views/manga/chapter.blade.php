@@ -111,7 +111,6 @@
         "rawSlug": {!! json_encode($mangaSlug ?? '') !!},
     };
     
-    // Đảm bảo các biến có thể truy cập được từ comment.js
     if (typeof chapterDetail === 'undefined') {
         var chapterDetail = window.chapterDetail;
     }
@@ -274,7 +273,6 @@
     </script>
 
     <script>
-        // Handle report form in chapter
         $(document).ready(function() {
             $('#reportForm').on('submit', async function(e) {
                 e.preventDefault();
@@ -315,7 +313,6 @@
                     const message = response.message || 'Cảm ơn bạn đã báo cáo. Chúng tôi sẽ xem xét và xử lý sớm nhất có thể.';
                     alert(message);
                     
-                    // Reset form
                     $('#reportForm')[0].reset();
                     $('#ReportModal').modal('hide');
                 }

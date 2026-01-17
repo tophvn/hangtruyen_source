@@ -16,7 +16,6 @@ $(document).off('click', '.btn-cmt').on(
         if (!content) {
             alert('Không để trống bình luận');
         } else {
-            // find parent comment
             let parentCommentId = null;
             const parentCommentElem = $(this)
                 .closest('.reply-box')
@@ -43,7 +42,6 @@ $(document).off('click', '.btn-cmt').on(
             if (response) {
                 const commentId = response.id;
                 
-                // Kiểm tra xem comment đã tồn tại chưa (tránh duplicate)
                 if ($(`#cmt-${commentId}`).length > 0) {
                     $btn.removeClass('disabled');
                     return;
@@ -78,7 +76,6 @@ $(document).off('click', '.btn-cmt').on(
                 newComment.find('.time').text(response.created_at || 'Vừa xong');
                 newComment.find('.value').text(response.likes_count || 0);
                 
-                // Add chapter link if exists
                 if (response.chapter) {
                     const chapterLink = $(`<a href="/truyen-tranh/${mangaDetail.rawSlug}/${response.chapter.slug}" class="link-cmt-chap">Chapter ${response.chapter.name}</a>`);
                     const ihead = newComment.find('.ihead');
@@ -94,13 +91,11 @@ $(document).off('click', '.btn-cmt').on(
                             .children('.replies-wrap')
                             .append(newComment);
                         
-                        // Update replies count
                         const repMore = repliesElem.find('.rep-more');
                         if (repMore.length) {
                             const currentCount = parseInt(repMore.find('span').text().match(/\d+/)?.[0] || '0');
                             repMore.find('span').html(`${currentCount + 1} ${currentCount + 1 === 1 ? 'câu trả lời' : 'câu trả lời'}`);
                         } else {
-                            // Create replies section if doesn't exist
                             const repliesHtml = `
                                 <div class="replies" id="block-reply-${parentCommentId}">
                                     <div class="rep-more rep-in">
@@ -139,7 +134,6 @@ $(document).off('click', '.btn-cmt').on(
                     listCommentsElem.prepend(newComment);
                 }
                 
-                // Update comment count
                 const countElem = $('.countComment');
                 if (countElem.length) {
                     const currentCount = parseInt(countElem.text().match(/\d+/)?.[0] || '0');
@@ -260,7 +254,6 @@ function handleAvaAuth() {
 }
 
 async function handleGetLikedCommentIds() {
-    // Đảm bảo mangaDetail đã được định nghĩa
     const currentMangaDetail = window.mangaDetail || (typeof mangaDetail !== 'undefined' ? mangaDetail : null);
     if (!currentMangaDetail || !currentMangaDetail.id) {
         return;
@@ -287,7 +280,6 @@ handleCallbackCheckAuthIsDone(() => addModalLogin($('a.btn-reply')));
 handleCallbackCheckAuthIsDone(() => addModalLogin($('.ib-like span')));
 handleCallbackCheckAuthIsDone(handleAvaAuth);
 
-// Đảm bảo mangaDetail đã được định nghĩa trước khi chạy callback
 $(document).ready(function() {
     if ((typeof window.mangaDetail !== 'undefined' || typeof mangaDetail !== 'undefined') && typeof handleGetLikedCommentIds === 'function') {
         handleCallbackCheckAuthIsDone(handleGetLikedCommentIds);
@@ -300,7 +292,6 @@ $('#content-comments').on('click', '.btn-reply', function (e) {
     var parentCmtLine = this.closest('.cmt-line');
     if (!parentCmtLine) return;
 
-    // Tìm cmt-line cha bao ngoài cùng
     var outermostParentCmtLine =
         parentCmtLine.closest('.cmt-line[data-parent-id]') || parentCmtLine;
 
@@ -312,7 +303,6 @@ $('#content-comments').on('click', '.btn-reply', function (e) {
 
     var cmtLineInsideReply = replyBox.querySelector('.cmt-line');
 
-    // Ẩn tất cả các reply-box khác
     document.querySelectorAll('.reply-box').forEach(function (element) {
         if (element !== replyBox) {
             var innerCmtLine = element.querySelector('.cmt-line');
@@ -326,7 +316,6 @@ $('#content-comments').on('click', '.btn-reply', function (e) {
     let userStorage = sessionStorage.getItem('user');
     const user = JSON.parse(userStorage);
 
-    // Hàm để bật/tắt replyBox
     function toggleReplyBox(replyBox, cmtLineInsideReply, replyHTML) {
         if (!isLogin()) {
             return;
@@ -338,7 +327,6 @@ $('#content-comments').on('click', '.btn-reply', function (e) {
                     .querySelector('.avatar-temp-cmt')
                     .setAttribute('data-name', user?.name || '');
                 cmtLineInsideReply.classList.replace('d-none', 'd-flex');
-                // Focus vào phần comment-input
                 setTimeout(function () {
                     var inputElement = cmtLineInsideReply.querySelector(
                         '.comment-form textarea',
@@ -358,7 +346,6 @@ $('#content-comments').on('click', '.btn-reply', function (e) {
         }
     }
 
-    // Kiểm tra nếu replyBox đã có nội dung thì chỉ focus vào comment-input
     if (replyBox.classList.contains('active')) {
         setTimeout(function () {
             var inputElement = cmtLineInsideReply.querySelector(

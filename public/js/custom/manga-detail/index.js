@@ -34,8 +34,6 @@ function initializeMangaDetailScript() {
         }
         
         const user = getUserFromSessionStorage();
-        
-        // Kiểm tra follow từ server (nếu có trong window.mangaDetail)
         if (currentMangaDetail && currentMangaDetail.isFollowing) {
             $(followButton).addClass('active');
         }

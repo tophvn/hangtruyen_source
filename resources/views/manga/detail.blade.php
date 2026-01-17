@@ -90,7 +90,6 @@
         const commentMatch = hash.match(/cmt-(\d+)/);
         if (commentMatch && window.mangaDetail && window.mangaDetail.id) {
             const commentId = parseInt(commentMatch[1]);
-            // Fetch comment info to verify it belongs to current manga
             fetch('/api/comment/' + commentId + '/manga-id')
                 .then(response => {
                     if (!response.ok) {
@@ -101,14 +100,12 @@
                 .then(data => {
                     if (data && data.manga_id) {
                         if (data.manga_id !== window.mangaDetail.id) {
-                            // Comment belongs to different manga, redirect to correct manga
                             if (data.manga_slug) {
                                 window.location.replace('/truyen-tranh/' + data.manga_slug + hash);
                                 return;
                             }
                         }
                     }
-                    // If comment belongs to current manga, scroll to it
                     setTimeout(() => {
                         const commentElement = document.getElementById('cmt-' + commentId);
                         if (commentElement) {
@@ -118,11 +115,9 @@
                 })
                 .catch(error => {
                     console.error('Error checking comment:', error);
-                    // If API fails, try to check from DOM
                     setTimeout(() => {
                         const commentElement = document.getElementById('cmt-' + commentId);
                         if (!commentElement) {
-                            // Comment not found on this page, might be wrong manga
                             console.warn('Comment #' + commentId + ' not found on current page');
                         } else {
                             commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -130,7 +125,6 @@
                     }, 500);
                 });
         } else if (hash && hash.match(/cmt-(\d+)/)) {
-            // If we have a comment hash but no mangaDetail, try to get comment's manga
             const commentMatch = hash.match(/cmt-(\d+)/);
             if (commentMatch) {
                 const commentId = parseInt(commentMatch[1]);

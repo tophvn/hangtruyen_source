@@ -211,7 +211,7 @@ class OTruyenService
     {
         $cacheKey = "otruyen:manga_detail:{$slug}";
         
-        return Cache::remember($cacheKey, 600, function () use ($slug) {
+        return Cache::remember($cacheKey, 600, function () use ($slug, $cacheKey) {
             try {
                 $response = Http::timeout($this->timeout)
                     ->withoutVerifying()
@@ -221,8 +221,22 @@ class OTruyenService
                     $data = $response->json();
                     
                     if (isset($data['data']['item'])) {
+                        $item = $data['data']['item'];
+                        
+                        $responseSlug = $item['slug'] ?? '';
+                        if ($responseSlug !== $slug) {
+                            Cache::forget($cacheKey);
+                            return null;
+                        }
+                        
                         $transformed = $this->transformMangaDetail($data);
-                        $this->saveOrUpdateManga($transformed, $data['data']['item']);
+                        
+                        if (($transformed['slug'] ?? '') !== $slug) {
+                            Cache::forget($cacheKey);
+                            return null;
+                        }
+                        
+                        $this->saveOrUpdateManga($transformed, $item);
                         return $transformed;
                     }
                 }
@@ -237,7 +251,6 @@ class OTruyenService
     protected function saveOrUpdateManga($transformed, $rawItem)
     {
         try {
-            // Tìm manga theo slug, đảm bảo luôn lấy record mới nhất nếu có duplicate
             $manga = MangaMetadata::where('slug', $transformed['slug'])
                 ->orderBy('id', 'desc')
                 ->first();
@@ -251,29 +264,23 @@ class OTruyenService
                 return $tag['name'] ?? '';
             }, $transformed['tags'] ?? []);
             
-            // Thêm type (Manga, Manhua, Manhwa) vào tags để có thể filter
-            // QUAN TRỌNG: Luôn ưu tiên giữ nguyên type từ database (nếu có)
-            // Chỉ thêm type mới từ API nếu database chưa có type
             $existingType = null;
             if ($manga && is_array($manga->tags)) {
                 foreach ($manga->tags as $tag) {
                     $tagName = is_string($tag) ? $tag : ($tag['name'] ?? '');
                     $tagNameLower = strtolower($tagName);
                     if (in_array($tagNameLower, ['manga', 'manhua', 'manhwa'])) {
-                        $existingType = $tagName; // Giữ nguyên case từ database
+                        $existingType = $tagName;
                         break;
                     }
                 }
             }
             
-            // Nếu database đã có type, giữ nguyên (không update từ API)
             if ($existingType) {
-                // Đảm bảo type cũ có trong tagsArray
                 if (!in_array($existingType, $tagsArray)) {
                     $tagsArray[] = $existingType;
                 }
             } else {
-                // Nếu database chưa có type, thêm từ API (nếu có và không phải mặc định)
                 $typeIsDefault = $transformed['type_is_default'] ?? false;
                 if (!$typeIsDefault && isset($transformed['type']['name']) && !empty($transformed['type']['name'])) {
                     $typeName = $transformed['type']['name'];
@@ -317,7 +324,6 @@ class OTruyenService
                 if ($manga->last_chapter_number != $dataToSave['last_chapter_number']) $needsUpdate = true;
                 
                 $existingTags = is_array($manga->tags) ? $manga->tags : [];
-                // So sánh tags không phụ thuộc vào thứ tự
                 $existingTagsSorted = array_values(array_unique($existingTags));
                 sort($existingTagsSorted);
                 $tagsArraySorted = array_values(array_unique($tagsArray));
@@ -335,15 +341,12 @@ class OTruyenService
                     $manga->touch();
                 }
             } else {
-                // Chỉ tạo mới nếu chưa có record với slug này
-                // Kiểm tra lại để tránh race condition
                 $existingManga = MangaMetadata::where('slug', $transformed['slug'])->first();
                 if (!$existingManga) {
                     MangaMetadata::create(array_merge($dataToSave, [
                         'slug' => $transformed['slug'],
                     ]));
                 } else {
-                    // Nếu đã có, update thay vì tạo mới
                     $existingManga->update($dataToSave);
                 }
             }
@@ -356,11 +359,15 @@ class OTruyenService
         $item = $data['data']['item'] ?? [];
         $imageDomain = $data['APP_DOMAIN_CDN_IMAGE'] ?? 'https://img.otruyenapi.com';
         
-        $chapters = $this->extractChapters($item['chapters'] ?? []);
+        $chaptersData = $item['chapters'] ?? [];
+        if (!is_array($chaptersData)) {
+            $chaptersData = [];
+        }
+        
+        $chapters = $this->extractChapters($chaptersData);
         $categories = $this->extractCategories($item['category'] ?? []);
         $typeAndTags = $this->separateTypeAndTags($categories);
         
-        // Đánh dấu xem type có phải là mặc định không (không tìm thấy trong categories)
         $typeIsDefault = empty($categories) || !$this->hasTypeInCategories($categories);
         
         return [
@@ -373,7 +380,7 @@ class OTruyenService
             'author' => $item['author'] ?? ['Đang cập nhật'],
             'status' => $this->mapStatus($item['status'] ?? ''),
             'type' => $typeAndTags['type'],
-            'type_is_default' => $typeIsDefault, // Đánh dấu type có phải mặc định không
+            'type_is_default' => $typeIsDefault, 
             'tags' => $typeAndTags['tags'],
             'chapters' => $chapters,
             'updated_at' => $item['updatedAt'] ?? null,
@@ -399,17 +406,35 @@ class OTruyenService
         $allChapters = [];
         $seenChapters = [];
         
+        if (!is_array($chaptersData)) {
+            return [];
+        }
+        
         foreach ($chaptersData as $server) {
             if (isset($server['server_data']) && is_array($server['server_data'])) {
                 foreach ($server['server_data'] as $chapter) {
-                    $chapterName = $chapter['chapter_name'] ?? '';
+                    $chapterName = trim($chapter['chapter_name'] ?? '');
+                    
+                    if (empty($chapterName)) {
+                        continue;
+                    }
+                    
                     $key = $chapterName;
                     
                     if (!isset($seenChapters[$key])) {
+                        $chapterNumber = preg_replace('/^Chapter\s+/i', '', $chapterName);
+                        $chapterNumber = trim($chapterNumber);
+                        $chapterNumber = preg_replace('/[^a-zA-Z0-9.\-]/', '', $chapterNumber);
+                        if (empty($chapterNumber)) {
+                            continue;
+                        }
+                        
+                        $chapterSlug = 'chapter-' . $chapterNumber;
+                        
                         $allChapters[] = [
                             'name' => $chapterName,
                             'title' => $chapter['chapter_title'] ?? '',
-                            'slug' => 'chapter-' . $chapterName,
+                            'slug' => $chapterSlug,
                             'api_data' => $chapter['chapter_api_data'] ?? null,
                         ];
                         $seenChapters[$key] = true;
@@ -422,7 +447,11 @@ class OTruyenService
             $aNum = $this->parseChapterNumber($a['name']);
             $bNum = $this->parseChapterNumber($b['name']);
             if ($aNum == $bNum) {
-                return strcmp($a['name'], $b['name']);
+                $nameCmp = strcmp($a['name'], $b['name']);
+                if ($nameCmp == 0) {
+                    return strcmp($a['slug'], $b['slug']);
+                }
+                return $nameCmp;
             }
             return $bNum <=> $aNum;
         });
@@ -713,8 +742,6 @@ class OTruyenService
                     ];
                 }
                 
-                // Only add previous chapter if $addPreviousChapter is true (for search page)
-                // For /new page, $addPreviousChapter is false, so only 1 chapter will be shown
                 if ($addPreviousChapter && count($chapters) > 0 && !empty($chapters[0]['slug'])) {
                     $chapterSlug = $chapters[0]['slug'];
                     $chapterNumber = str_replace('chapter-', '', $chapterSlug);

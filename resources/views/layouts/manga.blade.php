@@ -14,7 +14,7 @@
             "@type": "WebSite",
             "name": "HangTruyen",
             "alternateName": "Hang Truyện",
-            "url": "https://hangtruyen.co/"
+            "url": "{{ url('/') }}"
         }
     </script>
 
@@ -40,16 +40,12 @@
     <link rel="stylesheet" href="{{ asset('css/style.css') }}?v=1.13" />
     <link rel="stylesheet" href="{{ asset('css/responsive.css') }}?v=1.13" />
     
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-LYBKW914VZ"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag() {
-            dataLayer.push(arguments);
-        }
-        gtag('js', new Date());
-        gtag('config', 'G-LYBKW914VZ');
-    </script>
+    @php
+        $gtagCode = \App\Models\Setting::get('gtag_code', '');
+    @endphp
+    @if(!empty($gtagCode))
+        {!! $gtagCode !!}
+    @endif
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <script src="{{ asset('js/utils/cookie.js') }}"></script>
     <script src="{{ asset('js/utils/common.js') }}"></script>

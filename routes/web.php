@@ -452,28 +452,83 @@ Route::get('/', function () {
         unset($manga);
     }
     
-    $suggestedMangas = \App\Models\MangaMetadata::where('is_active', true)
-        ->where('chapters_count', '>', 0)
+    // Lấy random truyện từ CSDL để gợi ý (chỉ lấy truyện có chapter)
+    $suggestedMangas = \App\Models\MangaMetadata::whereNotNull('last_chapter_number')
+        ->where('last_chapter_number', '!=', '')
+        ->whereNotNull('slug')
+        ->where('slug', '!=', '')
+        ->whereNotNull('title')
+        ->where('title', '!=', '')
         ->inRandomOrder()
         ->limit(24)
         ->get()
         ->map(function($manga) {
-            return [
-                'slug' => $manga->slug,
-                'title' => $manga->title,
-                'posterPath' => $manga->cover_url,
-                'avgVote' => $manga->rating ? (float)$manga->rating : 0,
-                'chapters' => $manga->last_chapter_number ? [
+            // Lấy chapter mới nhất từ database nếu có
+            $lastChapter = $manga->chapters()
+                ->orderBy('updated_at', 'desc')
+                ->orderBy('chapter_name', 'desc')
+                ->first();
+            
+            $chapterData = [];
+            if ($lastChapter) {
+                // Có chapter trong database, dùng slug thực tế
+                $chapterName = $lastChapter->chapter_name;
+                if (!preg_match('/^Chapter\s+/i', $chapterName)) {
+                    $chapterName = 'Chapter ' . $chapterName;
+                }
+                $chapterData = [
+                    [
+                        'id' => $lastChapter->id,
+                        'slug' => $lastChapter->chapter_slug,
+                        'name' => $chapterName,
+                        'releasedAt' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                    ],
+                ];
+            } elseif ($manga->last_chapter_number) {
+                // Không có chapter trong database, tạo slug từ last_chapter_number
+                // Lấy số từ last_chapter_number (có thể là "Chapter 112" hoặc chỉ "112")
+                $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
+                $chapterNumber = trim($chapterNumber);
+                
+                $chapterData = [
                     [
                         'id' => null,
-                        'slug' => 'chapter-' . $manga->last_chapter_number,
-                        'name' => 'Chapter ' . $manga->last_chapter_number,
+                        'slug' => 'chapter-' . $chapterNumber,
+                        'name' => 'Chapter ' . $chapterNumber,
                         'releasedAt' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : null,
                     ],
-                ] : [],
+                ];
+            }
+            
+            return [
+                'slug' => $manga->slug ?? '',
+                'title' => $manga->title ?? 'Đang cập nhật',
+                'posterPath' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                'avgVote' => $manga->rating ? (float)$manga->rating : 0,
+                'chapters' => $chapterData,
             ];
         })
+        ->filter(function($manga) {
+            // Chỉ giữ lại truyện có chapters
+            return !empty($manga['chapters']);
+        })
+        ->values()
         ->toArray();
+    
+    // Fallback: Nếu không có trong CSDL, lấy từ recently updated
+    if (empty($suggestedMangas) && isset($recentlyUpdated['mangas']) && !empty($recentlyUpdated['mangas'])) {
+        $suggestedMangas = array_slice(array_map(function($manga) {
+            return [
+                'slug' => $manga['slug'] ?? '',
+                'title' => $manga['title'] ?? 'Đang cập nhật',
+                'posterPath' => $manga['posterPath'] ?? asset('images/pre-load1.png'),
+                'avgVote' => isset($manga['avgVote']) ? (float)$manga['avgVote'] : 0,
+                'chapters' => isset($manga['chapters']) && is_array($manga['chapters']) && !empty($manga['chapters']) 
+                    ? array_slice($manga['chapters'], 0, 1) 
+                    : [],
+            ];
+        }, $recentlyUpdated['mangas']), 0, 24);
+    }
     
     $trendingSlugs = json_decode(\App\Models\Setting::get('trending_mangas', '[]'), true) ?? [];
     $trendingMangas = [];
@@ -754,6 +809,19 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
     if (!$mangaDetail) {
         abort(404, 'Truyện không tồn tại');
     }
+    
+    // Kiểm tra slug trong response khớp với slug request
+    $responseSlug = $mangaDetail['slug'] ?? '';
+    if ($responseSlug !== $slug) {
+        // Slug không khớp, có thể là cache sai - xóa cache và fetch lại
+        \Illuminate\Support\Facades\Cache::forget("otruyen:manga_detail:{$slug}");
+        $mangaDetail = $otruyenService->getMangaDetail($slug);
+        
+        // Nếu vẫn không khớp, báo lỗi
+        if (!$mangaDetail || ($mangaDetail['slug'] ?? '') !== $slug) {
+            abort(404, 'Truyện không tồn tại hoặc dữ liệu không hợp lệ');
+        }
+    }
     $mangaMetadata = \App\Models\MangaMetadata::where('slug', $slug)
         ->orderBy('id', 'desc')
         ->first();
@@ -853,15 +921,20 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
             
             $lastChapterData = null;
             if ($lastChapter) {
+                // Đảm bảo luôn có "Chapter" trước số
+                $chapterName = $lastChapter->chapter_name;
+                if (!preg_match('/^Chapter\s+/i', $chapterName)) {
+                    $chapterName = 'Chapter ' . $chapterName;
+                }
                 $lastChapterData = [
-                    'name' => $lastChapter->chapter_name,
+                    'name' => $chapterName,
                     'slug' => $lastChapter->chapter_slug,
                     'updated_at' => $lastChapter->updated_at ? $lastChapter->updated_at->diffForHumans() : null,
                 ];
             } elseif ($manga->last_chapter_number) {
-                $mangaDetail = $otruyenService->getMangaDetail($manga->slug);
-                if ($mangaDetail && isset($mangaDetail['chapters']) && is_array($mangaDetail['chapters']) && count($mangaDetail['chapters']) > 0) {
-                    $lastChapterFromApi = end($mangaDetail['chapters']);
+                $relatedMangaDetail = $otruyenService->getMangaDetail($manga->slug);
+                if ($relatedMangaDetail && isset($relatedMangaDetail['chapters']) && is_array($relatedMangaDetail['chapters']) && count($relatedMangaDetail['chapters']) > 0) {
+                    $lastChapterFromApi = end($relatedMangaDetail['chapters']);
                     $lastChapterData = [
                         'name' => 'Chapter ' . $lastChapterFromApi['name'],
                         'slug' => $lastChapterFromApi['slug'],
@@ -1005,6 +1078,8 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
     $typeFromApi = $mangaDetail['type'] ?? null;
     $mangaType = $typeFromTags ?? $typeFromApi;
     
+    $chaptersForView = $mangaDetail['chapters'] ?? [];
+    
     $mangaForView = [
         'id' => $mangaMetadata->id,
         'name' => $mangaMetadata->title,
@@ -1014,7 +1089,7 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
         'author' => $authorFormatted,
         'status' => $mangaMetadata->status ?? $mangaDetail['status'] ?? 'ongoing',
         'tags' => $tagsFormatted,
-        'chapters' => $mangaDetail['chapters'] ?? [],
+        'chapters' => $chaptersForView,
         'updated_at' => $mangaMetadata->updated_at ? $mangaMetadata->updated_at->toDateTimeString() : ($mangaDetail['updated_at'] ?? null),
         'type' => $mangaType, 
     ];
@@ -1305,12 +1380,14 @@ Route::get('/truyen-tranh/{mangaSlug}/{chapterSlug}', function ($mangaSlug, $cha
         }
     }
     
-        if (!$currentChapter) {
+    if (!$currentChapter) {
         $chapterNumber = preg_replace('/^chapter-/', '', $chapterSlug);
+        $chapterNumber = preg_replace('/[^0-9.]/', '', $chapterNumber);
         
         foreach ($chapters as $index => $chapter) {
             $chapterSlugFromData = $chapter['slug'] ?? '';
             $chapterNumberFromData = preg_replace('/^chapter-/', '', $chapterSlugFromData);
+            $chapterNumberFromData = preg_replace('/[^0-9.]/', '', $chapterNumberFromData);
             
             if ($chapterNumberFromData === $chapterNumber) {
                 $currentChapter = $chapter;
@@ -1319,7 +1396,10 @@ Route::get('/truyen-tranh/{mangaSlug}/{chapterSlug}', function ($mangaSlug, $cha
             }
             
             $chapterName = $chapter['name'] ?? '';
-            if ($chapterName && (strpos($chapterName, $chapterNumber) !== false || $chapterName === $chapterNumber)) {
+            $chapterNameClean = preg_replace('/^Chapter\s+/i', '', $chapterName);
+            $chapterNameClean = preg_replace('/[^0-9.]/', '', $chapterNameClean);
+            
+            if ($chapterNameClean === $chapterNumber || strpos($chapterName, $chapterNumber) !== false) {
                 $currentChapter = $chapter;
                 $currentIndex = $index;
                 break;
@@ -1668,14 +1748,12 @@ Route::get('/tim-kiem', function () {
     
     $allCategories = \App\Models\Category::where('is_active', true)->get();
     
-    // Tags cần ẩn (vì đã có ở phần Thể loại)
     $hiddenTagNames = ['Manga', 'Manhua', 'Manhwa'];
     
     $defaultTags = [];
     $remainingTags = [];
     
     foreach ($defaultTagOrder as $tagName) {
-        // Skip các tags cần ẩn
         if (in_array($tagName, $hiddenTagNames)) {
             continue;
         }
@@ -1693,7 +1771,6 @@ Route::get('/tim-kiem', function () {
     }
     
     foreach ($allCategories as $category) {
-        // Skip các tags cần ẩn
         if (in_array($category->name, $hiddenTagNames)) {
             continue;
         }
@@ -1941,7 +2018,6 @@ Route::get('/hot-nhat', function () {
         $endDate = $today;
         
         if ($period === 'all') {
-            // Lấy top 12 theo tổng views từ tất cả thời gian (từ manga_metadata.views_count)
             $topMangas = \App\Models\MangaMetadata::where('is_active', true)
                 ->where('views_count', '>', 0)
                 ->orderBy('views_count', 'desc')
@@ -1953,7 +2029,6 @@ Route::get('/hot-nhat', function () {
             
             $result = [];
             foreach ($topMangas as $manga) {
-                // Lấy chapter mới nhất
                 $lastChapter = $manga->chapters()
                     ->orderBy('updated_at', 'desc')
                     ->orderBy('chapter_name', 'desc')
@@ -1969,7 +2044,6 @@ Route::get('/hot-nhat', function () {
                     ];
                 }
                 
-                // Format views
                 $viewsCount = (int)($manga->views_count ?? 0);
                 
                 $result[] = [
@@ -2010,7 +2084,6 @@ Route::get('/hot-nhat', function () {
                 $manga = $mangaMetadata->get($topManga->manga_id);
                 if (!$manga) continue;
                 
-                // Lấy chapter mới nhất
                 $lastChapter = $manga->chapters()
                     ->orderBy('updated_at', 'desc')
                     ->orderBy('chapter_name', 'desc')
@@ -2026,7 +2099,6 @@ Route::get('/hot-nhat', function () {
                     ];
                 }
                 
-                // Format views
                 $viewsCount = (int)$topManga->total_views;
                 
                 $result[] = [
@@ -2760,6 +2832,7 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
             'facebook_url' => \App\Models\Setting::get('facebook_url', ''),
             'twitter_url' => \App\Models\Setting::get('twitter_url', ''),
             'gmail_url' => \App\Models\Setting::get('gmail_url', ''),
+            'gtag_code' => \App\Models\Setting::get('gtag_code', ''),
         ];
         return view('admin.settings', compact('settings'));
     })->name('admin.settings');
@@ -2787,6 +2860,26 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
             'message' => 'Đã xóa cấu hình thành công'
         ]);
     })->name('admin.settings.social.clear');
+    
+    Route::post('/settings/gtag', function () {
+        $gtagCode = request()->input('gtag_code', '');
+        
+        \App\Models\Setting::set('gtag_code', $gtagCode);
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã lưu Google Tag thành công'
+        ]);
+    })->name('admin.settings.gtag');
+    
+    Route::post('/settings/gtag/clear', function () {
+        \App\Models\Setting::where('key', 'gtag_code')->delete();
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã xóa Google Tag thành công'
+        ]);
+    })->name('admin.settings.gtag.clear');
     
     Route::get('/posts', function () {
         $posts = \App\Models\Post::orderBy('created_at', 'desc')->paginate(20);
