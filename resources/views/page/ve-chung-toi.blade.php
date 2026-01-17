@@ -9,11 +9,11 @@
 
     <div class="page-content">
         <h2>1. Chúng Tôi Là Ai?</h2>
-        <p>Chào mừng bạn đến với <strong>HangTruyen.org</strong> – nền tảng đọc <a href="https://hangtruyen.org/" rel="noopener noreferrer" target="_blank">truyện tranh</a> trực tuyến dành cho tất cả những ai yêu thích thế giới truyện tranh phong phú. Chúng tôi không chỉ là một website đọc truyện mà còn là một cộng đồng dành cho những người đam mê manga, manhua, manhwa và truyện tranh Việt Nam.</p>
+        <p>Chào mừng bạn đến với <strong>{{ request()->getHost() }}</strong> – nền tảng đọc <a href="{{ url('/') }}" rel="noopener noreferrer" target="_blank">truyện tranh</a> trực tuyến dành cho tất cả những ai yêu thích thế giới truyện tranh phong phú. Chúng tôi không chỉ là một website đọc truyện mà còn là một cộng đồng dành cho những người đam mê manga, manhua, manhwa và truyện tranh Việt Nam.</p>
         <p><br></p>
         
         <h2>2. Sứ Mệnh Của Chúng Tôi</h2>
-        <p>Tại <strong>HangTruyen.net</strong>, chúng tôi cam kết mang đến cho độc giả:</p>
+        <p>Tại <strong>{{ request()->getHost() }}</strong>, chúng tôi cam kết mang đến cho độc giả:</p>
         <ul>
             <li><strong>Kho truyện đa dạng</strong>: Cập nhật liên tục các thể loại truyện từ hành động, phiêu lưu, lãng mạn, hài hước cho đến kinh dị, trinh thám.</li>
             <li><strong>Trải nghiệm đọc truyện mượt mà</strong>: Giao diện thân thiện, dễ sử dụng, giúp người đọc tận hưởng trọn vẹn nội dung truyện yêu thích.</li>
@@ -32,10 +32,22 @@
         <h2>4. Liên Hệ Với Chúng Tôi</h2>
         <p>Chúng tôi luôn mong muốn lắng nghe ý kiến đóng góp từ cộng đồng để ngày càng hoàn thiện và phát triển hơn. Nếu bạn có bất kỳ câu hỏi hoặc đề xuất nào, vui lòng liên hệ qua:</p>
         <ul>
-            <li><strong>Email</strong>: </li>
-            <li><strong>Fanpage</strong>: </li>
+            @php
+                $gmail = \App\Models\Setting::get('gmail_url', '');
+                $facebookUrl = \App\Models\Setting::get('facebook_url', '');
+            @endphp
+            @if($gmail)
+                <li><strong>Email</strong>: <a href="mailto:{{ $gmail }}">{{ $gmail }}</a></li>
+            @else
+                <li><strong>Email</strong>: </li>
+            @endif
+            @if($facebookUrl)
+                <li><strong>Fanpage</strong>: <a href="{{ $facebookUrl }}" target="_blank" rel="nofollow">{{ $facebookUrl }}</a></li>
+            @else
+                <li><strong>Fanpage</strong>: </li>
+            @endif
         </ul>
-        <p>Cảm ơn bạn đã đồng hành cùng <strong>HangTruyen.org</strong>! Hãy cùng chúng tôi khám phá thế giới truyện tranh tuyệt vời ngay hôm nay!</p>
+        <p>Cảm ơn bạn đã đồng hành cùng <strong>{{ request()->getHost() }}</strong>! Hãy cùng chúng tôi khám phá thế giới truyện tranh tuyệt vời ngay hôm nay!</p>
     </div>
 </div>
 @endsection

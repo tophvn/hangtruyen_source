@@ -20,5 +20,6 @@ class VerifyCsrfToken extends Middleware
         'tai-khoan',
         'tai-khoan/upload-avatar',
         'tai-khoan/clear-reading',
+        'admin/*',
     ];
 }

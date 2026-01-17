@@ -267,7 +267,9 @@ document.addEventListener('DOMContentLoaded', function() {
             perPage: 5,
             perMove: 1,
             gap: '16px',
-            type: 'loop',
+            type: 'slide',
+            loop: false,
+            rewind: false,
             pagination: false,
             padding: {
                 right: '3rem'

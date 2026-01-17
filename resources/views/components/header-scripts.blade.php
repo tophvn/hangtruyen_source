@@ -65,11 +65,17 @@
 
     function appendRecommendMangas(mangas, keyword) {
         listMangaElem.empty();
+        if (mangas.length === 0) {
+            return;
+        }
         listMangaElem.append(
             mangas.map((manga) => {
                 const title = manga.title;
                 const posterPath = manga.posterPath;
                 const slug = manga.slug;
+                const chapters = manga.chapters || [];
+                const firstChapter = chapters.length > 0 ? chapters[0] : null;
+                
                 return `<li>
                     <div class="p-thumb flex-shrink-0">
                         <a title="${title}" href="${slug}" rel="nofollow">
@@ -83,17 +89,17 @@
                     </div>
                     <div class="p-content flex-grow-1">
                         <h3 class="m-name">
-                            <a href="${slug}">${renderMatchedTitle(keyword, manga.title)}</a>
+                            <a href="${slug}">${renderMatchedTitle(keyword || '', manga.title)}</a>
                         </h3>
                         <div class="group-star">
                             <div class="list-chaps">
-                                ${manga.chapters.slice(0, 1).map(chapter => (
+                                ${firstChapter ? (
                                     `<span class="chapter">
-                                        <a data-id="${chapter.id}" href="${manga.slug}/${chapter.slug}" title="${chapter.name}">
-                                            ${chapter.name}
+                                        <a data-id="${firstChapter.id || ''}" href="${slug}/${firstChapter.slug}" title="${firstChapter.name}">
+                                            ${firstChapter.name}
                                         </a>
                                     </span>`
-                                ))}
+                                ) : ''}
                             </div>
                         </div>
                     </div>
@@ -104,16 +110,64 @@
 
     $('#form-search input').on(
         'keyup',
-        debounce(function() {
-            const keyword = $(this).val();
+        debounce(function(e) {
+            const keyword = $(this).val().trim();
+            const $searchSuggest = $('#search-suggest');
+            const $viewAllLink = $('#search-suggest .tab-content > a.view-all');
+            
             if (keyword) {
-                $('#search-suggest .tab-content > a').attr(
-                    'href',
-                    `/tim-kiem?keyword=${keyword}`,
-                );
+                // Update "Xem toàn bộ kết quả" link
+                $viewAllLink.attr('href', `/tim-kiem?keyword=${encodeURIComponent(keyword)}`);
+                
+                // Show search result wrapper
+                $searchSuggest.show();
+                
+                // Call API to search
+                $.ajax({
+                    method: 'GET',
+                    url: `/api/search?keyword=${encodeURIComponent(keyword)}`,
+                    success: function(res) {
+                        if (res.status === 'success' && res.data) {
+                            appendRecommendMangas(res.data, keyword);
+                        } else {
+                            listMangaElem.empty();
+                        }
+                    },
+                    error: function(err) {
+                        console.log('Search error:', err);
+                        listMangaElem.empty();
+                    }
+                });
+            } else {
+                // If keyword is empty, hide results
+                listMangaElem.empty();
+                $viewAllLink.attr('href', '/tim-kiem');
             }
-        }, 200),
+        }, 300),
     );
+    
+    // Handle Enter key to submit form
+    $('#form-search input').on('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const keyword = $(this).val().trim();
+            if (keyword) {
+                window.location.href = `/tim-kiem?keyword=${encodeURIComponent(keyword)}`;
+            } else {
+                window.location.href = '/tim-kiem';
+            }
+        }
+    });
+    
+    // Handle "Xem toàn bộ kết quả" click
+    $(document).on('click', '#search-suggest .view-all', function(e) {
+        e.preventDefault();
+        const keyword = $('#form-search input').val().trim();
+        const href = keyword 
+            ? `/tim-kiem?keyword=${encodeURIComponent(keyword)}`
+            : '/tim-kiem';
+        window.location.href = href;
+    });
 
     $(document).ready(function() {
         const forms = $('.form-search');
@@ -131,10 +185,15 @@
         }
 
         forms.find('input').on('focus', function() {
-            $(this)
-                .closest('.form-search')
-                .find('.search-result-wrapper')
-                .show();
+            const $input = $(this);
+            const $searchSuggest = $input.closest('.form-search').find('.search-result-wrapper');
+            const keyword = $input.val().trim();
+            
+            // Only show if there's a keyword
+            if (keyword) {
+                $searchSuggest.show();
+                $input.trigger('keyup');
+            }
         });
 
         $(document).on('click', function(event) {

@@ -23,6 +23,7 @@
         </div>
         <div class="row">
             <div class="col-12 col-xl-8">
+                @if($featuredNews)
                 <div class="blog-popular pb-5">
                     <h3 class="m-title title">Tin tức nổi bật
                         <span class="sub">Tin tức được quan tâm</span>
@@ -57,13 +58,14 @@
                         </div>
                     </div>
                 </div>
+                @endif
 
                 <div class="blog-list">
                     <h3 class="m-title title">Tin tức khác
                         <span class="sub">Tin tức mới được cập nhật</span>
                     </h3>
                     <div class="list-wrapper">
-                        @foreach($otherNews as $news)
+                        @forelse($otherNews as $news)
                         <div class="item-card horizontal">
                             <div class="item-image">
                                 <a href="/tin-tuc/{{ $news['slug'] }}" class="item-link" alt=""></a>
@@ -91,7 +93,11 @@
                                 <div class="item-description">{{ $news['description'] }}</div>
                             </div>
                         </div>
-                        @endforeach
+                        @empty
+                        <div class="text-center py-5">
+                            <p class="text-muted">Chưa có tin tức nào. Vui lòng quay lại sau!</p>
+                        </div>
+                        @endforelse
                     </div>
 
                     @if($totalPages > 1)

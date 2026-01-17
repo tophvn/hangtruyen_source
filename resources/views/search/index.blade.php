@@ -80,11 +80,19 @@
                                             </span>
                                         </div>
                                         <ul class="list-chaps">
-                                            @if(isset($manga['chapters']) && is_array($manga['chapters']))
+                                            @if(isset($manga['chapters']) && is_array($manga['chapters']) && count($manga['chapters']) > 0)
                                                 @foreach(array_slice($manga['chapters'], 0, 2) as $chapter)
+                                                    @php
+                                                        $chapterTime = isset($chapter['updated_at']) && $chapter['updated_at'] 
+                                                            ? formatVietnameseTime($chapter['updated_at'])
+                                                            : ($chapter['releasedAt'] ?? '');
+                                                        $chapterNumber = $chapter['number'] ?? '';
+                                                        $chapterSlug = $chapter['slug'] ?? 'chapter-' . $chapterNumber;
+                                                        $chapterUrl = '/truyen-tranh/' . $manga['slug'] . '/' . $chapterSlug;
+                                                    @endphp
                                                     <li class="chapter">
-                                                        <a data-id="{{ $chapter['id'] }}" href="/truyen-tranh/{{ $manga['slug'] }}/{{ $chapter['slug'] }}" title="{{ $chapter['name'] }}">
-                                                            {{ $chapter['name'] }}<span>{{ $chapter['releasedAt'] ?? '' }}</span>
+                                                        <a data-id="{{ $chapter['id'] ?? '' }}" href="{{ $chapterUrl }}" title="{{ $chapter['name'] ?? '' }}">
+                                                            {{ $chapter['name'] ?? '' }}<span>{{ $chapterTime }}</span>
                                                         </a>
                                                     </li>
                                                 @endforeach
@@ -163,6 +171,12 @@
 <script src="{{ asset('js/custom/search-advanced/index.js') }}"></script>
 <script>
     $(document).ready(function() {
+        // Remove conflicting handlers from search-advanced/index.js
+        $('a.btn-filter').off('click');
+        $('.form-search-normal > .form-search').off('submit');
+        
+        // Track user selected tags to prevent URL from overriding user choices
+        const userSelectedTags = new Set();
         // Toggle hiển thị tags khi bấm "Xem tất cả"
         $('#view-all-tags').on('click', function(e) {
             e.preventDefault();
@@ -188,20 +202,29 @@
         // Use both jQuery and native DOM to ensure compatibility
         function bindTagClickHandlers() {
             // Remove any existing handlers first
-            $('.list-genres span.tag-item').off('click.tagClick');
+            $('.list-genres span.tag-item, .list-genres > span').off('click.tagClick');
             
-            // Bind with namespace
-            $('.list-genres span.tag-item').on('click.tagClick', function(e) {
+            // Bind with namespace - handle both .tag-item and direct span children
+            $('.list-genres span.tag-item, .list-genres > span').on('click.tagClick', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 
                 const $tag = $(this);
                 const element = this;
+                const tagId = $tag.attr('data-value') || $tag.data('value');
                 
                 // Toggle using both methods
+                const wasActive = $tag.hasClass('active');
                 $tag.toggleClass('active');
                 element.classList.toggle('active');
+                
+                // Track user selection
+                if ($tag.hasClass('active')) {
+                    userSelectedTags.add(tagId);
+                } else {
+                    userSelectedTags.delete(tagId);
+                }
                 
                 return false;
             });
@@ -212,6 +235,28 @@
         
         // Re-bind after a delay to ensure it works even if custom.js runs later
         setTimeout(bindTagClickHandlers, 1000);
+        
+        // Set selected categories from URL on page load
+        function setActiveCategoriesFromURL() {
+            const url = new URL(window.location.href);
+            const categoryIds = url.searchParams.get('categoryIds') ? url.searchParams.get('categoryIds').split(',').map(id => id.trim()).filter(id => id) : [];
+            
+            if (categoryIds.length > 0) {
+                // Uncheck "Tất cả"
+                $('.list-cats .checkbox-all').prop('checked', false);
+                
+                // Check selected categories
+                categoryIds.forEach(catId => {
+                    $(`.list-cats input[value="${catId}"]`).prop('checked', true);
+                });
+            } else {
+                // If no categories selected, check "Tất cả"
+                $('.list-cats .checkbox-all').prop('checked', true);
+            }
+        }
+        
+        // Call on page load
+        setActiveCategoriesFromURL();
         
         // Handle category checkbox
         $('.list-cats input[type="checkbox"]').on('change', function() {
@@ -258,25 +303,28 @@
             const chosenTags = url.searchParams.get('tags') ? url.searchParams.get('tags').split(',').map(id => id.trim()).filter(id => id) : [];
             const allChosenTags = [...chosenGenreIds, ...chosenTags];
             
+            // Also support tags from server-side (backward compatibility)
+            @if(isset($tags) && is_array($tags) && count($tags) > 0)
+                const serverTags = @json($tags);
+                serverTags.forEach(tagId => {
+                    const tagStr = String(tagId).trim();
+                    if (tagStr && !allChosenTags.includes(tagStr)) {
+                        allChosenTags.push(tagStr);
+                    }
+                });
+            @endif
+            
             if (allChosenTags.length === 0) {
                 // No tags in URL, don't modify anything (let user click to select)
                 return;
             }
             
-            // Remove all active classes first, but preserve user-selected ones
-            $('.list-genres span').each(function() {
-                const tagId = $(this).attr('data-value');
-                if (!userSelectedTags.has(tagId)) {
-                    $(this).removeClass('active');
-                }
-            });
-            
-            // Set active tags (like original code)
-            const genreElements = $('.list-genres span');
+            // Set active tags - check both .tag-item and direct span children
+            const genreElements = $('.list-genres span, .list-genres > span');
             
             for (let i = 0; i < genreElements.length; i++) {
                 const $element = $(genreElements[i]);
-                const genreId = $element.attr('data-value');
+                const genreId = $element.attr('data-value') || $element.data('value');
                 
                 // Check if this tag should be active
                 if (genreId) {
@@ -285,56 +333,60 @@
                         // Convert both to strings for comparison
                         const genreIdStr = String(genreId).trim();
                         const tagIdStr = String(tagId).trim();
-                        return genreIdStr === tagIdStr || genreId == tagId;
+                        return genreIdStr === tagIdStr || genreId == tagId || genreIdStr === tagIdStr;
                     });
                     
                     if (isActive) {
                         $element.addClass('active');
+                        userSelectedTags.add(String(genreId));
                     }
                 }
             }
-            
-            // Also support tags from server-side (backward compatibility)
-            @if(isset($tags) && is_array($tags) && count($tags) > 0)
-                const serverTags = @json($tags);
-                for (let i = 0; i < genreElements.length; i++) {
-                    const $element = $(genreElements[i]);
-                    const genreId = $element.attr('data-value');
-                    if (genreId) {
-                        const isActive = serverTags.some(tagId => {
-                            return genreId == tagId || genreId === tagId || String(genreId) === String(tagId);
-                        });
-                        if (isActive) {
-                            $element.addClass('active');
-                        }
-                    }
-                }
-            @endif
         }
         
         // Call only once when page loads (to set from URL)
         setActiveTagsFromURL();
         
-        // Handle filter submit
-        $('#btn-filter-submit').on('click', function(e) {
-            e.preventDefault();
+        // Function to handle filter submit (reusable)
+        function handleFilterSubmit(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+            }
             
-            const keyword = $('.form-search input[name="keyword"]').val();
-            const sort = $('#dd-sort').attr('data-value') || 'updated_at_desc';
+            // Get current filters from URL
+            const currentUrl = new URL(window.location.href);
+            const keyword = $('.form-search input[name="keyword"], .form-search-normal input[name="keyword"]').val() || '';
+            const sort = $('#dd-sort').attr('data-value') || currentUrl.searchParams.get('orderBy') || currentUrl.searchParams.get('sort') || 'updated_at_desc';
             const selectedCategories = [];
             const selectedTags = [];
             
-            // Get selected categories
+            // Get selected categories from checkboxes
             $('.list-cats input[type="checkbox"]:checked').not('.checkbox-all').each(function() {
-                selectedCategories.push($(this).val());
+                const val = $(this).val();
+                if (val) {
+                    selectedCategories.push(val);
+                }
             });
             
-            // Get selected tags
-            $('.list-genres span.active').each(function() {
-                selectedTags.push($(this).data('value'));
+            // Get selected tags - check both active class selectors
+            $('.list-genres span.active, .list-genres > span.active').each(function() {
+                const tagValue = $(this).attr('data-value') || $(this).data('value');
+                if (tagValue) {
+                    selectedTags.push(String(tagValue));
+                }
             });
             
-            // Build URL using URLSearchParams (like original code)
+            // If no tags selected in DOM but have in URL, keep URL tags
+            if (selectedTags.length === 0) {
+                const urlGenreIds = currentUrl.searchParams.get('genreIds');
+                if (urlGenreIds) {
+                    selectedTags.push(...urlGenreIds.split(',').map(id => id.trim()).filter(id => id));
+                }
+            }
+            
+            // Build URL using URLSearchParams
             const url = new URL(window.location.origin + '/tim-kiem');
             
             if (keyword) {
@@ -367,12 +419,23 @@
             url.searchParams.set('page', '1');
             
             window.location.href = url.href;
+        }
+        
+        // Handle filter submit - remove old handlers first to avoid duplicates
+        // Remove all handlers first, including from search-advanced/index.js
+        $('a.btn-filter, #btn-filter-submit').off('click');
+        $('.form-search, .form-search-normal > .form-search').off('submit');
+        
+        // Bind our handlers with high priority
+        $('a.btn-filter, #btn-filter-submit').on('click.filterSubmit', function(e) {
+            handleFilterSubmit(e);
+            return false;
         });
         
-        // Handle form search submit
-        $('.form-search').on('submit', function(e) {
-            e.preventDefault();
-            $('#btn-filter-submit').click();
+        // Handle form search submit - preserve all filters
+        $('.form-search, .form-search-normal > .form-search').on('submit.filterSubmit', function(e) {
+            handleFilterSubmit(e);
+            return false;
         });
     });
 </script>

@@ -65,8 +65,23 @@
                                 in_array($tagValue, $tags) || 
                                 in_array($tagName, $tags)
                             );
+                            
+                            // Tag colors: green, red, yellow
+                            $tagColorClass = '';
+                            // tag-red: 
+                            if (in_array($tagId, [2, 13, 41])) {
+                                $tagColorClass = 'tag-red';
+                            }
+                            // tag-green: 
+                            elseif (in_array($tagId, [45, 32])) {
+                                $tagColorClass = 'tag-green';
+                            }
+                            // tag-yellow:
+                            elseif (in_array($tagId, [33, 28, 5])) {
+                                $tagColorClass = 'tag-yellow';
+                            }
                         @endphp
-                        <span data-value="{{ $tagId }}" class="tag-item {{ $isHidden ? 'd-none' : '' }} {{ $isSelected ? 'active' : '' }}" style="cursor: pointer;">#{{ $tagName }}</span>
+                        <span data-value="{{ $tagId }}" class="tag-item {{ $tagColorClass }} {{ $isHidden ? 'd-none' : '' }} {{ $isSelected ? 'active' : '' }}" style="cursor: pointer;">#{{ $tagName }}</span>
                     @endforeach
                 @else
                     <span class="text-muted">Chưa có tags</span>

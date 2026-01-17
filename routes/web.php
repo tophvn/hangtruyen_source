@@ -475,6 +475,96 @@ Route::get('/', function () {
         })
         ->toArray();
     
+    $trendingSlugs = json_decode(\App\Models\Setting::get('trending_mangas', '[]'), true) ?? [];
+    $trendingMangas = [];
+    if (!empty($trendingSlugs)) {
+        $trendingMangasData = \App\Models\MangaMetadata::whereIn('slug', $trendingSlugs)
+            ->get()
+            ->sortBy(function($manga) use ($trendingSlugs) {
+                return array_search($manga->slug, $trendingSlugs);
+            })
+            ->values();
+        
+        foreach ($trendingMangasData as $manga) {
+            $latestChapter = $manga->chapters()
+                ->whereNotNull('chapter_slug')
+                ->orderBy('updated_at', 'desc')
+                ->first();
+            
+            $chapters = [];
+            
+            if ($latestChapter) {
+                $chapterNumber = '';
+                if (preg_match('/\d+/', $latestChapter->chapter_name, $matches)) {
+                    $chapterNumber = $matches[0];
+                } elseif (preg_match('/\d+/', $latestChapter->chapter_slug, $matches)) {
+                    $chapterNumber = $matches[0];
+                }
+                
+                $chapters[] = [
+                    'id' => $latestChapter->id,
+                    'slug' => $latestChapter->chapter_slug,
+                    'name' => formatChapterNameForDisplay($latestChapter->chapter_name),
+                    'releasedAt' => $latestChapter->updated_at ? formatVietnameseTime($latestChapter->updated_at) : null,
+                ];
+                
+                if ($chapterNumber && is_numeric($chapterNumber) && (int)$chapterNumber > 1) {
+                    $prevChapterNumber = (int)$chapterNumber - 1;
+                    $prevChapterSlug = 'chapter-' . $prevChapterNumber;
+                    $prevChapterName = 'Chapter ' . $prevChapterNumber;
+                    
+                    array_unshift($chapters, [
+                        'id' => null,
+                        'slug' => $prevChapterSlug,
+                        'name' => $prevChapterName,
+                        'releasedAt' => $latestChapter->updated_at ? formatVietnameseTime($latestChapter->updated_at) : null,
+                    ]);
+                }
+            } elseif ($manga->last_chapter_number) {
+                $chapterNumber = $manga->last_chapter_number;
+                $chapters[] = [
+                    'id' => null,
+                    'slug' => 'chapter-' . $chapterNumber,
+                    'name' => 'Chapter ' . $chapterNumber,
+                    'releasedAt' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : null,
+                ];
+                
+                if (is_numeric($chapterNumber) && (int)$chapterNumber > 1) {
+                    $prevChapterNumber = (int)$chapterNumber - 1;
+                    $prevChapterSlug = 'chapter-' . $prevChapterNumber;
+                    $prevChapterName = 'Chapter ' . $prevChapterNumber;
+                    
+                    array_unshift($chapters, [
+                        'id' => null,
+                        'slug' => $prevChapterSlug,
+                        'name' => $prevChapterName,
+                        'releasedAt' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : null,
+                    ]);
+                }
+            }
+            
+            $viewsFormatted = '';
+            $viewsCount = (int)($manga->views_count ?? 0);
+            if ($viewsCount >= 1000000) {
+                $viewsFormatted = number_format($viewsCount / 1000000, 1) . 'M lượt xem';
+            } elseif ($viewsCount >= 1000) {
+                $viewsFormatted = number_format($viewsCount / 1000, 1) . 'K lượt xem';
+            } else {
+                $viewsFormatted = $viewsCount . ' lượt xem';
+            }
+            
+            $trendingMangas[] = [
+                'slug' => $manga->slug,
+                'title' => $manga->title,
+                'cover_url' => $manga->cover_url ?: asset('images/pre-load1.png'),
+                'rating' => $manga->rating ? (float)$manga->rating : 0,
+                'views_count' => $viewsCount,
+                'views_formatted' => $viewsFormatted,
+                'chapters' => array_slice($chapters, 0, 2),
+            ];
+        }
+    }
+    
     $sapRaMatData = $otruyenService->getMangaByList('sap-ra-mat', 1, 24, true);
     $hoanThanhData = $otruyenService->getMangaByList('hoan-thanh', 1, 24, true);
     
@@ -634,59 +724,87 @@ Route::get('/', function () {
     $topFollowWeek = $getTopFollow('week');
     $topFollowMonth = $getTopFollow('month');
     
+    $blogPosts = \App\Models\Post::where('is_active', true)
+        ->whereNotNull('published_at')
+        ->where('published_at', '<=', now())
+        ->orderBy('published_at', 'desc')
+        ->limit(12)
+        ->get();
+    
     return view('home.index', [
         'recentlyUpdated' => $recentlyUpdated['mangas'] ?? [],
         'recentlyUpdatedMetadata' => $recentlyUpdated['metadata'] ?? null,
         'suggestedMangas' => $suggestedMangas,
+        'trendingMangas' => $trendingMangas,
         'sapRaMatMangas' => $sapRaMatData['mangas'] ?? [],
         'hoanThanhMangas' => $hoanThanhData['mangas'] ?? [],
         'topComments' => $topComments,
         'topFollowDay' => $topFollowDay,
         'topFollowWeek' => $topFollowWeek,
         'topFollowMonth' => $topFollowMonth,
+        'blogPosts' => $blogPosts,
     ]);
 });
 
 Route::get('/truyen-tranh/{slug}', function ($slug) {
     $otruyenService = new \App\Services\OTruyenService();
+    
     $mangaDetail = $otruyenService->getMangaDetail($slug);
     
     if (!$mangaDetail) {
         abort(404, 'Truyện không tồn tại');
     }
-    
-    // Tìm lại mangaMetadata theo slug từ URL (sau khi getMangaDetail có thể đã tạo/cập nhật)
-    // Đảm bảo luôn dùng slug từ URL, không phải từ API
-    // Sử dụng orderBy để đảm bảo luôn lấy record mới nhất nếu có duplicate
     $mangaMetadata = \App\Models\MangaMetadata::where('slug', $slug)
         ->orderBy('id', 'desc')
         ->first();
     
     if (!$mangaMetadata) {
-        abort(404, 'Truyện không tồn tại trong hệ thống');
-    }
-    
-    // Nếu có nhiều record với cùng slug, xóa các record cũ (chỉ giữ lại record mới nhất)
-    if ($mangaMetadata) {
-        $duplicates = \App\Models\MangaMetadata::where('slug', $slug)
-            ->where('id', '!=', $mangaMetadata->id)
-            ->get();
-        if ($duplicates->count() > 0) {
-            foreach ($duplicates as $duplicate) {
-                // Xóa các record duplicate (trừ record hiện tại)
-                $duplicate->delete();
+        try {
+            $mangaMetadata = \App\Models\MangaMetadata::create([
+                'slug' => $slug,
+                'source_type' => 'otruyen',
+                'source_identifier' => $mangaDetail['id'] ?? $slug,
+                'title' => $mangaDetail['name'] ?? 'Đang cập nhật',
+                'description' => strip_tags($mangaDetail['description'] ?? ''),
+                'cover_url' => $mangaDetail['cover_url'] ?? '',
+                'author' => is_array($mangaDetail['author'] ?? []) ? implode(', ', $mangaDetail['author']) : ($mangaDetail['author'] ?? ''),
+                'status' => $mangaDetail['status'] ?? 'ongoing',
+                'tags' => array_map(function($tag) { return $tag['name'] ?? ''; }, $mangaDetail['tags'] ?? []),
+                'origin_name' => $mangaDetail['origin_name'] ?? [],
+                'is_active' => true,
+                'last_synced_at' => now(),
+            ]);
+        } catch (\Exception $e) {
+            $mangaMetadata = \App\Models\MangaMetadata::where('slug', $slug)
+                ->orderBy('id', 'desc')
+                ->first();
+            if (!$mangaMetadata) {
+                abort(404, 'Truyện không tồn tại trong hệ thống');
             }
         }
     }
     
-    // Final verification: Đảm bảo slug khớp với URL
+    if (!$mangaMetadata) {
+        abort(404, 'Truyện không tồn tại trong hệ thống');
+    }
+    
+    $mangaMetadata->refresh();
+    
+    $duplicates = \App\Models\MangaMetadata::where('slug', $slug)
+        ->where('id', '!=', $mangaMetadata->id)
+        ->get();
+    if ($duplicates->count() > 0) {
+        foreach ($duplicates as $duplicate) {
+            $duplicate->delete();
+        }
+    }
+    
     if ($mangaMetadata->slug !== $slug) {
         $mangaMetadata->slug = $slug;
         $mangaMetadata->save();
         $mangaMetadata->refresh();
     }
     
-    // Update existing metadata if needed (nhưng không thay đổi slug)
     $mangaMetadata->title = $mangaDetail['name'] ?? $mangaMetadata->title;
     if (empty($mangaMetadata->cover_url) && !empty($mangaDetail['cover_url'])) {
         $mangaMetadata->cover_url = $mangaDetail['cover_url'];
@@ -695,11 +813,6 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
         $mangaMetadata->description = $mangaDetail['description'];
     }
     $mangaMetadata->save();
-    
-    // Đảm bảo mangaMetadata có id
-    if (!$mangaMetadata->id) {
-        $mangaMetadata->refresh();
-    }
     
     $totalViews = (int)($mangaMetadata->views_count ?? 0);
     $chapterViews = \App\Models\MangaChapter::where('manga_id', $mangaMetadata->id)
@@ -787,8 +900,6 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
     }
     
     $relatedMangas = $relatedMangas->take(5)->values();
-    
-    // Load initial comments
     $comments = \App\Models\MangaComment::where('manga_id', $mangaMetadata->id)
         ->whereNull('parent_id')
         ->orderBy('created_at', 'desc')
@@ -815,8 +926,6 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
         ->whereNull('parent_id')
         ->count();
     
-    // Build $manga array từ $mangaMetadata để đảm bảo luôn hiển thị đúng dữ liệu từ database
-    // Chỉ lấy chapters từ API, còn lại lấy từ database
     $tagsFromDb = $mangaMetadata->tags;
     if (is_string($tagsFromDb)) {
         $tagsFromDb = json_decode($tagsFromDb, true) ?? [];
@@ -825,19 +934,25 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
         $tagsFromDb = [];
     }
     
-    // Convert tags to format expected by view
+    $typeKeywords = ['Manga', 'Manhua', 'Manhwa', 'manga', 'manhua', 'manhwa'];
     $tagsFormatted = [];
     if (is_array($tagsFromDb) && count($tagsFromDb) > 0) {
         foreach ($tagsFromDb as $tag) {
+            $tagName = '';
             if (is_string($tag)) {
-                $tagSlug = \Illuminate\Support\Str::slug($tag);
-                $tagsFormatted[] = [
-                    'name' => $tag,
-                    'slug' => $tagSlug
-                ];
-            } elseif (is_array($tag)) {
-                // Đảm bảo có cả name và slug
-                if (isset($tag['name'])) {
+                $tagName = $tag;
+            } elseif (is_array($tag) && isset($tag['name'])) {
+                $tagName = $tag['name'];
+            }
+            
+            if (!empty($tagName) && !in_array($tagName, $typeKeywords)) {
+                if (is_string($tag)) {
+                    $tagSlug = \Illuminate\Support\Str::slug($tag);
+                    $tagsFormatted[] = [
+                        'name' => $tag,
+                        'slug' => $tagSlug
+                    ];
+                } elseif (is_array($tag)) {
                     $tagSlug = $tag['slug'] ?? \Illuminate\Support\Str::slug($tag['name']);
                     $tagsFormatted[] = [
                         'name' => $tag['name'],
@@ -847,12 +962,15 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
             }
         }
     }
-    // Fallback to API tags if database tags are empty
     if (empty($tagsFormatted) && isset($mangaDetail['tags']) && is_array($mangaDetail['tags'])) {
-        $tagsFormatted = $mangaDetail['tags'];
+        foreach ($mangaDetail['tags'] as $tag) {
+            $tagName = is_array($tag) ? ($tag['name'] ?? '') : '';
+            if (!empty($tagName) && !in_array($tagName, $typeKeywords)) {
+                $tagsFormatted[] = $tag;
+            }
+        }
     }
     
-    // Handle author - could be string or array
     $authorFromDb = $mangaMetadata->author;
     $authorFormatted = [];
     if (is_string($authorFromDb) && !empty($authorFromDb)) {
@@ -869,6 +987,24 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
         }
     }
     
+    $typeFromTags = null;
+    if (is_array($tagsFromDb)) {
+        foreach ($tagsFromDb as $tag) {
+            $tagName = is_string($tag) ? $tag : ($tag['name'] ?? '');
+            $tagNameLower = strtolower($tagName);
+            if (in_array($tagNameLower, ['manga', 'manhua', 'manhwa'])) {
+                $typeFromTags = [
+                    'name' => ucfirst($tagNameLower),
+                    'slug' => $tagNameLower
+                ];
+                break;
+            }
+        }
+    }
+    
+    $typeFromApi = $mangaDetail['type'] ?? null;
+    $mangaType = $typeFromTags ?? $typeFromApi;
+    
     $mangaForView = [
         'id' => $mangaMetadata->id,
         'name' => $mangaMetadata->title,
@@ -878,9 +1014,9 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
         'author' => $authorFormatted,
         'status' => $mangaMetadata->status ?? $mangaDetail['status'] ?? 'ongoing',
         'tags' => $tagsFormatted,
-        'chapters' => $mangaDetail['chapters'] ?? [], // Chỉ chapters lấy từ API
+        'chapters' => $mangaDetail['chapters'] ?? [],
         'updated_at' => $mangaMetadata->updated_at ? $mangaMetadata->updated_at->toDateTimeString() : ($mangaDetail['updated_at'] ?? null),
-        'type' => $mangaDetail['type'] ?? null, 
+        'type' => $mangaType, 
     ];
     
     return view('manga.detail', [
@@ -900,7 +1036,60 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
     ]);
 })->name('manga.detail');
 
-// API route to get comment's manga_id
+Route::get('/api/search', function () {
+    $keyword = trim(request()->get('keyword', ''));
+    
+    if (empty($keyword)) {
+        return response()->json([
+            'status' => 'success',
+            'data' => []
+        ]);
+    }
+    
+    $query = \App\Models\MangaMetadata::where('is_active', true)
+        ->whereHas('chapters', function($q) {
+            $q->whereNotNull('chapter_slug');
+        })
+        ->where(function($q) use ($keyword) {
+            $q->where('title', 'LIKE', '%' . $keyword . '%')
+              ->orWhere('slug', 'LIKE', '%' . $keyword . '%');
+        })
+        ->orderBy('views_count', 'desc')
+        ->limit(8)
+        ->get();
+    
+    $results = [];
+    foreach ($query as $manga) {
+        $latestChapter = $manga->chapters()
+            ->whereNotNull('chapter_slug')
+            ->orderBy('updated_at', 'desc')
+            ->first();
+        
+        $chapterData = null;
+        if ($latestChapter) {
+            $chapterData = [
+                'id' => $latestChapter->id,
+                'slug' => $latestChapter->chapter_slug,
+                'name' => formatChapterNameForDisplay($latestChapter->chapter_name),
+            ];
+        }
+        
+        if ($chapterData) {
+            $results[] = [
+                'title' => $manga->title,
+                'posterPath' => $manga->cover_url ?: asset('images/pre-load1.png'),
+                'slug' => '/truyen-tranh/' . $manga->slug,
+                'chapters' => [$chapterData]
+            ];
+        }
+    }
+    
+    return response()->json([
+        'status' => 'success',
+        'data' => $results
+    ]);
+});
+
 Route::get('/api/comment/{commentId}/manga-id', function ($commentId) {
     $comment = \App\Models\MangaComment::with('manga')->find($commentId);
     if (!$comment) {
@@ -914,15 +1103,12 @@ Route::get('/api/comment/{commentId}/manga-id', function ($commentId) {
     ]);
 });
 
-// Helper function to format chapter name
 if (!function_exists('formatChapterNameForDisplay')) {
     function formatChapterNameForDisplay($chapterName) {
         if (empty($chapterName)) {
             return 'Chapter';
         }
-        // Remove existing "Chapter" prefix if exists (case insensitive)
         $cleaned = trim(preg_replace('/^Chapter\s+/i', '', $chapterName));
-        // Add "Chapter" prefix
         return 'Chapter ' . $cleaned;
     }
 }
@@ -936,20 +1122,16 @@ Route::get('/tai-khoan', function () {
     $user = auth()->user();
     $otruyenService = new \App\Services\OTruyenService();
     
-    // Get all categories for suggestion settings
-    // Note: categories table doesn't have 'type' column, so we get all active categories
     $allCategories = \App\Models\Category::where('is_active', true)
         ->orderBy('sort_order')
         ->orderBy('name')
         ->get();
     
-    // Get all tags for suggestion settings (same as categories for now)
     $allTags = \App\Models\Category::where('is_active', true)
         ->orderBy('sort_order')
         ->orderBy('name')
         ->get();
     
-    // Get reading history with pagination (9 per page)
     $readingPage = max(1, (int)request()->get('reading_page', 1));
     $followingPage = max(1, (int)request()->get('following_page', 1));
     $perPage = 9;
@@ -972,17 +1154,14 @@ Route::get('/tai-khoan', function () {
                 return null;
             }
             
-            // Get manga detail from API to get total chapters
             $mangaDetail = $otruyenService->getMangaDetail($manga->slug);
             $totalChapters = count($mangaDetail['chapters'] ?? []);
             
-            // Find current chapter number and calculate progress
             $currentChapterNumber = 0;
             if ($chapter && $chapter->chapter_slug) {
                 $chapterSlug = $chapter->chapter_slug;
                 $chapterNumberStr = preg_replace('/^chapter-/', '', $chapterSlug);
                 
-                // Try to extract numeric chapter number
                 if (preg_match('/^(\d+)/', $chapterNumberStr, $matches)) {
                     $currentChapterNumber = (int)$matches[1];
                 } elseif (is_numeric($chapterNumberStr)) {
@@ -990,10 +1169,8 @@ Route::get('/tai-khoan', function () {
                 }
             }
             
-            // Find max chapter number from chapters list
             $maxChapterNumber = 0;
             if (isset($mangaDetail['chapters']) && is_array($mangaDetail['chapters']) && count($mangaDetail['chapters']) > 0) {
-                // Get the first chapter (newest) to find max number
                 $firstChapter = $mangaDetail['chapters'][0];
                 $firstChapterSlug = $firstChapter['slug'] ?? '';
                 $firstChapterNumberStr = preg_replace('/^chapter-/', '', $firstChapterSlug);
@@ -1004,13 +1181,10 @@ Route::get('/tai-khoan', function () {
                 }
             }
             
-            // If we couldn't determine from slug, use total chapters as fallback
             if ($maxChapterNumber === 0) {
                 $maxChapterNumber = $totalChapters;
             }
             
-            // Calculate progress: current chapter / max chapter
-            // Progress shows how many chapters have been read
             $progressPercent = $maxChapterNumber > 0 && $currentChapterNumber > 0 
                 ? ($currentChapterNumber / $maxChapterNumber) * 100 
                 : 0;
@@ -1039,7 +1213,6 @@ Route::get('/tai-khoan', function () {
             return $manga !== null;
         });
     
-    // Get following mangas with pagination (9 per page)
     
     $followingQuery = \App\Models\MangaFollow::where('user_id', $user->id)
         ->with('manga')
@@ -1057,7 +1230,6 @@ Route::get('/tai-khoan', function () {
                 return null;
             }
             
-            // Get last chapter from database
             $lastChapter = $manga->chapters()
                 ->orderBy('updated_at', 'desc')
                 ->orderBy('chapter_name', 'desc')
@@ -1071,7 +1243,6 @@ Route::get('/tai-khoan', function () {
                     'updated_at' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
                 ];
             } else {
-                // Fallback: get from API
                 $mangaDetail = $otruyenService->getMangaDetail($manga->slug);
                 if ($mangaDetail && isset($mangaDetail['chapters']) && is_array($mangaDetail['chapters']) && count($mangaDetail['chapters']) > 0) {
                     $lastChapterFromApi = $mangaDetail['chapters'][0];
@@ -1126,7 +1297,6 @@ Route::get('/truyen-tranh/{mangaSlug}/{chapterSlug}', function ($mangaSlug, $cha
     $currentChapter = null;
     $currentIndex = -1;
     
-    // Try exact match first
     foreach ($chapters as $index => $chapter) {
         if ($chapter['slug'] === $chapterSlug) {
             $currentChapter = $chapter;
@@ -1135,23 +1305,19 @@ Route::get('/truyen-tranh/{mangaSlug}/{chapterSlug}', function ($mangaSlug, $cha
         }
     }
     
-    // If not found, try to match by extracting chapter number
-    if (!$currentChapter) {
-        // Extract number from chapterSlug (e.g., "chapter-53" -> "53")
+        if (!$currentChapter) {
         $chapterNumber = preg_replace('/^chapter-/', '', $chapterSlug);
         
         foreach ($chapters as $index => $chapter) {
             $chapterSlugFromData = $chapter['slug'] ?? '';
             $chapterNumberFromData = preg_replace('/^chapter-/', '', $chapterSlugFromData);
             
-            // Try to match by number
             if ($chapterNumberFromData === $chapterNumber) {
                 $currentChapter = $chapter;
                 $currentIndex = $index;
                 break;
             }
             
-            // Also try matching by chapter name
             $chapterName = $chapter['name'] ?? '';
             if ($chapterName && (strpos($chapterName, $chapterNumber) !== false || $chapterName === $chapterNumber)) {
                 $currentChapter = $chapter;
@@ -1187,10 +1353,8 @@ Route::get('/truyen-tranh/{mangaSlug}/{chapterSlug}', function ($mangaSlug, $cha
     
     $mangaMetadata->updateViewsCount();
     
-    // Lưu views theo ngày để tính top theo dõi
     \App\Models\MangaDailyView::incrementTodayViews($mangaMetadata->id);
     
-    // Lưu lịch sử đọc cho user đã đăng nhập
     if (auth()->check()) {
         \App\Models\MangaReadingHistory::updateOrCreate(
             [
@@ -1229,7 +1393,6 @@ Route::get('/truyen-tranh/{mangaSlug}/{chapterSlug}', function ($mangaSlug, $cha
         ];
     }
     
-    // Load comments for this chapter
     $comments = \App\Models\MangaComment::where('manga_id', $mangaMetadata->id)
         ->where('chapter_id', $chapterRecord->id)
         ->whereNull('parent_id')
@@ -1281,20 +1444,17 @@ Route::get('/tim-kiem', function () {
     $page = max(1, (int)$request->get('page', 1));
     $perPage = 10;
     
-    // Filter parameters
     $sort = $request->get('sort', 'updated_at_desc');
-    $orderBy = $request->get('orderBy', $sort); // Support both sort and orderBy
+    $orderBy = $request->get('orderBy', $sort);
     $sort = $orderBy ?: $sort;
     $categories = $request->get('categories', []);
-    $categoryIds = $request->get('categoryIds', []); // Support both
+    $categoryIds = $request->get('categoryIds', []);
     $tags = $request->get('tags', []);
-    $genreIds = $request->get('genreIds', []); // Support both tags and genreIds
+    $genreIds = $request->get('genreIds', []);
     
-    // Use genreIds if available, otherwise use tags
     if (!empty($genreIds)) {
         $tags = $genreIds;
     }
-    // Use categoryIds if available, otherwise use categories
     if (!empty($categoryIds)) {
         $categories = $categoryIds;
     }
@@ -1305,13 +1465,11 @@ Route::get('/tim-kiem', function () {
     if (!is_array($tags)) {
         $tags = $tags ? explode(',', $tags) : [];
     }
-    // Filter out empty values
     $tags = array_filter($tags);
     $categories = array_filter($categories);
     
     $query = \App\Models\MangaMetadata::where('is_active', true);
     
-    // Search by keyword
     if (!empty($keyword)) {
         $query->where(function($q) use ($keyword) {
             $q->where('title', 'LIKE', '%' . $keyword . '%')
@@ -1319,26 +1477,57 @@ Route::get('/tim-kiem', function () {
         });
     }
     
-    // Filter by tags (tags are category IDs, need to get category name/slug to search in manga_metadata.tags JSON)
-    if (!empty($tags)) {
-        // Get category names and slugs from IDs
-        $categoryIds = array_filter(array_map('intval', $tags));
-        $categories = \App\Models\Category::whereIn('id', $categoryIds)->get();
+    if (!empty($categories)) {
+        $categoryMap = [
+            '1' => ['Manga', 'manga', 'Manga (Nhật)'],
+            '2' => ['Manhua', 'manhua', 'Manhua (Trung)'], 
+            '3' => ['Manhwa', 'manhwa', 'Manhwa (Hàn)'],
+        ];
         
-        $tagSearchValues = [];
-        foreach ($categories as $category) {
-            $tagSearchValues[] = $category->name;
-            $tagSearchValues[] = $category->slug;
-        }
-        
-        // Also check if tags contain string values (for backward compatibility)
-        foreach ($tags as $tagValue) {
-            if (!is_numeric($tagValue)) {
-                $tagSearchValues[] = $tagValue;
+        $categorySearchValues = [];
+        foreach ($categories as $catId) {
+            if (isset($categoryMap[$catId])) {
+                $categorySearchValues = array_merge($categorySearchValues, $categoryMap[$catId]);
             }
         }
         
-        $tagSearchValues = array_unique($tagSearchValues);
+        if (!empty($categorySearchValues)) {
+            $categorySearchValues = array_unique($categorySearchValues);
+            $query->where(function($q) use ($categorySearchValues) {
+                foreach ($categorySearchValues as $value) {
+                    $q->orWhereJsonContains('tags', $value);
+                }
+            });
+        }
+    }
+    
+    if (!empty($tags)) {
+        $tagCategoryIds = array_filter(array_map('intval', $tags));
+        $tagCategories = \App\Models\Category::whereIn('id', $tagCategoryIds)->get();
+        
+        $tagSearchValues = [];
+        foreach ($tagCategories as $category) {
+            $tagSearchValues[] = $category->name;
+            
+            $tagSearchValues[] = $category->slug;
+            
+            if (!empty($category->slug)) {
+                $tagSearchValues[] = ucfirst($category->slug);
+            }
+            
+            if (!empty($category->name)) {
+                $tagSearchValues[] = strtoupper($category->name);
+            }
+        }
+        
+        foreach ($tags as $tagValue) {
+            if (!is_numeric($tagValue)) {
+                $tagSearchValues[] = $tagValue;
+                $tagSearchValues[] = ucfirst($tagValue);
+            }
+        }
+        
+        $tagSearchValues = array_unique(array_filter($tagSearchValues));
         
         if (!empty($tagSearchValues)) {
             $query->where(function($q) use ($tagSearchValues) {
@@ -1349,7 +1538,6 @@ Route::get('/tim-kiem', function () {
         }
     }
     
-    // Sorting
     switch ($sort) {
         case 'view_desc':
             $query->orderBy('views_count', 'desc');
@@ -1389,34 +1577,76 @@ Route::get('/tim-kiem', function () {
         ->take($perPage)
         ->get();
     
-    $mangas = $query->get();
-    
-    // Load chapters for each manga
     $results = [];
     foreach ($mangas as $manga) {
-        $chapters = $manga->chapters()
+        $latestChapter = $manga->chapters()
+            ->whereNotNull('chapter_slug')
             ->orderBy('updated_at', 'desc')
-            ->take(2)
-            ->get();
+            ->first();
         
         $chapterData = [];
-        foreach ($chapters as $chapter) {
-            $chapterData[] = [
-                'id' => $chapter->id,
-                'slug' => $chapter->chapter_slug,
-                'name' => 'Chapter ' . $chapter->chapter_name,
-                'releasedAt' => $chapter->updated_at ? $chapter->updated_at->diffForHumans() : null,
-            ];
-        }
         
-        // If no chapters, try to get from last_chapter_number
-        if (empty($chapterData) && $manga->last_chapter_number) {
+        if ($latestChapter) {
+            $chapterNumber = '';
+            if (preg_match('/\d+/', $latestChapter->chapter_name, $matches)) {
+                $chapterNumber = $matches[0];
+            } elseif (preg_match('/\d+/', $latestChapter->chapter_slug, $matches)) {
+                $chapterNumber = $matches[0];
+            }
+            
             $chapterData[] = [
-                'id' => null,
-                'slug' => 'chapter-' . $manga->last_chapter_number,
-                'name' => 'Chapter ' . $manga->last_chapter_number,
-                'releasedAt' => $manga->last_synced_at ? $manga->last_synced_at->diffForHumans() : null,
+                'id' => $latestChapter->id,
+                'slug' => $latestChapter->chapter_slug,
+                'name' => formatChapterNameForDisplay($latestChapter->chapter_name),
+                'number' => $chapterNumber,
+                'updated_at' => $latestChapter->updated_at ? $latestChapter->updated_at->toDateTimeString() : null,
+                'releasedAt' => $latestChapter->updated_at ? $latestChapter->updated_at->diffForHumans() : null,
             ];
+            
+            if ($chapterNumber && is_numeric($chapterNumber) && (int)$chapterNumber > 1) {
+                $prevChapterNumber = (int)$chapterNumber - 1;
+                $prevChapterSlug = 'chapter-' . $prevChapterNumber;
+                $prevChapterName = 'Chapter ' . $prevChapterNumber;
+                
+                $chapterData[] = [
+                    'id' => null,
+                    'slug' => $prevChapterSlug,
+                    'name' => $prevChapterName,
+                    'number' => (string)$prevChapterNumber,
+                    'updated_at' => $latestChapter->updated_at ? $latestChapter->updated_at->toDateTimeString() : null,
+                    'releasedAt' => $latestChapter->updated_at ? $latestChapter->updated_at->diffForHumans() : null,
+                ];
+            }
+        } else {
+            if ($manga->last_chapter_number) {
+                $chapterNumber = $manga->last_chapter_number;
+                $chapterSlug = 'chapter-' . $chapterNumber;
+                $chapterName = 'Chapter ' . $chapterNumber;
+                
+                $chapterData[] = [
+                    'id' => null,
+                    'slug' => $chapterSlug,
+                    'name' => $chapterName,
+                    'number' => $chapterNumber,
+                    'updated_at' => $manga->last_synced_at ? $manga->last_synced_at->toDateTimeString() : null,
+                    'releasedAt' => $manga->last_synced_at ? $manga->last_synced_at->diffForHumans() : null,
+                ];
+                
+                if (is_numeric($chapterNumber) && (int)$chapterNumber > 1) {
+                    $prevChapterNumber = (int)$chapterNumber - 1;
+                    $prevChapterSlug = 'chapter-' . $prevChapterNumber;
+                    $prevChapterName = 'Chapter ' . $prevChapterNumber;
+                    
+                    $chapterData[] = [
+                        'id' => null,
+                        'slug' => $prevChapterSlug,
+                        'name' => $prevChapterName,
+                        'number' => (string)$prevChapterNumber,
+                        'updated_at' => $manga->last_synced_at ? $manga->last_synced_at->toDateTimeString() : null,
+                        'releasedAt' => $manga->last_synced_at ? $manga->last_synced_at->diffForHumans() : null,
+                    ];
+                }
+            }
         }
         
         $results[] = [
@@ -1425,12 +1655,10 @@ Route::get('/tim-kiem', function () {
             'posterPath' => $manga->cover_url ?: asset('images/pre-load1.png'),
             'avgVote' => (float)($manga->rating ?? 0),
             'countView' => (int)($manga->views_count ?? 0),
-            'chapters' => $chapterData,
+            'chapters' => $chapterData, 
         ];
     }
     
-    // Get all categories from database (these are used as tags)
-    // Define the default display order for first 23 tags
     $defaultTagOrder = [
         '16+', 'Action', 'Adult', 'Adventure', 'Anime', 'Chuyển Sinh', 'Cổ Đại',
         'Comedy', 'Comic', 'Cooking', 'Doujinshi', 'Drama', 'Đam Mỹ',
@@ -1440,11 +1668,18 @@ Route::get('/tim-kiem', function () {
     
     $allCategories = \App\Models\Category::where('is_active', true)->get();
     
-    // Separate tags into default (first 23) and remaining
+    // Tags cần ẩn (vì đã có ở phần Thể loại)
+    $hiddenTagNames = ['Manga', 'Manhua', 'Manhwa'];
+    
     $defaultTags = [];
     $remainingTags = [];
     
     foreach ($defaultTagOrder as $tagName) {
+        // Skip các tags cần ẩn
+        if (in_array($tagName, $hiddenTagNames)) {
+            continue;
+        }
+        
         $category = $allCategories->first(function($cat) use ($tagName) {
             return $cat->name === $tagName;
         });
@@ -1457,8 +1692,12 @@ Route::get('/tim-kiem', function () {
         }
     }
     
-    // Add remaining tags (not in default list)
     foreach ($allCategories as $category) {
+        // Skip các tags cần ẩn
+        if (in_array($category->name, $hiddenTagNames)) {
+            continue;
+        }
+        
         if (!in_array($category->name, $defaultTagOrder)) {
             $remainingTags[] = [
                 'id' => $category->id,
@@ -1468,7 +1707,6 @@ Route::get('/tim-kiem', function () {
         }
     }
     
-    // Sort remaining tags by sort_order and name
     usort($remainingTags, function($a, $b) use ($allCategories) {
         $catA = $allCategories->firstWhere('id', $a['id']);
         $catB = $allCategories->firstWhere('id', $b['id']);
@@ -1481,7 +1719,6 @@ Route::get('/tim-kiem', function () {
         return 0;
     });
     
-    // Combine: default tags first, then remaining tags
     $allTags = array_merge($defaultTags, $remainingTags);
     
     return view('search.index', [
@@ -1541,570 +1778,6 @@ Route::get('/genre', function () {
             'mangas' => $mangas,
         ];
     }
-    
-    return view('genre.all', [
-        'genres' => $genres,
-    ]);
-})->name('genre.all');
-
-Route::get('/genre/demo', function () {
-    $genres = [
-        'action' => [
-            'name' => 'Action',
-            'slug' => 'action',
-            'mangas' => [
-                [
-                    'slug' => 'tham-tu-lung-danh-conan-gio-tra-cua-zero-nxb-kim-dong',
-                    'title' => 'Thám tử lừng danh Conan - Giờ trà của Zero (NXB Kim Đồng)',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/d1/f3/tham-tu-lung-danh-conan-gio-tra-cua-zero-nxb-kim-dong.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2150372, 'slug' => 'time-60-thuong-that', 'name' => 'Time #60: Thường thật', 'releasedAt' => '3 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'blue-lock-nxb-kim-dong',
-                    'title' => 'Blue lock (NXB Kim Đồng)',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/2f/01/bluelock-nxb-kim-dong.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2153586, 'slug' => 'chapter-248-tran-dau-cuoi-cung', 'name' => 'Chapter #248: Trận đấu cuối cùng', 'releasedAt' => '3 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'death-mage',
-                    'title' => 'Death Mage',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/94/f7/death-mage.png',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168042, 'slug' => 'chapter-69', 'name' => 'Chapter #69', 'releasedAt' => '1 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'phap-su-manh-nhat-dung-sach-chien-luoc-tu-minh-tieu-diet-ma-vuong',
-                    'title' => 'Pháp Sư Mạnh Nhất Dùng Sách Chiến Lược, Tự Mình Tiêu Diệt Ma Vương',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/24/15/the-strongest-wizard-making-full-use-of-the-strategy-guide-no-taking-orders-i-ll-slay-the-demon-king-my-own-way.png',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2156215, 'slug' => 'chapter-68', 'name' => 'Chapter #68', 'releasedAt' => '3 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'thien-than-diet-the-seraph-of-the-end-nxb-kim-dong',
-                    'title' => 'Thiên thần diệt thế - Seraph of the end (NXB Kim Đồng)',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/54/9f/thien-than-diet-the-seraph-of-the-end-nxb-kim-dong.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2165817, 'slug' => 'chuong-110-qua-khu-phoi-bay', 'name' => 'Chương #110: Quá khứ phơi bày', 'releasedAt' => '2 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'chu-thuat-hoi-chien-nxb-kim-dong',
-                    'title' => 'Chú thuật hồi chiến (NXB Kim Đồng)',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/1c/66/chu-thuat-hoi-chien-nxb-kim-dong.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2170188, 'slug' => 'chuong-124-bien-co-shibuya-42', 'name' => 'Chương #124: Biến cố Shibuya 42', 'releasedAt' => '2 ngày trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'alice-in-borderland',
-                    'title' => 'Alice in Borderland',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/1a/98/alice-in-borderland.png',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2157002, 'slug' => 'chapter-65', 'name' => 'Chapter #65', 'releasedAt' => '3 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'khi-toi-chuyen-sinh-thanh-mot-thanh-kiem',
-                    'title' => 'Khi Tôi Chuyển Sinh Thành Một Thanh Kiếm',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/bb/cf/khi-toi-chuyen-sinh-thanh-mot-thanh-kiem.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2167854, 'slug' => 'chapter-59', 'name' => 'Chapter #59', 'releasedAt' => '1 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'bang-xep-hang-quan-vuong-nxb-kim-dong',
-                    'title' => 'Bảng xếp hạng quân vương (NXB Kim Đồng)',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/a9/39/bang-xep-hang-quan-vuong-nxb-kim-dong.png',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2164485, 'slug' => 'hoi-193-5-chuyen-ve-thong-linh-bang-dao-tac-lon', 'name' => 'Hồi #193.5: CHUYỆN VỀ THỐNG LĨNH BĂNG ĐẠO TẶC LỚN', 'releasedAt' => '2 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'toi-necromancer-co-doc',
-                    'title' => 'Tôi - Necromancer Cô Độc',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/d5/0f/toi-necromancer-co-doc.png',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168495, 'slug' => 'chapter-76', 'name' => 'Chapter #76', 'releasedAt' => '23 ngày trước'],
-                    ],
-                ],
-            ],
-        ],
-        'romance' => [
-            'name' => 'Romance',
-            'slug' => 'romance',
-            'mangas' => [
-                [
-                    'slug' => 'kimi-to-koete-koi-ni-naru',
-                    'title' => 'Kimi to Koete Koi ni Naru',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/00/a5/kimi-to-koete-koi-ni-naru.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168116, 'slug' => 'chapter-17', 'name' => 'Chapter #17', 'releasedAt' => '1 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'nhan-nha-tuoi-30-sau-khi-bi-duoi-khoi-quan-doan-ma-vuong',
-                    'title' => 'Nhàn Nhã Tuổi 30 Sau Khi Bị Đuổi Khỏi Quân Đoàn Ma Vương',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/26/1b/nhan-nha-tuoi-30-sau-khi-bi-duoi-khoi-quan-doan-ma-vuong.png',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2165164, 'slug' => 'chapter-74', 'name' => 'Chapter #74', 'releasedAt' => '2 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'chien-tich-me-cung-cua-tank-manh-nhat-bi-truc-xuat-du-so-huu-khang-luc-9999',
-                    'title' => 'Chiến Tích Mê Cung Của Tank Mạnh Nhất - Bị Trục Xuất Dù Sở Hữu Kháng Lực 9999',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/09/41/chien-tich-me-cung-cua-tank-manh-nhat-bi-truc-xuat-du-so-huu-khang-luc-9999.png',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2160395, 'slug' => 'chapter-60', 'name' => 'Chapter #60', 'releasedAt' => '2 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'co-gai-than-yeu-cua-toi',
-                    'title' => 'Cô Gái Thân Yêu Của Tôi',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/2025.04.19/MIijo8TyAkhthRFQBR.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168115, 'slug' => 'chapter-32', 'name' => 'Chapter 32', 'releasedAt' => '7 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'that-kho-so-khi-nguoi-ban-thoi-tho-au-la-dai-phap-su',
-                    'title' => 'Thật Khổ Sở Khi Người Bạn Thời Thơ Ấu Là Đại Pháp Sư',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168114, 'slug' => 'chapter-38', 'name' => 'Chapter 38', 'releasedAt' => '5 tháng trước'],
-                    ],
-                ],
-            ],
-        ],
-        'comedy' => [
-            'name' => 'Comedy',
-            'slug' => 'comedy',
-            'mangas' => [
-                [
-                    'slug' => 'oan-gia-chung-nha-thien-than-x-ac-quy-sao-ma-than-duoc',
-                    'title' => 'Oan Gia Chung Nhà: Thiên Thần X Ác Quỷ, Sao Mà Thân Được!?',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168113, 'slug' => 'chapter-128-5', 'name' => 'Chapter 128.5', 'releasedAt' => '9 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'nhan-nha-tuoi-30-sau-khi-bi-duoi-khoi-quan-doan-ma-vuong',
-                    'title' => 'Nhàn Nhã Tuổi 30 Sau Khi Bị Đuổi Khỏi Quân Đoàn Ma Vương',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/26/1b/nhan-nha-tuoi-30-sau-khi-bi-duoi-khoi-quan-doan-ma-vuong.png',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2165164, 'slug' => 'chapter-74', 'name' => 'Chapter #74', 'releasedAt' => '2 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'kimi-to-koete-koi-ni-naru',
-                    'title' => 'Kimi to Koete Koi ni Naru',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/00/a5/kimi-to-koete-koi-ni-naru.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168116, 'slug' => 'chapter-17', 'name' => 'Chapter #17', 'releasedAt' => '1 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'beast-tamer-nguoi-thuan-hoa-thu',
-                    'title' => 'Beast Tamer - Người Thuần Hóa Thú',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168112, 'slug' => 'chapter-93', 'name' => 'Chapter #93', 'releasedAt' => '1 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'diet-slime-suot-300-nam-toi-levelmax-luc-nao-chang-hay-nxb-the-gioi',
-                    'title' => 'Diệt Slime Suốt 300 Năm, Tôi Levelmax Lúc Nào Chẳng Hay (NXB Thế Giới)',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168111, 'slug' => 'chuong-68-den-hon-dao-khong-nguoi', 'name' => 'Chapter #68: Đến hòn đảo không người', 'releasedAt' => '14 ngày trước'],
-                    ],
-                ],
-            ],
-        ],
-        'fantasy' => [
-            'name' => 'Fantasy',
-            'slug' => 'fantasy',
-            'mangas' => [
-                [
-                    'slug' => 'cuoc-song-nhan-nha-o-the-gioi-khac-cua-ung-vien-dung-gia-so-huu-suc-manh-gian-lan-tu-cap-2',
-                    'title' => 'Cuộc Sống Nhàn Nhã Ở Thế Giới Khác Của Ứng Viên Dũng Giả Sở Hữu Sức Mạnh Gian Lận Từ Cấp 2',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/f1/0a/chillin-in-another-world-with-level-2-super-cheat-powers.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168110, 'slug' => 'chapter-51', 'name' => 'Chapter #51', 'releasedAt' => '18 ngày trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'one-piece-nxb-kim-dong',
-                    'title' => 'One Piece (NXB Kim Đồng)',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/c8/3a/one-piece-nxb-kim-dong.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2165991, 'slug' => 'chuong-1015-xieng-xich', 'name' => 'Chương #1015: Xiềng xích', 'releasedAt' => '2 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'cau-chuyen-sinh-ton-cua-kiem-vuong-o-the-gioi-khac',
-                    'title' => 'Câu Chuyện Sinh Tồn Của Kiếm Vương Ở Thế Giới Khác',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/2b/9d/cau-chuyen-sinh-ton-cua-kiem-vuong-o-the-gioi-khac.png',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2167092, 'slug' => 'chapter-132', 'name' => 'Chapter #132', 'releasedAt' => '1 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'ky-si-chuyen-sinh-bi-luu-day-tro-nen-bat-bai-nho-tro-choi',
-                    'title' => 'Kỵ Sĩ Chuyển Sinh Bị Lưu Đày, Trở Nên Bất Bại Nhờ Trò Chơi',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168109, 'slug' => 'chapter-15', 'name' => 'Chapter #15', 'releasedAt' => '2 ngày trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'death-mage',
-                    'title' => 'Death Mage',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/94/f7/death-mage.png',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168042, 'slug' => 'chapter-69', 'name' => 'Chapter #69', 'releasedAt' => '1 tháng trước'],
-                    ],
-                ],
-            ],
-        ],
-        'drama' => [
-            'name' => 'Drama',
-            'slug' => 'drama',
-            'mangas' => [
-                [
-                    'slug' => 'cuoc-song-thuong-ngay-cua-ke-bien-thai',
-                    'title' => 'Cuộc Sống Thường Ngày Của Kẻ Biến Thái',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168108, 'slug' => 'chapter-144', 'name' => 'Chapter #144', 'releasedAt' => '3 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'one-piece-nxb-kim-dong',
-                    'title' => 'One Piece (NXB Kim Đồng)',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/c8/3a/one-piece-nxb-kim-dong.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2165991, 'slug' => 'chuong-1015-xieng-xich', 'name' => 'Chương #1015: Xiềng xích', 'releasedAt' => '2 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'death-mage',
-                    'title' => 'Death Mage',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/94/f7/death-mage.png',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168042, 'slug' => 'chapter-69', 'name' => 'Chapter #69', 'releasedAt' => '1 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'ky-si-chuyen-sinh-bi-luu-day-tro-nen-bat-bai-nho-tro-choi',
-                    'title' => 'Kỵ Sĩ Chuyển Sinh Bị Lưu Đày, Trở Nên Bất Bại Nhờ Trò Chơi',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168109, 'slug' => 'chapter-15', 'name' => 'Chapter #15', 'releasedAt' => '2 ngày trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'menh-lenh-bi-mat-tu-chi-sep',
-                    'title' => 'Mệnh Lệnh Bí Mật Từ Chị Sếp',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168107, 'slug' => 'chapter-110-end', 'name' => 'Chapter #110 - END', 'releasedAt' => '5 tháng trước'],
-                    ],
-                ],
-            ],
-        ],
-        'adventure' => [
-            'name' => 'Adventure',
-            'slug' => 'adventure',
-            'mangas' => [
-                [
-                    'slug' => 'hoi-quy-voi-suc-manh-cua-nha-vua',
-                    'title' => 'Hồi Quy Với Sức Mạnh Của Nhà Vua',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168106, 'slug' => 'chapter-81', 'name' => 'Chapter #81', 'releasedAt' => '2 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'phap-su-manh-nhat-dung-sach-chien-luoc-tu-minh-tieu-diet-ma-vuong',
-                    'title' => 'Pháp Sư Mạnh Nhất Dùng Sách Chiến Lược, Tự Mình Tiêu Diệt Ma Vương',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/24/15/the-strongest-wizard-making-full-use-of-the-strategy-guide-no-taking-orders-i-ll-slay-the-demon-king-my-own-way.png',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2156215, 'slug' => 'chapter-68', 'name' => 'Chapter #68', 'releasedAt' => '3 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'khi-toi-chuyen-sinh-thanh-mot-thanh-kiem',
-                    'title' => 'Khi Tôi Chuyển Sinh Thành Một Thanh Kiếm',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/bb/cf/khi-toi-chuyen-sinh-thanh-mot-thanh-kiem.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2167854, 'slug' => 'chapter-59', 'name' => 'Chapter #59', 'releasedAt' => '1 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'phap-su-hoi-phuc-bi-duoi-khoi-to-doi-hoa-ra-la-manh-nhat',
-                    'title' => 'Pháp Sư Hồi Phục Bị Đuổi Khỏi Tổ Đội Hóa Ra Là Mạnh Nhất',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168105, 'slug' => 'chapter-35', 'name' => 'Chapter #35', 'releasedAt' => '3 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'cuoc-song-nhan-nha-o-the-gioi-khac-cua-ung-vien-dung-gia-so-huu-suc-manh-gian-lan-tu-cap-2',
-                    'title' => 'Cuộc Sống Nhàn Nhã Ở Thế Giới Khác Của Ứng Viên Dũng Giả Sở Hữu Sức Mạnh Gian Lận Từ Cấp 2',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/f1/0a/chillin-in-another-world-with-level-2-super-cheat-powers.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168110, 'slug' => 'chapter-51', 'name' => 'Chapter #51', 'releasedAt' => '18 ngày trước'],
-                    ],
-                ],
-            ],
-        ],
-        'ngon-tinh' => [
-            'name' => 'Ngôn Tình',
-            'slug' => 'ngon-tinh',
-            'mangas' => [
-                [
-                    'slug' => 'cuoc-tuyen-chon-vuong-phi-trieu-joseon',
-                    'title' => 'Cuộc Tuyển Chọn Vương Phi Triều Joseon',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168104, 'slug' => 'chapter-376', 'name' => 'Chapter 376', 'releasedAt' => '3 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'kieu-quy-phi-thu-doan-ac-doc-va-hoang-thuong-khong-de-choc',
-                    'title' => 'Kiều Quý Phi Thủ Đoạn Ác Độc Và Hoàng Thượng Không Dễ Chọc',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168103, 'slug' => 'chapter-309', 'name' => 'Chapter 309', 'releasedAt' => '9 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'cuoc-song-thuong-ngay-cua-ke-bien-thai',
-                    'title' => 'Cuộc Sống Thường Ngày Của Kẻ Biến Thái',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168108, 'slug' => 'chapter-144', 'name' => 'Chapter #144', 'releasedAt' => '3 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'sau-khi-xuyen-thanh-tieu-bao-bao-ca-nha-phan-dien-deu-muon-giet-toi',
-                    'title' => 'Sau Khi Xuyên Thành Tiểu Bảo Bảo , Cả Nhà Phản Diện Đều Muốn Giết Tôi!',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168102, 'slug' => 'chapter-235', 'name' => 'Chapter 235', 'releasedAt' => '3 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'nhat-dinh-vuong-phi',
-                    'title' => 'Nhất Đỉnh Vương Phi',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168101, 'slug' => 'chapter-163', 'name' => 'Chapter 163', 'releasedAt' => '8 tháng trước'],
-                    ],
-                ],
-            ],
-        ],
-        'school-life' => [
-            'name' => 'School Life',
-            'slug' => 'school-life',
-            'mangas' => [
-                [
-                    'slug' => 'tro-lai-voi-chanbi',
-                    'title' => 'Trở lại với Chanbi',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168100, 'slug' => 'chapter-082', 'name' => 'Chapter #082', 'releasedAt' => '2 ngày trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'cuoc-phieu-luu-ky-la-cua-jojo-phan-4-full-mau',
-                    'title' => 'Cuộc phiêu lưu kỳ lạ của JoJo - Phần 4 (Full màu)',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168099, 'slug' => 'chapter-174-end', 'name' => 'Chapter #174 (END)', 'releasedAt' => '8 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'yeonwoos-innocence',
-                    'title' => 'Yeonwoo\'s Innocence',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168098, 'slug' => 'chapter-206', 'name' => 'Chapter #206', 'releasedAt' => '4 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'co-ban-nai-nokotan-cua-toi',
-                    'title' => 'Cô Bạn Nai Nokotan Của Tôi!',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168097, 'slug' => 'chapter-48', 'name' => 'Chapter #48', 'releasedAt' => '8 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'tham-tu-lung-danh-conan-loat-truyen-tranh-nxb-kim-dong',
-                    'title' => 'Thám tử lừng danh Conan Loạt truyện tranh (NXB Kim Đồng)',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168096, 'slug' => 'chapter-1176', 'name' => 'Chapter #1176', 'releasedAt' => '4 tháng trước'],
-                    ],
-                ],
-            ],
-        ],
-        'slice-of-life' => [
-            'name' => 'Slice of Life',
-            'slug' => 'slice-of-life',
-            'mangas' => [
-                [
-                    'slug' => 'diet-slime-suot-300-nam-toi-levelmax-luc-nao-chang-hay-nxb-the-gioi',
-                    'title' => 'Diệt Slime Suốt 300 Năm, Tôi Levelmax Lúc Nào Chẳng Hay (NXB Thế Giới)',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168111, 'slug' => 'chuong-68-den-hon-dao-khong-nguoi', 'name' => 'Chapter #68: Đến hòn đảo không người', 'releasedAt' => '14 ngày trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'menh-lenh-bi-mat-tu-chi-sep',
-                    'title' => 'Mệnh Lệnh Bí Mật Từ Chị Sếp',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168107, 'slug' => 'chapter-110-end', 'name' => 'Chapter #110 - END', 'releasedAt' => '5 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'bocchi-the-rock-ngoai-truyen-nhat-ky-say-ruou-cua-hiroi-kikuri',
-                    'title' => 'Bocchi The Rock! Ngoại Truyện: Nhật Ký Say Rượu Của Hiroi Kikuri',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168095, 'slug' => 'chapter-42', 'name' => 'Chapter 42', 'releasedAt' => '6 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'su-tro-lai-cua-chien-than',
-                    'title' => 'Sự Trở Lại Của Chiến Thần',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168094, 'slug' => 'chapter-116', 'name' => 'Chapter #116', 'releasedAt' => '3 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'beast-tamer-nguoi-thuan-hoa-thu',
-                    'title' => 'Beast Tamer - Người Thuần Hóa Thú',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168112, 'slug' => 'chapter-93', 'name' => 'Chapter #93', 'releasedAt' => '1 tháng trước'],
-                    ],
-                ],
-            ],
-        ],
-        'shoujo' => [
-            'name' => 'Shoujo',
-            'slug' => 'shoujo',
-            'mangas' => [
-                [
-                    'slug' => 'hom-nay-cau-ay-cung-that-de-thuong',
-                    'title' => 'Hôm nay cậu ấy cũng thật dễ thương',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168093, 'slug' => 'ngoai-truyen-7', 'name' => 'Ngoại truyện 7', 'releasedAt' => '1 năm trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'teru-teru-x-shounen',
-                    'title' => 'Teru Teru X Shounen',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 3.5,
-                    'chapters' => [
-                        ['id' => 2168092, 'slug' => 'chapter-85', 'name' => 'Chapter 85', 'releasedAt' => '5 năm trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'your-majesty-please-stop-now',
-                    'title' => 'Your Majesty, Please Stop Now',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168091, 'slug' => 'chapter-32', 'name' => 'Chapter 32', 'releasedAt' => '7 tháng trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'kyuuketsuki-chan-to-kouhai-chan',
-                    'title' => 'Kyuuketsuki-chan to Kouhai-chan',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 3.7,
-                    'chapters' => [
-                        ['id' => 2168090, 'slug' => 'chapter-23', 'name' => 'Chapter 23', 'releasedAt' => '5 năm trước'],
-                    ],
-                ],
-                [
-                    'slug' => 'trong-sinh-vao-the-gioi-tu-chan-cyber-ta-do-sat-tat-ca-de-buoc-len-dinh-phong',
-                    'title' => 'Trọng Sinh Vào Thế Giới Tu Chân Cyber, Ta Đồ Sát Tất Cả Để Bước Lên Đỉnh Phong',
-                    'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-                    'avgVote' => 0,
-                    'chapters' => [
-                        ['id' => 2168089, 'slug' => 'chapter-325', 'name' => 'Chapter 325', 'releasedAt' => '3 tháng trước'],
-                    ],
-                ],
-            ],
-        ],
-    ];
     
     return view('genre.all', [
         'genres' => $genres,
@@ -2259,146 +1932,6 @@ Route::get('/da-hoan-thanh', function () {
         'totalPages' => $totalPages,
     ]);
 })->name('completed');
-
-Route::get('/the-loai/{slug}/demo', function ($slug) {
-    $page = request()->get('page', 1);
-    
-    $categoryMap = [
-        'manga' => [
-            'name' => 'Manga',
-            'title' => 'Truyện tranh Manga',
-            'description' => 'Truyện tranh Nhật Bản',
-        ],
-        'manhua' => [
-            'name' => 'Manhua',
-            'title' => 'Truyện tranh Manhua',
-            'description' => 'Truyện tranh Trung Quốc',
-        ],
-        'manhwa' => [
-            'name' => 'Manhwa',
-            'title' => 'Truyện tranh Manhwa',
-            'description' => 'Truyện tranh Hàn Quốc',
-        ],
-        'marvel-comics' => [
-            'name' => 'Marvel Comics',
-            'title' => 'Truyện tranh Marvel Comics',
-            'description' => 'Truyện tranh Marvel Comics (Mỹ)',
-        ],
-        'dc-comics' => [
-            'name' => 'DC Comics',
-            'title' => 'Truyện tranh DC Comics',
-            'description' => 'Truyện tranh DC Comics (Mỹ)',
-        ],
-    ];
-    
-    $category = $categoryMap[$slug] ?? [
-        'name' => ucfirst($slug),
-        'title' => 'Truyện tranh ' . ucfirst($slug),
-        'description' => 'Danh sách truyện tranh ' . ucfirst($slug),
-    ];
-    
-    $results = [
-        [
-            'slug' => 'one-punch-man',
-            'title' => 'One Punch Man',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/2024.11.13/eFBaGhXD2T5EBvM4el.jpg',
-            'avgVote' => 5,
-            'chapters' => [
-                ['id' => 2170271, 'slug' => 'chapter-294', 'name' => 'Chapter 294', 'releasedAt' => '19 giờ trước'],
-            ],
-        ],
-        [
-            'slug' => 'blue-lock',
-            'title' => 'Blue Lock',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/5f/cf/blue-lock.jpg',
-            'avgVote' => 3.1,
-            'chapters' => [
-                ['id' => 2170270, 'slug' => 'chapter-331', 'name' => 'Chapter 331', 'releasedAt' => '1 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'the-fragrant-flower-blooms-with-dignity-kaoru-hana-wa-rin-to-saku',
-            'title' => 'The Fragrant Flower Blooms With Dignity - Kaoru Hana Wa Rin To Saku',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/15/17/the-fragrant-flower-blooms-with-dignity-kaoru-hana-wa-rin-to-saku.png',
-            'avgVote' => 3.8,
-            'chapters' => [
-                ['id' => 2170262, 'slug' => 'chapter-174', 'name' => 'Chapter #174', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'jujutsu-kaisen-modulo',
-            'title' => 'Jujutsu Kaisen Modulo',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/49/d7/jujutsu-kaisen-modulo.png',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2170261, 'slug' => 'chapter-17', 'name' => 'Chapter #17', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'mua-he-hikaru-ra-di',
-            'title' => 'Mùa Hè Hikaru Ra Đi',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/90/2f/mua-he-hikaru-ra-di.png',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2170260, 'slug' => 'chapter-42', 'name' => 'Chapter #42', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'shangri-la-frontier',
-            'title' => 'Shangri-La Frontier',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/b4/61/crappy-game-hunter-challenges-god-tier-game.jpg',
-            'avgVote' => 3.5,
-            'chapters' => [
-                ['id' => 2170258, 'slug' => 'chapter-249', 'name' => 'Chapter #249', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'bi-phan-boi-boi-dong-doi-va-so-huu-gacha-khong-gioi-han-lv-9999',
-            'title' => 'Bị Phản Bội Bởi Đồng Đội Và Sở Hữu [Gacha Không Giới Hạn] Lv.9999',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/5e/d1/bi-phan-boi-boi-dong-doi-va-so-huu-gacha-khong-gioi-han-lv-9999.png',
-            'avgVote' => 3.6,
-            'chapters' => [
-                ['id' => 2170256, 'slug' => 'chapter-187', 'name' => 'Chapter #187', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'ky-si-chuyen-sinh-bi-luu-day-tro-nen-bat-bai-nho-tro-choi',
-            'title' => 'Kỵ Sĩ Chuyển Sinh Bị Lưu Đày, Trở Nên Bất Bại Nhờ Trò Chơi',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2170255, 'slug' => 'chapter-152', 'name' => 'Chapter #152', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'ba-chi-em-nha-mikadono-de-doi-pho-that-day',
-            'title' => 'Ba Chị Em Nhà Mikadono Dễ Đối Phó Thật Đấy',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-            'avgVote' => 3.8,
-            'chapters' => [
-                ['id' => 2170254, 'slug' => 'chapter-188', 'name' => 'Chapter #188', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-        [
-            'slug' => 'chu-thuat-hoi-chien-nxb-kim-dong',
-            'title' => 'Chú thuật hồi chiến (NXB Kim Đồng)',
-            'posterPath' => 'https://prvhtr.mgbucket.xyz/posters/example.jpg',
-            'avgVote' => 0,
-            'chapters' => [
-                ['id' => 2169342, 'slug' => 'chuong-124-bien-co-shibuya-42', 'name' => 'Chương #124: Biến cố Shibuya 42', 'releasedAt' => '2 ngày trước'],
-            ],
-        ],
-    ];
-    
-    return view('category.index', [
-        'slug' => $slug,
-        'category' => $category,
-        'results' => $results,
-        'currentPage' => $page,
-        'totalPages' => 248,
-    ]);
-})->name('category');
-
 Route::get('/hot-nhat', function () {
     $type = request()->get('type', 'all');
     
@@ -2451,7 +1984,6 @@ Route::get('/hot-nhat', function () {
             
             return $result;
         } else {
-            // Lấy top 12 theo views trong khoảng thời gian
             if ($period === 'day') {
                 $startDate = $today;
             } elseif ($period === 'week') {
@@ -2467,7 +1999,6 @@ Route::get('/hot-nhat', function () {
                 ->limit(12)
                 ->get();
             
-            // Lấy thông tin chi tiết của các manga
             $mangaIds = $topMangas->pluck('manga_id')->toArray();
             $mangaMetadata = \App\Models\MangaMetadata::whereIn('id', $mangaIds)
                 ->where('is_active', true)
@@ -2522,7 +2053,6 @@ Route::get('/hot-nhat', function () {
 
 // Random truyện
 Route::get('/random', function () {
-    // Lấy random 1 truyện có ít nhất 1 chapter
     $manga = \App\Models\MangaMetadata::where('is_active', true)
         ->whereHas('chapters', function($query) {
             $query->whereNotNull('chapter_slug');
@@ -2534,92 +2064,59 @@ Route::get('/random', function () {
         return redirect('/')->with('error', 'Không tìm thấy truyện nào');
     }
     
-    // Redirect đến trang detail truyện
     return redirect(route('manga.detail', ['slug' => $manga->slug]));
 })->name('random');
 
 // Trang tin tức
 Route::get('/tin-tuc', function () {
-    $currentPage = request()->get('page', 1);
-    $totalPages = 3;
+    $currentPage = max(1, (int)request()->get('page', 1));
+    $perPage = 6;
     
-    // Tin nổi bật
-    $featuredNews = [
-        'slug' => 'top-truyen-tranh-manhwa-hay-nhat',
-        'title' => 'Top 10 truyện tranh Manhwa hay nhất',
-        'image' => 'https://img.htrcdn.com/fast/0x200/oss.cdnfastest.com/90htr/blogs/MTc0Nzk3MDQ1MzM1Mg==/top-truyen-tranh-manhwa-hay-nhat.jpg',
-        'description' => 'Manhwa hay còn gọi là truyện tranh Hàn Quốc là món ăn tinh thần không thể thiếu của giới trẻ ngày na',
-        'author' => 'Mạc Văn Đĩnh',
-        'date' => '23/05/2025',
-    ];
+    $featuredPost = \App\Models\Post::where('is_active', true)
+        ->where('is_featured', true)
+        ->whereNotNull('published_at')
+        ->where('published_at', '<=', now())
+        ->orderBy('published_at', 'desc')
+        ->first();
     
-    // Tin khác
-    $otherNews = [
-        [
-            'slug' => 'sunekichi-honekawa-nguoi-anh-ho-tai-gioi-cua-suneo',
-            'title' => 'Sunekichi Honekawa - Người anh họ tài giỏi của Suneo',
-            'image' => 'https://img.htrcdn.com/fast/0x200/oss.cdnfastest.com/90htr/blogs/MTc0OTgxNTMzODE5Ng==/sunekichi-honekawa-nguoi-anh-ho-tai-gioi-cua-suneo.png',
-            'description' => 'Nhắc đến thế giới nhân vật phụ trong Doraemon thì có một cái tên cũng nhận được nhiều sự chú ý, đó c',
-            'author' => 'Mạc Văn Đĩnh',
-            'date' => '13/06/2025',
-        ],
-        [
-            'slug' => 'ba-honekawa-me-cua-suneo-trong-cau-chuyen-doraemon',
-            'title' => 'Bà Honekawa - Mẹ của Suneo trong câu chuyện Doraemon',
-            'image' => 'https://img.htrcdn.com/fast/0x200/oss.cdnfastest.com/90htr/blogs/MTc0OTgxNDk5NDQ3MA==/ba-honekawa-me-cua-suneo-trong-cau-chuyen-doraemon.png',
-            'description' => 'Mỗi nhân vật phụ trong Doraemon đều được xây dựng tỉ mỉ, tạo nên một thế giới đa sắc màu và phản ánh',
-            'author' => 'Mạc Văn Đĩnh',
-            'date' => '13/06/2025',
-        ],
-        [
-            'slug' => 'me-cua-jaian-ba-gouda-nghiem-khac-nhung-giau-tinh-thuong',
-            'title' => 'Mẹ của Jaian bà Gouda nghiêm khắc nhưng giàu tình thương',
-            'image' => 'https://img.htrcdn.com/fast/0x200/oss.cdnfastest.com/90htr/blogs/MTc0OTgxNDcyNTg2Mw==/me-cua-jaian-ba-gouda-nghiem-khac-nhung-giau-tinh-thuong.png',
-            'description' => 'Ngoài Nobita và những người bạn thì các bà mẹ trong thế giới Doraemon cũng rất được yêu thích. Một t',
-            'author' => 'Mạc Văn Đĩnh',
-            'date' => '13/06/2025',
-        ],
-        [
-            'slug' => 'kaminari-ong-hang-xom-nong-tinh-nhung-day-tinh-cam-trong-doraemon',
-            'title' => 'Kaminari - Ông hàng xóm nóng tính nhưng đầy tình cảm trong Doraemon',
-            'image' => 'https://img.htrcdn.com/fast/0x200/oss.cdnfastest.com/90htr/blogs/MTc0OTY5ODE4MTA4Mg==/kaminari-ong-hang-xom-nong-tinh-nhung-day-tinh-cam-trong-doraemon.png',
-            'description' => 'Sở dĩ Doraemon có thể thu hút hàng triệu người hâm mộ qua bao thời gian không chỉ vì nhóm nhân vật c',
-            'author' => 'Mạc Văn Đĩnh',
-            'date' => '12/06/2025',
-        ],
-        [
-            'slug' => 'hoshino-sumire-ngoi-sao-tuoi-teen-tai-nang-trong-doraemon',
-            'title' => 'Hoshino Sumire - Ngôi sao tuổi teen tài năng trong Doraemon',
-            'image' => 'https://img.htrcdn.com/fast/0x200/oss.cdnfastest.com/90htr/blogs/MTc0OTY5ODMxNzAyOA==/hoshino-sumire-ngoi-sao-tuoi-teen-tai-nang-trong-doraemon.png',
-            'description' => 'Hoshino Sumire là nhân vật để lại ấn tượng sâu sắc nhờ sự duyên dáng và chiều sâu trong tính cách dù',
-            'author' => 'Mạc Văn Đĩnh',
-            'date' => '12/06/2025',
-        ],
-        [
-            'slug' => 'yasuo-tanaka-cau-nhoc-nang-dong-hoat-bat-trong-the-gioi-doraemon',
-            'title' => 'Yasuo Tanaka - Cậu nhóc năng động, hoạt bát trong thế giới Doraemon',
-            'image' => 'https://img.htrcdn.com/fast/0x200/oss.cdnfastest.com/90htr/blogs/MTc0OTY5ODA2NzI3Nw==/yasuo-tanaka-cau-nhoc-nang-dong-hoat-bat-trong-the-gioi-doraemon.png',
-            'description' => 'Trong Doraemon có nhiều nhân vật phụ góp phần làm phong phú thêm thế giới học đường và đời sống thườ',
-            'author' => 'Mạc Văn Đĩnh',
-            'date' => '12/06/2025',
-        ],
-        [
-            'slug' => 'tong-quan-ve-suc-manh-va-tieu-su-duong-khai-trong-vo-luyen-dinh-phong',
-            'title' => 'Tổng quan về sức mạnh và tiểu sử Dương Khai trong Võ Luyện Đỉnh Phong',
-            'image' => 'https://img.htrcdn.com/fast/0x200/oss.cdnfastest.com/90htr/blogs/MTc0OTE4Mjk1NDY3OQ==/tong-quan-ve-suc-manh-va-tieu-su-duong-khai-trong-vo-luyen-dinh-phong.jpg',
-            'description' => 'Võ Luyện Đỉnh Phong là truyện kể về thế giới tu tiên, trong đó Dương Khai là nhân vật chính nhưng bẩ',
-            'author' => 'Mạc Văn Đĩnh',
-            'date' => '09/06/2025',
-        ],
-        [
-            'slug' => 'danh-tinh-nhan-vat-rum-trong-truyen-conan',
-            'title' => 'Danh tính nhân vật Rum trong truyện Conan',
-            'image' => 'https://img.htrcdn.com/fast/0x200/oss.cdnfastest.com/90htr/blogs/MTc0ODkzMzUyNzc4OQ==/danh-tinh-nhan-vat-rum-trong-truyen-conan.jpg',
-            'description' => 'Rum là nhân vật nguy hiểm và là chỉ huy số hai trong Tổ chức Áo đen chỉ đứng sau ông trùm. Tên này r',
-            'author' => 'Mạc Văn Đĩnh',
-            'date' => '03/06/2025',
-        ],
-    ];
+    $query = \App\Models\Post::where('is_active', true)
+        ->whereNotNull('published_at')
+        ->where('published_at', '<=', now());
+    
+    if ($featuredPost) {
+        $query->where('id', '!=', $featuredPost->id);
+    }
+    
+    $totalPosts = $query->count();
+    $totalPages = max(1, ceil($totalPosts / $perPage));
+    
+    $otherNews = $query->orderBy('published_at', 'desc')
+        ->skip(($currentPage - 1) * $perPage)
+        ->take($perPage)
+        ->get()
+        ->map(function($post) {
+            return [
+                'slug' => $post->slug,
+                'title' => $post->title,
+                'image' => $post->image ?? asset('images/pre-load1.png'),
+                'description' => $post->description ?? '',
+                'author' => $post->author ?? 'Admin',
+                'date' => $post->published_at ? $post->published_at->format('d/m/Y') : '',
+            ];
+        })
+        ->toArray();
+    
+    $featuredNews = null;
+    if ($featuredPost) {
+        $featuredNews = [
+            'slug' => $featuredPost->slug,
+            'title' => $featuredPost->title,
+            'image' => $featuredPost->image ?? asset('images/pre-load1.png'),
+            'description' => $featuredPost->description ?? '',
+            'author' => $featuredPost->author ?? 'Admin',
+            'date' => $featuredPost->published_at ? $featuredPost->published_at->format('d/m/Y') : '',
+        ];
+    }
     
     return view('news.index', [
         'currentPage' => $currentPage,
@@ -2628,6 +2125,27 @@ Route::get('/tin-tuc', function () {
         'otherNews' => $otherNews,
     ]);
 })->name('news');
+
+Route::get('/tin-tuc/{slug}', function ($slug) {
+    $post = \App\Models\Post::where('slug', $slug)
+        ->where('is_active', true)
+        ->whereNotNull('published_at')
+        ->where('published_at', '<=', now())
+        ->firstOrFail();
+    
+    $relatedPosts = \App\Models\Post::where('is_active', true)
+        ->where('id', '!=', $post->id)
+        ->whereNotNull('published_at')
+        ->where('published_at', '<=', now())
+        ->orderBy('published_at', 'desc')
+        ->limit(5)
+        ->get();
+    
+    return view('news.detail', [
+        'post' => $post,
+        'relatedPosts' => $relatedPosts,
+    ]);
+})->name('news.detail');
 
 // Trang truyện mới nhất
 Route::get('/new', function () {
@@ -2673,20 +2191,15 @@ Route::get('/trang/ve-chung-toi', function () {
     return view('page.ve-chung-toi');
 })->name('page.about');
 
-// Account routes
 Route::middleware('auth')->group(function () {
     Route::put('/tai-khoan', function () {
         $user = auth()->user();
         
         $request = request();
         $name = $request->input('name');
-        $avatar = $request->input('avatar');
         
         if ($name) {
             $user->name = $name;
-        }
-        if ($avatar) {
-            $user->avatar = $avatar;
         }
         $user->save();
         
@@ -2706,6 +2219,14 @@ Route::middleware('auth')->group(function () {
     
     Route::post('/tai-khoan/upload-avatar', function () {
         $request = request();
+        $user = auth()->user();
+        
+        if (!$user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Chưa đăng nhập'
+            ], 401);
+        }
         
         if (!$request->hasFile('avatar')) {
             return response()->json([
@@ -2716,7 +2237,6 @@ Route::middleware('auth')->group(function () {
         
         $file = $request->file('avatar');
         
-        // Validate file
         if (!$file->isValid()) {
             return response()->json([
                 'status' => 'error',
@@ -2724,7 +2244,6 @@ Route::middleware('auth')->group(function () {
             ], 400);
         }
         
-        // Validate image type
         $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/jpg'];
         if (!in_array($file->getMimeType(), $allowedMimes)) {
             return response()->json([
@@ -2733,16 +2252,48 @@ Route::middleware('auth')->group(function () {
             ], 400);
         }
         
-        // Store file
-        $path = $file->store('avatars', 'public');
-        $url = asset('storage/' . $path);
+        if ($file->getSize() > 5 * 1024 * 1024) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'File ảnh không được vượt quá 5MB'
+            ], 400);
+        }
+        
+        $oldAvatar = $user->avatar;
+        if ($oldAvatar && !filter_var($oldAvatar, FILTER_VALIDATE_URL)) {
+            $oldPath = public_path('images/avatars/users/' . basename($oldAvatar));
+            if (file_exists($oldPath) && is_file($oldPath)) {
+                @unlink($oldPath);
+            }
+        }
+        
+        $uploadDir = public_path('images/avatars/users');
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        
+        $extension = $file->getClientOriginalExtension() ?: $file->guessExtension() ?: 'jpg';
+        if (!in_array(strtolower($extension), ['jpg', 'jpeg', 'png', 'gif'])) {
+            $extension = 'jpg';
+        }
+        
+        $fileName = $user->id . '.' . strtolower($extension);
+        $filePath = $uploadDir . '/' . $fileName;
+        
+        $file->move($uploadDir, $fileName);
+        
+        $relativePath = 'images/avatars/users/' . $fileName;
+        $url = asset($relativePath);
+        
+        $user->avatar = $relativePath;
+        $user->save();
         
         return response()->json([
             'status' => 'success',
             'message' => 'Upload ảnh thành công',
             'data' => [
                 'url' => $url,
-                'path' => $path
+                'path' => $relativePath
             ]
         ]);
     })->name('account.upload-avatar');
@@ -2767,4 +2318,640 @@ Route::middleware('auth')->group(function () {
             'message' => 'Xóa lịch sử đọc thành công'
         ]);
     })->name('account.clear-reading');
+});
+
+if (!function_exists('processCrawlJob')) {
+    function processCrawlJob($jobKey, $jobData) {
+        $otruyenService = new \App\Services\OTruyenService();
+        $listType = $jobData['list_type'];
+        $pages = $jobData['pages'];
+        $allPages = $jobData['all_pages'] ?? false;
+        $currentPage = $jobData['current_page'] ?? 0;
+        $currentMangaIndexInPage = $jobData['current_manga_index_in_page'] ?? 0;
+        $processedItems = $jobData['processed_items'] ?? [];
+        $logsSentCount = $jobData['logs_sent_count'] ?? 0;
+        $processedThisPoll = 0;
+        $maxPerPoll = 24;
+        
+        try {
+            $pagesToProcess = [];
+            if ($allPages && $pages[0] === 'all') {
+                if (isset($jobData['total_pages_calculated']) && $jobData['total_pages_calculated']) {
+                    $pagesToProcess = range(1, $jobData['total_pages']);
+                } else {
+                    $firstPageData = $otruyenService->getMangaByList($listType, 1, 24, false);
+                    if ($firstPageData && isset($firstPageData['pagination'])) {
+                        $totalPages = $firstPageData['pagination']['total_pages'] ?? $firstPageData['pagination']['pageRanges'] ?? 1;
+                        $jobData['total_pages'] = $totalPages;
+                        $jobData['total_pages_calculated'] = true;
+                        $pagesToProcess = range(1, $totalPages);
+                    } else {
+                        $pagesToProcess = [1];
+                        $jobData['total_pages'] = 1;
+                    }
+                }
+            } else {
+                $pagesToProcess = $pages;
+                $jobData['total_pages'] = count($pagesToProcess);
+            }
+            
+            $totalItems = 0;
+            
+            foreach ($pagesToProcess as $pageNum) {
+                if ($currentPage > $pageNum) {
+                    continue;
+                }
+                if ($currentPage == $pageNum && $currentMangaIndexInPage >= 24) {
+                    continue;
+                }
+                
+                \Illuminate\Support\Facades\Cache::forget("otruyen:list:{$listType}:page:{$pageNum}:limit:24:shuffle:0");
+                $pageData = $otruyenService->getMangaByList($listType, $pageNum, 24, false);
+                if (!$pageData) {
+                    $newLogs = [];
+                    $newLogs[] = [
+                        'message' => "Không thể lấy dữ liệu trang {$pageNum}",
+                        'type' => 'error'
+                    ];
+                    $jobData['logs'] = array_merge($jobData['logs'] ?? [], $newLogs);
+                    $jobData['logs_sent_count'] = $logsSentCount + count($newLogs);
+                    $currentPage = $pageNum + 1;
+                    $currentMangaIndexInPage = 0;
+                    $jobData['current_page'] = $currentPage;
+                    $jobData['current_manga_index_in_page'] = 0;
+                    session()->put($jobKey, $jobData);
+                    continue;
+                }
+                
+                if (empty($pageData['mangas'])) {
+                    $newLogs = [];
+                    $newLogs[] = [
+                        'message' => "Không có truyện nào trong trang {$pageNum}",
+                        'type' => 'warning'
+                    ];
+                    $jobData['logs'] = array_merge($jobData['logs'] ?? [], $newLogs);
+                    $jobData['logs_sent_count'] = $logsSentCount + count($newLogs);
+                    $currentPage = $pageNum + 1;
+                    $currentMangaIndexInPage = 0;
+                    $jobData['current_page'] = $currentPage;
+                    $jobData['current_manga_index_in_page'] = 0;
+                    session()->put($jobKey, $jobData);
+                    continue;
+                }
+                
+                $mangas = $pageData['mangas'];
+                $totalItems += count($mangas);
+                
+                $newLogs = [];
+                if ($currentPage != $pageNum || $currentMangaIndexInPage == 0) {
+                    $newLogs[] = [
+                        'message' => "Đang crawl trang {$pageNum}... (" . count($mangas) . " truyện)",
+                        'type' => 'info'
+                    ];
+                }
+                
+                $processedCount = 0;
+                $skippedCount = 0;
+                $updatedCount = 0;
+                $createdCount = 0;
+                
+                $mangaIndex = $currentMangaIndexInPage;
+                $totalMangasInPage = count($mangas);
+                foreach ($mangas as $manga) {
+                    $slug = $manga['slug'] ?? null;
+                    if (!$slug) {
+                        $skippedCount++;
+                        $mangaIndex++;
+                        continue;
+                    }
+                    if (in_array($slug, $processedItems)) {
+                        $skippedCount++;
+                        $mangaIndex++;
+                        continue;
+                    }
+                    
+                    if ($mangaIndex >= $totalMangasInPage) {
+                        break;
+                    }
+                    
+                    if ($processedThisPoll >= $maxPerPoll) {
+                        $jobData['current_page'] = $pageNum;
+                        $jobData['current_manga_index_in_page'] = $mangaIndex;
+                        $jobData['logs'] = array_merge($jobData['logs'] ?? [], $newLogs);
+                        $jobData['logs_sent_count'] = $logsSentCount + count($newLogs);
+                        session()->put($jobKey, $jobData);
+                        return;
+                    }
+                    
+                    try {
+                        $mangaDetail = $otruyenService->getMangaDetail($slug);
+                        
+                        if ($mangaDetail) {
+                            $mangaMetadata = \App\Models\MangaMetadata::where('slug', $slug)->first();
+                            if ($mangaMetadata) {
+                                if ($mangaMetadata->created_at->diffInSeconds($mangaMetadata->updated_at) <= 1) {
+                                    $createdCount++;
+                                    $newLogs[] = [
+                                        'message' => "✓ Đã tạo mới: {$mangaDetail['name']}",
+                                        'type' => 'success'
+                                    ];
+                                } else {
+                                    $updatedCount++;
+                                    $newLogs[] = [
+                                        'message' => "↻ Đã cập nhật: {$mangaDetail['name']}",
+                                        'type' => 'info'
+                                    ];
+                                }
+                            }
+                            $processedCount++;
+                        } else {
+                            $skippedCount++;
+                            $newLogs[] = [
+                                'message' => "✗ Bỏ qua (không tìm thấy): " . ($manga['name'] ?? $slug),
+                                'type' => 'warning'
+                            ];
+                        }
+                        
+                        $processedItems[] = $slug;
+                        $processedThisPoll++;
+                    } catch (\Exception $e) {
+                        $skippedCount++;
+                        $processedThisPoll++;
+                        $newLogs[] = [
+                            'message' => "✗ Lỗi crawl: " . ($manga['name'] ?? $slug) . " - " . $e->getMessage(),
+                            'type' => 'error'
+                        ];
+                    }
+                    
+                    $mangaIndex++;
+                }
+                
+                if ($mangaIndex >= count($mangas)) {
+                    $jobData['logs'][] = [
+                        'message' => "Hoàn thành trang {$pageNum}: Tạo mới {$createdCount}, Cập nhật {$updatedCount}, Bỏ qua {$skippedCount}",
+                        'type' => 'info'
+                    ];
+                    $currentPage = $pageNum + 1;
+                    $currentMangaIndexInPage = 0;
+                } else {
+                    $currentPage = $pageNum;
+                    $currentMangaIndexInPage = $mangaIndex;
+                }
+                
+                $jobData['current_page'] = $currentPage;
+                $jobData['current_manga_index_in_page'] = $currentMangaIndexInPage;
+                $jobData['current_item'] = count($processedItems);
+                $jobData['total_items'] = $totalItems;
+                $jobData['logs'] = array_merge($jobData['logs'] ?? [], $newLogs);
+                $jobData['processed_items'] = $processedItems;
+                $jobData['logs_sent_count'] = $logsSentCount + count($newLogs);
+                session()->put($jobKey, $jobData);
+                
+                if ($currentMangaIndexInPage > 0) {
+                    return;
+                }
+                if ($processedThisPoll >= $maxPerPoll && $mangaIndex < count($mangas)) {
+                    return;
+                }
+            }
+            
+            $maxPage = max($pagesToProcess);
+            if ($currentPage > $maxPage || ($currentPage == $maxPage && $currentMangaIndexInPage >= 24)) {
+                $jobData['status'] = 'completed';
+                $jobData['logs'][] = [
+                    'message' => "✓ Hoàn tất crawl! Tổng cộng đã xử lý " . count($processedItems) . " truyện",
+                    'type' => 'success'
+                ];
+            } else {
+                $jobData['status'] = 'running';
+            }
+            session()->put($jobKey, $jobData);
+            
+        } catch (\Exception $e) {
+            $jobData['status'] = 'failed';
+            $jobData['error'] = $e->getMessage();
+            $jobData['logs'][] = [
+                'message' => "✗ Lỗi: " . $e->getMessage(),
+                'type' => 'error'
+            ];
+            session()->put($jobKey, $jobData);
+        }
+    }
+}
+
+// Admin routes
+Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
+    Route::get('/', function () {
+        $stats = [
+            'total_users' => \App\Models\User::count(),
+            'total_mangas' => \App\Models\MangaMetadata::where('is_active', true)->count(),
+            'total_chapters' => \App\Models\MangaChapter::count(),
+        ];
+        
+        return view('admin.index', compact('stats'));
+    })->name('admin.index');
+    
+    Route::get('/users', function () {
+        $search = request()->input('search', '');
+        
+        $query = \App\Models\User::query();
+        
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('email', 'like', '%' . $search . '%')
+                  ->orWhere('name', 'like', '%' . $search . '%');
+            });
+        }
+        
+        $query->orderByRaw('CASE WHEN last_login_at IS NOT NULL AND last_login_at >= ? THEN 0 ELSE 1 END', [now()->subMinutes(15)])
+              ->orderBy('id', 'desc');
+        
+        $users = $query->paginate(10)->withQueryString();
+        
+        return view('admin.users', compact('users', 'search'));
+    })->name('admin.users');
+    
+    Route::post('/users/{id}/change-role', function ($id) {
+        $user = \App\Models\User::findOrFail($id);
+        $role = request()->input('role');
+        
+        if (!in_array($role, ['user', 'admin'])) {
+            return response()->json(['status' => 'error', 'message' => 'Role không hợp lệ'], 400);
+        }
+        
+        $user->role = $role;
+        $user->save();
+        
+        return response()->json(['status' => 'success', 'message' => 'Đổi quyền thành công']);
+    })->name('admin.users.change-role');
+    
+    Route::post('/users/{id}/ban', function ($id) {
+        $user = \App\Models\User::findOrFail($id);
+            if ($user->id === auth()->id()) {
+            return response()->json(['status' => 'error', 'message' => 'Bạn không thể ban chính mình'], 400);
+        }
+        
+        $days = (int)request()->input('days');
+        
+        if ($days <= 0) {
+            return response()->json(['status' => 'error', 'message' => 'Số ngày không hợp lệ'], 400);
+        }
+        
+        if ($days >= 999999) {
+            $user->banned_until = now()->addYears(100); // Vĩnh viễn
+        } else {
+            $user->banned_until = now()->addDays($days);
+        }
+        
+        $user->save();
+        
+        return response()->json(['status' => 'success', 'message' => 'Ban user thành công']);
+    })->name('admin.users.ban');
+    
+    Route::post('/users/{id}/unban', function ($id) {
+        $user = \App\Models\User::findOrFail($id);
+        
+        $user->banned_until = null;
+        $user->save();
+        
+        return response()->json(['status' => 'success', 'message' => 'Bỏ ban user thành công']);
+    })->name('admin.users.unban');
+    
+    Route::get('/mangas', function () {
+        $recentMangas = \App\Models\MangaMetadata::orderBy('updated_at', 'desc')
+            ->limit(10)
+            ->get();
+        
+        $trendingSlugs = json_decode(\App\Models\Setting::get('trending_mangas', '[]'), true) ?? [];
+        $trendingMangas = \App\Models\MangaMetadata::whereIn('slug', $trendingSlugs)
+            ->get()
+            ->sortBy(function($manga) use ($trendingSlugs) {
+                return array_search($manga->slug, $trendingSlugs);
+            })
+            ->values();
+        
+        return view('admin.mangas', compact('recentMangas', 'trendingMangas'));
+    })->name('admin.mangas');
+    
+    Route::get('/mangas/search', function () {
+        $search = request()->input('q', '');
+        if (empty($search)) {
+            return response()->json([]);
+        }
+        
+        if (strpos($search, ',') !== false) {
+            $slugs = array_map('trim', explode(',', $search));
+            $mangas = \App\Models\MangaMetadata::whereIn('slug', $slugs)
+                ->get(['id', 'title', 'slug', 'cover_url']);
+        } else {
+            if (strlen($search) < 2) {
+                return response()->json([]);
+            }
+            $mangas = \App\Models\MangaMetadata::where('title', 'like', '%' . $search . '%')
+                ->orWhere('slug', 'like', '%' . $search . '%')
+                ->limit(20)
+                ->get(['id', 'title', 'slug', 'cover_url']);
+        }
+        
+        return response()->json($mangas);
+    })->name('admin.mangas.search');
+    
+    Route::post('/mangas/trending', function () {
+        $slugs = request()->input('slugs', []);
+        if (count($slugs) > 8) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Chỉ được chọn tối đa 8 truyện'
+            ], 400);
+        }
+        
+        \App\Models\Setting::set('trending_mangas', json_encode($slugs));
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã lưu danh sách Top thịnh hành thành công'
+        ]);
+    })->name('admin.mangas.trending');
+    
+    Route::post('/mangas/crawl', function () {
+        $listType = request()->input('list_type');
+        $customPages = request()->has('custom_pages');
+        $allPages = request()->has('all_pages');
+        $pagesInput = request()->input('pages', '1');
+        
+        $pages = [];
+        if ($allPages) {
+            $pages = ['all'];
+        } else {
+            if (strpos($pagesInput, '-') !== false) {
+                list($start, $end) = explode('-', $pagesInput);
+                $pages = range((int)$start, (int)$end);
+            } elseif (strpos($pagesInput, ',') !== false) {
+                $pages = array_map('intval', explode(',', $pagesInput));
+            } else {
+                $pages = [(int)$pagesInput];
+            }
+        }
+        
+        $jobId = uniqid('crawl_', true);
+        
+        session()->put("crawl_job_{$jobId}", [
+            'list_type' => $listType,
+            'pages' => $pages,
+            'all_pages' => $allPages,
+            'status' => 'running',
+            'logs' => [],
+            'logs_sent_count' => 0,
+            'current_page' => 0,
+            'current_manga_index_in_page' => 0,
+            'total_pages' => 0,
+            'current_item' => 0,
+            'total_items' => 0,
+            'processed_items' => [],
+        ]);
+        
+        return response()->json([
+            'status' => 'success',
+            'job_id' => $jobId,
+            'message' => 'Crawl started'
+        ]);
+    })->name('admin.mangas.crawl');
+    
+    Route::get('/mangas/crawl/progress/{jobId}', function ($jobId) {
+        $jobKey = "crawl_job_{$jobId}";
+        $jobData = session()->get($jobKey);
+        
+        if (!$jobData) {
+            return response()->json([
+                'status' => 'not_found',
+                'message' => 'Job not found'
+            ], 404);
+        }
+        
+        if ($jobData['status'] === 'running') {
+            processCrawlJob($jobKey, $jobData);
+            $jobData = session()->get($jobKey);
+        }
+        
+        $allLogs = $jobData['logs'] ?? [];
+        $logsSentCount = $jobData['logs_sent_count'] ?? 0;
+        $newLogs = array_slice($allLogs, $logsSentCount);
+        
+        if (count($newLogs) > 0) {
+            $jobData['logs_sent_count'] = count($allLogs);
+            session()->put($jobKey, $jobData);
+        }
+        
+        return response()->json([
+            'status' => $jobData['status'],
+            'logs' => $newLogs,
+            'progress' => [
+                'current_page' => $jobData['current_page'] ?? 0,
+                'total_pages' => $jobData['total_pages'] ?? 0,
+                'current_item' => $jobData['current_item'] ?? 0,
+                'total_items' => $jobData['total_items'] ?? 0,
+            ],
+            'error' => $jobData['error'] ?? null,
+        ]);
+    })->name('admin.mangas.crawl.progress');
+    
+    Route::get('/settings', function () {
+        $settings = [
+            'facebook_url' => \App\Models\Setting::get('facebook_url', ''),
+            'twitter_url' => \App\Models\Setting::get('twitter_url', ''),
+            'gmail_url' => \App\Models\Setting::get('gmail_url', ''),
+        ];
+        return view('admin.settings', compact('settings'));
+    })->name('admin.settings');
+    
+    Route::post('/settings/social', function () {
+        $facebook = request()->input('facebook_url', '');
+        $twitter = request()->input('twitter_url', '');
+        $gmail = request()->input('gmail_url', '');
+        
+        \App\Models\Setting::set('facebook_url', $facebook);
+        \App\Models\Setting::set('twitter_url', $twitter);
+        \App\Models\Setting::set('gmail_url', $gmail);
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã lưu cấu hình thành công'
+        ]);
+    })->name('admin.settings.social');
+    
+    Route::post('/settings/social/clear', function () {
+        \App\Models\Setting::whereIn('key', ['facebook_url', 'twitter_url', 'gmail_url'])->delete();
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã xóa cấu hình thành công'
+        ]);
+    })->name('admin.settings.social.clear');
+    
+    Route::get('/posts', function () {
+        $posts = \App\Models\Post::orderBy('created_at', 'desc')->paginate(20);
+        return view('admin.posts', compact('posts'));
+    })->name('admin.posts');
+    
+    Route::get('/posts/create', function () {
+        return view('admin.post-form', ['post' => null]);
+    })->name('admin.posts.create');
+    
+    Route::get('/posts/{id}/edit', function ($id) {
+        $post = \App\Models\Post::findOrFail($id);
+        return view('admin.post-form', ['post' => $post]);
+    })->name('admin.posts.edit');
+    
+    Route::post('/posts', function () {
+        try {
+            $request = request();
+            
+            \Log::info('Creating post', [
+                'title' => $request->input('title'),
+                'all_data' => $request->all()
+            ]);
+            
+            if (!$request->has('title') || empty(trim($request->input('title')))) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Tiêu đề không được để trống'
+                ], 400);
+            }
+            
+            $slug = \Illuminate\Support\Str::slug($request->input('title'));
+            if (empty($slug)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Tiêu đề không hợp lệ'
+                ], 400);
+            }
+            
+            $originalSlug = $slug;
+            $counter = 1;
+            while (\App\Models\Post::where('slug', $slug)->exists()) {
+                $slug = $originalSlug . '-' . $counter;
+                $counter++;
+            }
+            
+            $postData = [
+                'slug' => $slug,
+                'title' => trim($request->input('title')),
+                'description' => $request->input('description', ''),
+                'content' => $request->input('content', ''),
+                'image' => $request->input('image', ''),
+                'author' => $request->input('author', auth()->user()->name ?? 'Admin'),
+                'is_featured' => (bool)$request->input('is_featured', 0),
+                'is_active' => (bool)$request->input('is_active', 1),
+                'published_at' => $request->input('published_at') ? now()->parse($request->input('published_at')) : now(),
+            ];
+            
+            \Log::info('Post data to create', $postData);
+            
+            $post = \App\Models\Post::create($postData);
+            
+            \Log::info('Post created successfully', ['post_id' => $post->id]);
+            
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Đã tạo bài viết thành công',
+                'post_id' => $post->id
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error creating post', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Lỗi: ' . $e->getMessage()
+            ], 500);
+        }
+    })->name('admin.posts.store');
+    
+    Route::put('/posts/{id}', function ($id) {
+        $post = \App\Models\Post::findOrFail($id);
+        $request = request();
+        
+        $slug = \Illuminate\Support\Str::slug($request->input('title'));
+        if ($slug !== $post->slug) {
+            $originalSlug = $slug;
+            $counter = 1;
+            while (\App\Models\Post::where('slug', $slug)->where('id', '!=', $id)->exists()) {
+                $slug = $originalSlug . '-' . $counter;
+                $counter++;
+            }
+        }
+        
+        $post->update([
+            'slug' => $slug,
+            'title' => $request->input('title'),
+            'description' => $request->input('description'),
+            'content' => $request->input('content'),
+            'image' => $request->input('image'),
+            'author' => $request->input('author'),
+            'is_featured' => (bool)$request->input('is_featured', 0),
+            'is_active' => (bool)$request->input('is_active', 1),
+            'published_at' => $request->input('published_at') ? now()->parse($request->input('published_at')) : $post->published_at,
+        ]);
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã cập nhật bài viết thành công'
+        ]);
+    })->name('admin.posts.update');
+    
+    Route::delete('/posts/{id}', function ($id) {
+        $post = \App\Models\Post::findOrFail($id);
+        $post->delete();
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã xóa bài viết thành công'
+        ]);
+    })->name('admin.posts.delete');
+    
+    Route::post('/posts/upload-image', function () {
+        $file = request()->file('image');
+        
+        if (!$file || !$file->isValid()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'File không hợp lệ'
+            ], 400);
+        }
+        
+        $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/jpg', 'image/webp'];
+        if (!in_array($file->getMimeType(), $allowedMimes)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Chỉ chấp nhận file ảnh (jpg, png, gif, webp)'
+            ], 400);
+        }
+        
+        if ($file->getSize() > 10 * 1024 * 1024) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'File quá lớn (tối đa 10MB)'
+            ], 400);
+        }
+        
+        $uploadDir = public_path('images/posts');
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        
+        $extension = $file->getClientOriginalExtension() ?: 'jpg';
+        $fileName = uniqid('post_') . '.' . strtolower($extension);
+        $filePath = $uploadDir . '/' . $fileName;
+        
+        $file->move($uploadDir, $fileName);
+        
+        $url = asset('images/posts/' . $fileName);
+        
+        return response()->json([
+            'status' => 'success',
+            'url' => $url
+        ]);
+    })->name('admin.posts.upload-image');
 });

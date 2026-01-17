@@ -1,101 +1,80 @@
-@php($demoMangaUrl = route('manga.detail', ['slug' => 'gto-fury-of-death-yamada']))
+@php
+    $trendingMangas = $trendingMangas ?? [];
+    $colors = ['#FFD35A', '#DF7861', '#4ECDC4', '#95E1D3', '#F38181', '#AA96DA', '#FCBAD3', '#FFD93D'];
+    $svgPaths = [
+        1 => ['width' => '32', 'height' => '65', 'viewBox' => '0 0 32 65', 'path' => 'M19.0979 1H31V64H15.3353V16.6879V15.4342L14.1129 15.713L4.15686 17.984L1.20327 6.04715L19.0979 1Z'],
+        2 => ['width' => '59', 'height' => '77', 'viewBox' => '0 0 59 77', 'path' => 'M28.222 60.9129H58V76H1V61.7008L28.5152 40.3718L28.5152 40.3719L28.5257 40.3636C35.4513 34.8455 38.4874 31.1186 38.4874 25.9551C38.4874 23.3328 37.5702 21.1313 35.8852 19.593C34.2107 18.0641 31.874 17.2767 29.1805 17.2767C23.8926 17.2767 19.7986 20.2982 14.2688 26.609L1.80485 16.0778C5.5601 11.3021 9.27649 7.61654 13.6656 5.08384C18.2679 2.42817 23.6804 1 30.778 1C38.672 1 45.294 3.39823 49.9277 7.45726C54.5512 11.5074 57.2545 17.2599 57.2545 24.1166V24.3329C57.2545 30.193 55.7684 34.5832 52.9681 38.4997C50.1403 42.4547 45.943 45.9704 40.4167 50.0176L27.6427 59.0979L25.0892 60.9129H28.222Z'],
+        3 => ['width' => '62', 'height' => '77', 'viewBox' => '0 0 62 77', 'path' => 'M34.493 15.9314H6.23944V1H59.4718V14.5263L41.5971 29.6483L40.0529 30.9547L42.0285 31.3885C47.3297 32.5524 52.0756 34.5961 55.485 37.8364C58.8655 41.0493 61 45.5011 61 51.6569V51.8725C61 59.177 57.9949 65.1782 52.9682 69.3705C47.9265 73.5754 40.7983 76 32.5282 76C18.3855 76 8.5626 71.2301 1.39151 63.6584L13.3236 51.8697C18.7877 57.0622 24.5127 60.098 31.5458 60.098C34.7551 60.098 37.4519 59.3062 39.3693 57.7937C41.3116 56.2616 42.3697 54.053 42.3697 51.4412V51.2255C42.3697 48.4351 41.0569 46.184 38.6697 44.6776C36.3331 43.2032 33.0093 42.4608 28.9261 42.4608H20.7334L18.0507 32.9002L35.1577 17.6784L37.1212 15.9314H34.493Z'],
+        4 => ['width' => '71', 'height' => '76', 'viewBox' => '0 0 71 76', 'path' => 'M40.2342 1H60.2485V45.7078V46.7078H61.2485H70V60.339H61.2485H60.2485V61.339V75H41.6497V61.339V60.339H40.6497H4.29656L1.09028 46.8334L40.2342 1ZM21.5878 45.1704L20.1985 46.8156H22.3519H40.6497H41.6497V45.8156V24.1475V21.4134L39.8857 23.5023L21.5878 45.1704Z'],
+        5 => ['width' => '61', 'height' => '76', 'viewBox' => '0 0 61 76', 'path' => 'M8.82308 1H56.6998V16.0308H24.1658H23.2208L23.1674 16.9743L22.5287 28.2572L22.4339 29.9304L23.9514 29.2192C27.248 27.6742 30.6166 26.6527 35.4503 26.6527C41.9302 26.6527 48.0753 28.468 52.5801 32.1729C57.058 35.8556 60 41.4721 60 49.2829V49.4958C60 57.5223 56.9491 63.8603 51.7612 68.2084C46.5538 72.5728 39.1089 75 30.2339 75C17.7096 75 8.84675 70.8077 1.38783 64.0996L11.937 51.7464C17.8052 56.5415 23.463 59.437 29.9145 59.437C33.4693 59.437 36.4554 58.5773 38.5746 56.8911C40.7215 55.1829 41.8796 52.7028 41.8796 49.7087V49.4958C41.8796 46.475 40.6206 44.0241 38.4401 42.3551C36.2882 40.708 33.3122 39.874 29.9145 39.874C25.3101 39.874 21.4454 41.4103 17.9741 43.4455L6.78235 37.2179L8.82308 1Z'],
+        6 => ['width' => '62', 'height' => '78', 'viewBox' => '0 0 62 78', 'path' => 'M49.8393 21.5048C45.4437 18.356 41.1133 16.25 35.1834 16.25C30.4544 16.25 26.8636 18.0017 24.3539 21.0624C21.8767 24.0834 20.523 28.2915 20.0294 33.1124L19.7956 35.3966L21.6272 34.012C25.5004 31.0844 30.1185 28.4286 37.2215 28.4286C43.6142 28.4286 49.5642 30.4534 53.9011 34.2358C58.2214 38.0038 61 43.5648 61 50.7857V51C61 59.0681 57.7732 65.541 52.5912 70.0106C47.395 74.4925 40.1824 77 32.1799 77C21.6919 77 15.1968 73.9802 9.93161 68.7211C4.5933 63.3889 1 55.2108 1 41.3571V41.1429C1 29.611 3.80854 19.5674 9.40831 12.4298C14.9821 5.32525 23.3968 1 34.8616 1C44.8812 1 51.629 3.51789 58.4943 8.48979L49.8393 21.5048ZM31.3218 62.8214C34.8107 62.8214 37.6755 61.7033 39.6738 59.7673C41.6718 57.8316 42.7266 55.1518 42.7266 52.1786V51.9643C42.7266 48.9747 41.6067 46.2943 39.5558 44.3653C37.5069 42.4383 34.5947 41.3214 31.1073 41.3214C27.6257 41.3214 24.7617 42.4082 22.7609 44.3166C20.7584 46.2265 19.7024 48.8826 19.7024 51.8571V52.0714C19.7024 55.0595 20.8211 57.764 22.8677 59.7187C24.9141 61.6732 27.8273 62.8214 31.3218 62.8214Z'],
+        7 => ['width' => '58', 'height' => '75', 'viewBox' => '0 0 58 75', 'path' => 'M3.45179 74L35.7311 17.9634L36.5946 16.4643H34.8646H1V1H57V15.3819L24.1635 74H3.45179Z'],
+        8 => ['width' => '61', 'height' => '78', 'viewBox' => '0 0 61 78', 'path' => 'M13.1021 38.5187L14.9451 37.7292L13.2058 36.7319C10.3772 35.1101 7.96868 33.1556 6.26629 30.6653C4.57259 28.1877 3.54167 25.1276 3.54167 21.2238V21.0083C3.54167 9.72941 14.1566 1 30.5 1C46.8434 1 57.4583 9.72941 57.4583 21.0083V21.2238C57.4583 25.1276 56.4274 28.1877 54.7337 30.6653C53.0313 33.1556 50.6228 35.1101 47.7942 36.7319L46.1085 37.6985L47.8749 38.5085C51.5494 40.1932 54.5706 42.2622 56.6742 44.9847C58.7639 47.6892 60 51.1052 60 55.5912V55.8066C60 62.1855 57.0056 67.4436 51.8399 71.1402C46.6503 74.8539 39.245 77 30.5 77C21.7602 77 14.3538 74.8024 9.16141 71.0738C3.98892 67.3595 1 62.1255 1 55.9144V55.6989C1 51.3 2.11523 47.8531 4.14127 45.1008C6.17572 42.337 9.18594 40.1961 13.1021 38.5187ZM30.5 32.8895C33.4627 32.8895 35.9933 31.9597 37.7942 30.3108C39.6006 28.6569 40.6076 26.3371 40.6076 23.7017V23.4862C40.6076 18.6669 36.5974 14.5138 30.5 14.5138C24.4206 14.5138 20.3924 18.5425 20.3924 23.3785V23.5939C20.3924 26.2276 21.3978 28.5709 23.1991 30.2507C24.9972 31.9275 27.5289 32.8895 30.5 32.8895ZM30.5 63.3785C34.1269 63.3785 37.0476 62.3552 39.0789 60.6206C41.1177 58.8796 42.1962 56.4726 42.1962 53.8674V53.6519C42.1962 50.8986 40.9511 48.5652 38.8393 46.9463C36.7464 45.342 33.8429 44.4641 30.5 44.4641C27.1571 44.4641 24.2536 45.342 22.1607 46.9463C20.0489 48.5652 18.8038 50.8986 18.8038 53.6519V53.8674C18.8038 56.4726 19.8823 58.8796 21.9211 60.6206C23.9524 62.3552 26.8731 63.3785 30.5 63.3785Z'],
+    ];
+@endphp
 <section id="manga-trend" class="container">
-    <div class="m-trend splide splide-navtop">
-        <div class="group-title justify-content-between">
-            <h2 class="m-title title">Top thịnh hành<span class="sub">Truyện được mọi người yêu thích.</span></h2>
-            <div class="splide__arrows position-relative">
-                <button class="splide__arrow splide__arrow--prev">
-                    <i class="icon-arrow-left"></i>
-                </button>
-                <button class="splide__arrow splide__arrow--next">
-                    <i class="icon-arrow-right"></i>
-                </button>
-            </div>
-        </div>
-        <div class="splide__track">
-            <div class="splide__list">
-                <!-- Truyện 1 -->
-                <div class="m-post splide__slide">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="65" viewBox="0 0 32 65" fill="none">
-                        <path d="M19.0979 1H31V64H15.3353V16.6879V15.4342L14.1129 15.713L4.15686 17.984L1.20327 6.04715L19.0979 1Z" stroke="#FFD35A" stroke-width="2"/>
-                    </svg>
-                    <div class="p-thumb flex-shrink-0">
-                        <a title="Võ Luyện Đỉnh Phong" href="{{ $demoMangaUrl }}">
-                            <span class="img-poster">
-                                <img class="lzl" data-src="https://prvhtr.mgbucket.xyz/posters/c8/1e/vo-luyen-dinh-phong.png" rel="nofollow"
-                                    data-original="https://prvhtr.mgbucket.xyz/posters/c8/1e/vo-luyen-dinh-phong.png" alt="Võ Luyện Đỉnh Phong" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
-                            </span>
-                        </a>
-                    </div>
-                    <div class="p-content flex-grow-1">
-                        <h3 class="m-name">
-                            <a href="{{ $demoMangaUrl }}">Võ Luyện Đỉnh Phong</a>
-                        </h3>
-                        <div class="group-star">
-                            <div class="m-star">
-                                <span class="star-rating">
-                                    <span style="width: 65.99999999999999%;"></span>
-                                </span>
-                                <span>3.3</span>
-                            </div>
-                            <span class="num-view">66.4M lượt xem</span>
-                        </div>
-                        <ul class="list-chaps">
-                            <li class="chapter">
-                                <a data-id="2168858" href="{{ $demoMangaUrl }}" title="Chapter #3860">
-                                    Chapter #3860<span>23 ngày trước</span>
-                                </a>
-                            </li>
-                            <li class="chapter">
-                                <a data-id="2168451" href="{{ $demoMangaUrl }}" title="Chapter #3859">
-                                    Chapter #3859<span>1 tháng trước</span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
+    @if(count($trendingMangas) > 0)
+        <div class="m-trend splide splide-navtop">
+            <div class="group-title justify-content-between">
+                <h2 class="m-title title">Top thịnh hành<span class="sub">Truyện được mọi người yêu thích.</span></h2>
+                <div class="splide__arrows position-relative">
+                    <button class="splide__arrow splide__arrow--prev">
+                        <i class="icon-arrow-left"></i>
+                    </button>
+                    <button class="splide__arrow splide__arrow--next">
+                        <i class="icon-arrow-right"></i>
+                    </button>
                 </div>
-
-                <!-- Truyện 2 -->
-                <div class="m-post splide__slide">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="59" height="77" viewBox="0 0 59 77" fill="none">
-                        <path d="M28.222 60.9129H58V76H1V61.7008L28.5152 40.3718L28.5152 40.3719L28.5257 40.3636C35.4513 34.8455 38.4874 31.1186 38.4874 25.9551C38.4874 23.3328 37.5702 21.1313 35.8852 19.593C34.2107 18.0641 31.874 17.2767 29.1805 17.2767C23.8926 17.2767 19.7986 20.2982 14.2688 26.609L1.80485 16.0778C5.5601 11.3021 9.27649 7.61654 13.6656 5.08384C18.2679 2.42817 23.6804 1 30.778 1C38.672 1 45.294 3.39823 49.9277 7.45726C54.5512 11.5074 57.2545 17.2599 57.2545 24.1166V24.3329C57.2545 30.193 55.7684 34.5832 52.9681 38.4997C50.1403 42.4547 45.943 45.9704 40.4167 50.0176L27.6427 59.0979L25.0892 60.9129H28.222Z" stroke="#DF7861" stroke-width="2"/>
-                    </svg>
-                    <div class="p-thumb flex-shrink-0">
-                        <a title="Đại Quản Gia Là Ma Hoàng" href="{{ $demoMangaUrl }}">
-                            <span class="img-poster">
-                                <img class="lzl" data-src="https://prvhtr.mgbucket.xyz/posters/4b/24/dai-quan-gia-la-ma-hoang.png" rel="nofollow"
-                                    data-original="https://prvhtr.mgbucket.xyz/posters/4b/24/dai-quan-gia-la-ma-hoang.png" alt="Đại Quản Gia Là Ma Hoàng" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
-                            </span>
-                        </a>
-                    </div>
-                    <div class="p-content flex-grow-1">
-                        <h3 class="m-name">
-                            <a href="{{ $demoMangaUrl }}">Đại Quản Gia Là Ma Hoàng</a>
-                        </h3>
-                        <div class="group-star">
-                            <div class="m-star">
-                                <span class="star-rating">
-                                    <span style="width: 100%;"></span>
-                                </span>
-                                <span>5</span>
+            </div>
+            <div class="splide__track">
+                <div class="splide__list">
+                    @foreach($trendingMangas as $index => $manga)
+                        @php
+                            $mangaUrl = route('manga.detail', ['slug' => $manga['slug']]);
+                            $rankNumber = $index + 1;
+                            $color = $colors[$index % count($colors)];
+                            $ratingPercent = $manga['rating'] > 0 ? ($manga['rating'] / 5) * 100 : 0;
+                            $svgData = $svgPaths[$rankNumber] ?? $svgPaths[1];
+                        @endphp
+                        <div class="m-post splide__slide">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="{{ $svgData['width'] }}" height="{{ $svgData['height'] }}" viewBox="{{ $svgData['viewBox'] }}" fill="none">
+                                <path d="{{ $svgData['path'] }}" stroke="{{ $color }}" stroke-width="2"/>
+                            </svg>
+                            <div class="p-thumb flex-shrink-0">
+                                <a title="{{ $manga['title'] }}" href="{{ $mangaUrl }}">
+                                    <span class="img-poster">
+                                        <img class="lzl" data-src="{{ $manga['cover_url'] }}" rel="nofollow"
+                                            data-original="{{ $manga['cover_url'] }}" alt="{{ $manga['title'] }}" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
+                                    </span>
+                                </a>
                             </div>
-                            <span class="num-view">171.15K lượt xem</span>
+                            <div class="p-content flex-grow-1">
+                                <h3 class="m-name">
+                                    <a href="{{ $mangaUrl }}">{{ $manga['title'] }}</a>
+                                </h3>
+                                <div class="group-star">
+                                    <div class="m-star">
+                                        <span class="star-rating">
+                                            <span style="width: {{ $ratingPercent }}%;"></span>
+                                        </span>
+                                        <span>{{ number_format($manga['rating'], 1) }}</span>
+                                    </div>
+                                    <span class="num-view">{{ $manga['views_formatted'] }}</span>
+                                </div>
+                                <ul class="list-chaps">
+                                    @foreach(array_slice($manga['chapters'] ?? [], 0, 2) as $chapter)
+                                        <li class="chapter">
+                                            <a data-id="{{ $chapter['id'] ?? '' }}" href="{{ route('manga.chapter', ['mangaSlug' => $manga['slug'], 'chapterSlug' => $chapter['slug']]) }}" title="{{ $chapter['name'] }}">
+                                                {{ $chapter['name'] }}<span>{{ $chapter['releasedAt'] ?? '' }}</span>
+                                            </a>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
                         </div>
-                        <ul class="list-chaps">
-                            <li class="chapter">
-                                <a data-id="2170224" href="{{ $demoMangaUrl }}" title="Chapter 804">
-                                    Chapter 804<span>2 ngày trước</span>
-                                </a>
-                            </li>
-                            <li class="chapter">
-                                <a data-id="2170223" href="{{ $demoMangaUrl }}" title="Chapter 803">
-                                    Chapter 803<span>2 ngày trước</span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
+                    @endforeach
                 </div>
             </div>
         </div>
-    </div>
+    @endif
 </section>

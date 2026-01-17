@@ -251,6 +251,38 @@ class OTruyenService
                 return $tag['name'] ?? '';
             }, $transformed['tags'] ?? []);
             
+            // Thêm type (Manga, Manhua, Manhwa) vào tags để có thể filter
+            // QUAN TRỌNG: Luôn ưu tiên giữ nguyên type từ database (nếu có)
+            // Chỉ thêm type mới từ API nếu database chưa có type
+            $existingType = null;
+            if ($manga && is_array($manga->tags)) {
+                foreach ($manga->tags as $tag) {
+                    $tagName = is_string($tag) ? $tag : ($tag['name'] ?? '');
+                    $tagNameLower = strtolower($tagName);
+                    if (in_array($tagNameLower, ['manga', 'manhua', 'manhwa'])) {
+                        $existingType = $tagName; // Giữ nguyên case từ database
+                        break;
+                    }
+                }
+            }
+            
+            // Nếu database đã có type, giữ nguyên (không update từ API)
+            if ($existingType) {
+                // Đảm bảo type cũ có trong tagsArray
+                if (!in_array($existingType, $tagsArray)) {
+                    $tagsArray[] = $existingType;
+                }
+            } else {
+                // Nếu database chưa có type, thêm từ API (nếu có và không phải mặc định)
+                $typeIsDefault = $transformed['type_is_default'] ?? false;
+                if (!$typeIsDefault && isset($transformed['type']['name']) && !empty($transformed['type']['name'])) {
+                    $typeName = $transformed['type']['name'];
+                    if (!in_array($typeName, $tagsArray)) {
+                        $tagsArray[] = $typeName;
+                    }
+                }
+            }
+            
             $statusEnum = $rawItem['status'] ?? 'ongoing';
             
             $originNameArray = is_array($transformed['origin_name'] ?? []) 
@@ -285,7 +317,14 @@ class OTruyenService
                 if ($manga->last_chapter_number != $dataToSave['last_chapter_number']) $needsUpdate = true;
                 
                 $existingTags = is_array($manga->tags) ? $manga->tags : [];
-                if (json_encode($existingTags) != json_encode($tagsArray)) $needsUpdate = true;
+                // So sánh tags không phụ thuộc vào thứ tự
+                $existingTagsSorted = array_values(array_unique($existingTags));
+                sort($existingTagsSorted);
+                $tagsArraySorted = array_values(array_unique($tagsArray));
+                sort($tagsArraySorted);
+                if ($existingTagsSorted !== $tagsArraySorted) {
+                    $needsUpdate = true;
+                }
                 
                 $existingOriginNames = is_array($manga->origin_name) ? $manga->origin_name : [];
                 if (json_encode($existingOriginNames) != json_encode($originNameArray)) $needsUpdate = true;
@@ -321,6 +360,9 @@ class OTruyenService
         $categories = $this->extractCategories($item['category'] ?? []);
         $typeAndTags = $this->separateTypeAndTags($categories);
         
+        // Đánh dấu xem type có phải là mặc định không (không tìm thấy trong categories)
+        $typeIsDefault = empty($categories) || !$this->hasTypeInCategories($categories);
+        
         return [
             'id' => $item['_id'] ?? null,
             'name' => $item['name'] ?? 'Đang cập nhật',
@@ -331,11 +373,25 @@ class OTruyenService
             'author' => $item['author'] ?? ['Đang cập nhật'],
             'status' => $this->mapStatus($item['status'] ?? ''),
             'type' => $typeAndTags['type'],
+            'type_is_default' => $typeIsDefault, // Đánh dấu type có phải mặc định không
             'tags' => $typeAndTags['tags'],
             'chapters' => $chapters,
             'updated_at' => $item['updatedAt'] ?? null,
             'seo' => $data['data']['seoOnPage'] ?? [],
         ];
+    }
+    
+    protected function hasTypeInCategories($categories)
+    {
+        $typeKeywords = ['manga', 'manhua', 'manhwa', 'truyen-mau', 'truyen-tranh'];
+        foreach ($categories as $cat) {
+            $slug = strtolower($cat['slug'] ?? '');
+            $name = strtolower($cat['name'] ?? '');
+            if (in_array($slug, $typeKeywords) || in_array($name, $typeKeywords)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     protected function extractChapters($chaptersData)

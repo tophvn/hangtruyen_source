@@ -76,7 +76,7 @@
                     <button type="button" class="s-clear">
                         <i class="icon-close-circle"></i>
                     </button>
-                    <div class="nav search-result-wrapper" id="search-suggest">
+                    <div class="nav search-result-wrapper" id="search-suggest" style="display: none;">
                         <p>Gợi ý cho bạn</p>
                         <div class="tab-content">
                             <ul class="result list-unstyled"></ul>
@@ -132,6 +132,11 @@
                         <span>
                             <a class="dropdown-item account-link" href="{{ route('account.index') }}#following">Truyện đã lưu</a>
                         </span>
+                        @if(auth()->check() && auth()->user()->role === 'admin')
+                        <span>
+                            <a class="dropdown-item account-link" href="/admin">Quản trị</a>
+                        </span>
+                        @endif
                         <span>
                             <a id="logout" class="dropdown-item user-logout" href="#">Đăng xuất</a>
                         </span>

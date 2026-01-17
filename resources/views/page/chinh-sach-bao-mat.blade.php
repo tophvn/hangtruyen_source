@@ -9,10 +9,10 @@
 
     <div class="page-content">
         <h2>1. Giới Thiệu</h2>
-        <p>Chào mừng bạn đến với <strong>HangTruyen.net</strong>. Chúng tôi cam kết bảo vệ quyền riêng tư và thông tin cá nhân của bạn khi truy cập và sử dụng dịch vụ trên trang web này. Chính sách bảo mật này giải thích cách chúng tôi thu thập, sử dụng và bảo vệ thông tin của bạn.</p>
+        <p>Chào mừng bạn đến với <strong>{{ request()->getHost() }}</strong>. Chúng tôi cam kết bảo vệ quyền riêng tư và thông tin cá nhân của bạn khi truy cập và sử dụng dịch vụ trên trang web này. Chính sách bảo mật này giải thích cách chúng tôi thu thập, sử dụng và bảo vệ thông tin của bạn.</p>
         
         <h2>2. Thông Tin Chúng Tôi Thu Thập</h2>
-        <p>Khi bạn sử dụng HangTruyen.net, chúng tôi có thể thu thập các loại thông tin sau:</p>
+        <p>Khi bạn sử dụng {{ request()->getHost() }}, chúng tôi có thể thu thập các loại thông tin sau:</p>
         <ul>
             <li><strong>Thông tin cá nhân</strong>: Tên, email, số điện thoại (nếu có cung cấp khi đăng ký hoặc liên hệ với chúng tôi).</li>
             <li><strong>Thông tin thiết bị</strong>: Địa chỉ IP, loại trình duyệt, hệ điều hành, thời gian truy cập.</li>
@@ -33,7 +33,7 @@
         <ul>
             <li>Khi có sự đồng ý của bạn.</li>
             <li>Theo yêu cầu của cơ quan chức năng theo quy định pháp luật.</li>
-            <li>Để bảo vệ quyền lợi, tài sản hoặc an toàn của HangTruyen.net và người dùng.</li>
+            <li>Để bảo vệ quyền lợi, tài sản hoặc an toàn của {{ request()->getHost() }} và người dùng.</li>
         </ul>
         
         <h2>5. Bảo Mật Thông Tin</h2>
@@ -54,8 +54,11 @@
         <p>Chúng tôi có thể cập nhật chính sách này theo thời gian. Khi có thay đổi, chúng tôi sẽ thông báo trên trang web. Việc tiếp tục sử dụng dịch vụ sau khi chính sách được cập nhật đồng nghĩa với việc bạn đồng ý với các thay đổi đó.</p>
         
         <h2>9. Liên Hệ</h2>
-        <p>Nếu bạn có bất kỳ câu hỏi nào về Chính Sách Bảo Mật, vui lòng liên hệ với chúng tôi qua email: <strong>contact.hangtruyen@gmail.com</strong>.</p>
-        <p>Cảm ơn bạn đã tin tưởng và sử dụng dịch vụ của <strong>HangTruyen.net</strong>!</p>
+        @php
+            $gmail = \App\Models\Setting::get('gmail_url', '');
+        @endphp
+        <p>Nếu bạn có bất kỳ câu hỏi nào về Chính Sách Bảo Mật, vui lòng liên hệ với chúng tôi qua email: <strong>{{ $gmail ?: 'contact.hangtruyen@gmail.com' }}</strong>.</p>
+        <p>Cảm ơn bạn đã tin tưởng và sử dụng dịch vụ của <strong>{{ request()->getHost() }}</strong>!</p>
     </div>
 </div>
 @endsection

@@ -32,14 +32,20 @@
                     @method('PUT')
                     <div class="avatar-user position-relative">
                         @php
-                            $avatar = $user->avatar ?? asset('images/favicon.png');
-                            if ($user->avatar && !filter_var($user->avatar, FILTER_VALIDATE_URL)) {
-                                $avatar = asset('storage/' . $user->avatar);
-                            }
+                            $avatar = null;
                             $avatarInitial = strtoupper(substr($user->name ?? 'U', 0, 1));
+                            if ($user->avatar) {
+                                // Nếu là URL (từ Google, etc.)
+                                if (filter_var($user->avatar, FILTER_VALIDATE_URL)) {
+                                    $avatar = $user->avatar;
+                                } else {
+                                    // Nếu là path local
+                                    $avatar = asset($user->avatar);
+                                }
+                            }
                         @endphp
-                        <div id="avatar-temp-edit" class="avatar-temp user-avatar-img" data-name="{{ $avatarInitial }}" style="@if($user->avatar && filter_var($user->avatar, FILTER_VALIDATE_URL)) background-image: url('{{ $avatar }}'); background-size: cover; background-position: center; @endif">
-                            @if(!$user->avatar || !filter_var($user->avatar, FILTER_VALIDATE_URL))
+                        <div id="avatar-temp-edit" class="avatar-temp user-avatar-img" data-name="{{ $avatarInitial }}" style="@if($avatar) background-image: url('{{ $avatar }}'); background-size: cover; background-position: center; @endif">
+                            @if(!$avatar)
                                 {{ $avatarInitial }}
                             @endif
                         </div>
@@ -343,7 +349,12 @@
                             'background-repeat': 'no-repeat',
                         })
                         .empty();
-                    $('input[name="avatar"]').val(response.data.url);
+                    $('input[name="avatar"]').val(response.data.path || response.data.url);
+                    
+                    // Hiển thị thông báo thành công
+                    if (typeof alertNoti === 'function') {
+                        alertNoti('Upload ảnh đại diện thành công');
+                    }
                 } else {
                     if (typeof alertNoti === 'function') {
                         alertNoti('Lỗi! Vui lòng thử ảnh khác');
