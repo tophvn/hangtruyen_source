@@ -8,8 +8,17 @@
                             $coverUrl = $manga['cover_url'] ?? asset('images/pre-load1.png');
                             $mangaName = $manga['name'] ?? 'Đang cập nhật';
                         @endphp
+                        <link rel="preload" as="image" href="{{ $coverUrl }}" fetchpriority="high">
                         <div class="col-image" style="background-image: url('{{ $coverUrl }}');">
-                            <img src="{{ $coverUrl }}" alt="{{ $mangaName }}">
+                            <img 
+                                src="{{ $coverUrl }}" 
+                                alt="{{ $mangaName }}"
+                                loading="eager"
+                                fetchpriority="high"
+                                decoding="async"
+                                width="300"
+                                height="400"
+                            >
                         </div>
                         <a href="" class="report" data-bs-toggle="modal" data-bs-target="#ReportModal" rel="nofollow">
                             <i class="icon-info-circle"></i>

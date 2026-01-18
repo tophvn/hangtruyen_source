@@ -5,7 +5,9 @@
     <meta name="description" content="@yield('description', 'Đọc truyện tranh manga, manhua, manhwa miễn phí được cập nhật liên tục hàng ngày.')">
     <meta name="keywords" content="@yield('keywords', 'đọc truyện, truyện tranh, hangtruyen')">
     <link rel="canonical" href="@yield('canonical', url('/'))" />
+
     <meta name="robots" content="index, follow" />
+
     <script type="application/ld+json">
         {
             "@context": "https://schema.org",
@@ -25,9 +27,18 @@
     <meta property="og:title" content="@yield('og:title', 'Hangtruyen - Trang web đọc truyện tranh Online')" />
     <meta property="og:description" content="@yield('og:description', 'Đọc truyện tranh manga, manhua, manhwa miễn phí được cập nhật liên tục hàng ngày.')" />
     <meta property="og:image" content="@yield('og:image', asset('images/logo-dark.png'))" />
+
     <meta http-equiv="content-language" content="vi" />
     <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
     <link rel="shortcut icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
+    <meta name="theme-color" content="#596FB7">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="HangTruyen">
+    <link rel="apple-touch-icon" href="{{ asset('images/favicon.png') }}">
     
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="{{ asset('css/bootstrap.min.css') }}" />
@@ -373,6 +384,7 @@
     <script src="{{ asset('js/custom.js') }}?v=1.06"></script>
     
     <script>
+        // Ensure jQuery is loaded
         if (typeof jQuery === 'undefined') {
             console.error('jQuery is not loaded');
         }
@@ -420,6 +432,7 @@
             });
         }
 
+        // Chapter search functionality
         const formSearchChap = document.getElementById('form-search-chap');
         if (formSearchChap) {
             const searchInput = formSearchChap.querySelector('input');
@@ -440,7 +453,9 @@
             }
         }
 
+        // Lightmode toggle functionality - must be inside document ready
         $(document).ready(function() {
+            // Handle lightmode dropdown clicks
             $(document).on('click', '#lightmode .dl-mode', function(e) {
                 e.preventDefault();
                 const isLightMode = $(this).attr('data-value') === 'false';
@@ -456,8 +471,10 @@
                 }
             }
 
+            // Update on page load and when darkmode changes
             handleUpdateDarkmodeConfig();
             
+            // Also update when body class changes (in case darkmode is toggled elsewhere)
             const observer = new MutationObserver(function(mutations) {
                 mutations.forEach(function(mutation) {
                     if (mutation.type === 'attributes' && mutation.attributeName === 'class') {

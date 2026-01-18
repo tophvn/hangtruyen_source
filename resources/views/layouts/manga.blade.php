@@ -33,6 +33,20 @@
     <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
     <link rel="shortcut icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
     
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
+    <meta name="theme-color" content="#596FB7">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="HangTruyen">
+    <link rel="apple-touch-icon" href="{{ asset('images/favicon.png') }}">
+    
+    <!-- Preconnect to CDN for faster image loading -->
+    <link rel="preconnect" href="https://img.otruyenapi.com" crossorigin>
+    <link rel="dns-prefetch" href="https://img.otruyenapi.com">
+    <link rel="preconnect" href="https://otruyenapi.com" crossorigin>
+    <link rel="dns-prefetch" href="https://otruyenapi.com">
+    
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="{{ asset('css/bootstrap.min.css') }}" />
     <link rel="stylesheet" href="{{ asset('css/icon-font.css') }}" />
@@ -164,9 +178,7 @@
     <script src="{{ asset('js/custom.js') }}?v=1.06"></script>
     
     <script>
-        // Tự động cập nhật header sau khi đăng nhập thành công
         $(document).ready(function() {
-            // Đợi một chút để đảm bảo các script đã load xong
             setTimeout(function() {
                 if (typeof getUser === 'function' && typeof handleHeaderLoginSuccess === 'function') {
                     getUser().then(function(user) {

@@ -41,7 +41,7 @@ $(document).off('click', '.btn-cmt').on(
 
             if (response) {
                 const commentId = response.id;
-                
+                    
                 if ($(`#cmt-${commentId}`).length > 0) {
                     $btn.removeClass('disabled');
                     return;
@@ -148,7 +148,6 @@ $(document).off('click', '.btn-cmt').on(
     }, 150),
 );
 
-// Pagination
 var currentPage = 1;
 var countPage = $('.pagination').attr('data-count-page');
 listCommentsElem.on('click', '.pagination > li', async function (e) {
@@ -361,7 +360,6 @@ $('#content-comments').on('click', '.btn-reply', function (e) {
     handleCallbackCheckAuthIsDone(handleAvaAuth);
 });
 
-// handle like comment
 $('#content-comments').on(
     'click',
     '.cm-btn-like',

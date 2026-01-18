@@ -14,7 +14,8 @@
                             <a title="{{ $relatedManga['title'] }}" href="{{ $mangaUrl }}">
                                 <span class="img-poster">
                                     <img class="lzl" data-src="{{ $coverUrl }}" rel="nofollow"
-                                        data-original="{{ $coverUrl }}" alt="{{ $relatedManga['title'] }}" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
+                                        data-original="{{ $coverUrl }}" alt="{{ $relatedManga['title'] }}" src="{{ asset('images/pre-load1.png') }}" 
+                                        loading="lazy" decoding="async" width="100%" height="100%">
                                 </span>
                             </a>
                         </div>

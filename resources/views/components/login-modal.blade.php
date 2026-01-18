@@ -21,7 +21,6 @@
 <script>
     $('#google-authen-btn').on('click', (e) => {
         e.preventDefault();
-        // Lưu URL hiện tại để redirect về sau khi đăng nhập
         const currentUrl = window.location.href;
         window.location.href = '{{ route("auth.google") }}?state=' + encodeURIComponent(currentUrl);
     });

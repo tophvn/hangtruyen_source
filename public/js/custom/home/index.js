@@ -86,6 +86,7 @@ handleCutRandomSuggestManga();
 
 //Splide
 document.addEventListener('DOMContentLoaded', function() {
+    // Khởi tạo các instance của Splide và lưu vào mảng
     const splideInstances = [
         new Splide('.slide-single', {
             perPage: 1,
@@ -300,6 +301,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }).mount(),
     ];
 
+    // Lặp qua từng instance và xóa aria-hidden
     splideInstances.forEach((splideInstance) => {
         splideInstance.root.querySelectorAll('[aria-hidden]').forEach((el) => {
             el.removeAttribute('aria-hidden');

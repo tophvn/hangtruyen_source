@@ -39,7 +39,7 @@ function lazyImg(o) {
                         0 < e.intersectionRatio && r(e.target);
                     });
                 }, {
-                    rootMargin: '0px',
+                    rootMargin: '200px 0px',
                     threshold: 0,
                 },
             )),
@@ -117,7 +117,7 @@ if (button) {
         } else {
             button.style.opacity = '0';
         }
-        lastScrollTop = scrollTop <= 0 ? 0 : scrollTop; // For Mobile or negative scrolling
+        lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
     });
 
     button.addEventListener('click', function() {
@@ -294,9 +294,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 $(document).ready(function() {
     $('.dropdown .dropdown-item').on('click', function(e) {
-        // Skip account links - let them navigate normally
         if ($(this).hasClass('account-link') || $(this).attr('href') && ($(this).attr('href').includes('/tai-khoan') || $(this).attr('href').includes('account'))) {
-            return true; // Let browser handle navigation
+            return true;
         }
         
         e.preventDefault();

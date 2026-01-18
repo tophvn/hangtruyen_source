@@ -20,7 +20,8 @@
                             <a title="{{ $manga['title'] }}" href="{{ route('manga.detail', ['slug' => $manga['slug']]) }}">
                                 <span class="img-poster">
                                     <img class="lzl" data-src="{{ $manga['cover_url'] }}" rel="nofollow"
-                                        data-original="{{ $manga['cover_url'] }}" alt="{{ $manga['title'] }}" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
+                                        data-original="{{ $manga['cover_url'] }}" alt="{{ $manga['title'] }}" src="{{ asset('images/pre-load1.png') }}" 
+                                        loading="lazy" decoding="async" width="100%" height="100%">
                                 </span>
                             </a>
                         </div>
@@ -62,7 +63,8 @@
                             <a title="{{ $manga['title'] }}" href="{{ route('manga.detail', ['slug' => $manga['slug']]) }}">
                                 <span class="img-poster">
                                     <img class="lzl" data-src="{{ $manga['cover_url'] }}" rel="nofollow"
-                                        data-original="{{ $manga['cover_url'] }}" alt="{{ $manga['title'] }}" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
+                                        data-original="{{ $manga['cover_url'] }}" alt="{{ $manga['title'] }}" src="{{ asset('images/pre-load1.png') }}" 
+                                        loading="lazy" decoding="async" width="100%" height="100%">
                                 </span>
                             </a>
                         </div>
@@ -104,7 +106,8 @@
                             <a title="{{ $manga['title'] }}" href="{{ route('manga.detail', ['slug' => $manga['slug']]) }}">
                                 <span class="img-poster">
                                     <img class="lzl" data-src="{{ $manga['cover_url'] }}" rel="nofollow"
-                                        data-original="{{ $manga['cover_url'] }}" alt="{{ $manga['title'] }}" src="{{ asset('images/pre-load1.png') }}" width="100%" height="100%">
+                                        data-original="{{ $manga['cover_url'] }}" alt="{{ $manga['title'] }}" src="{{ asset('images/pre-load1.png') }}" 
+                                        loading="lazy" decoding="async" width="100%" height="100%">
                                 </span>
                             </a>
                         </div>

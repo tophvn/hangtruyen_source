@@ -84,7 +84,6 @@
     window.mangaDetail = null;
     @endif
     
-    // Check if URL has comment fragment and verify it belongs to current manga
     (function() {
         const hash = window.location.hash;
         const commentMatch = hash.match(/cmt-(\d+)/);

@@ -28,9 +28,18 @@
     <meta property="og:title" content="Hangtruyen - Trang web đọc truyện tranh Online" />
     <meta property="og:description" content="Đọc truyện tranh manga, manhua, manhwa miễn phí được cập nhật liên tục hàng ngày." />
     <meta property="og:image" content="{{ asset('images/logo-dark.png') }}" />
+
     <meta http-equiv="content-language" content="vi" />
     <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
     <link rel="shortcut icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
+    <meta name="theme-color" content="#596FB7">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="HangTruyen">
+    <link rel="apple-touch-icon" href="{{ asset('images/favicon.png') }}">
     
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="{{ asset('css/bootstrap.min.css') }}" />

@@ -39,8 +39,7 @@
                     </div>
                 </div>
             @endforeach
-        @else
-            <!-- Demo images -->
+        @else           
             @for($i = 1; $i <= 5; $i++)
                 <div class="mi-item" data-page="{{ $i }}">
                     <div class="loaded i-right">
@@ -84,6 +83,36 @@
 
 @push('scripts')
 <script>
+    (function() {
+        window.scrollTo(0, 0);
+        if (document.documentElement) {
+            document.documentElement.scrollTop = 0;
+        }
+        if (document.body) {
+            document.body.scrollTop = 0;
+        }
+    })();
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            window.scrollTo(0, 0);
+            if (document.documentElement) {
+                document.documentElement.scrollTop = 0;
+            }
+            if (document.body) {
+                document.body.scrollTop = 0;
+            }
+        });
+    } else {
+        window.scrollTo(0, 0);
+        if (document.documentElement) {
+            document.documentElement.scrollTop = 0;
+        }
+        if (document.body) {
+            document.body.scrollTop = 0;
+        }
+    }
+    
     window.chapterDetail = {
         "id": {{ $chapterId ?? 'null' }},
         "mangaId": {{ isset($mangaMetadata) && $mangaMetadata->id ? $mangaMetadata->id : 'null' }},

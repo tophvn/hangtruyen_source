@@ -207,9 +207,55 @@ class OTruyenService
         return $slug ?: "manga-{$id}";
     }
 
-    public function getMangaDetail($slug)
+    public function getMangaDetail($slug, $forceSave = false)
     {
         $cacheKey = "otruyen:manga_detail:{$slug}";
+        
+        if ($forceSave) {
+            Cache::forget($cacheKey);
+            try {
+                $response = Http::timeout($this->timeout)
+                    ->withoutVerifying()
+                    ->get("{$this->baseUrl}/truyen-tranh/{$slug}");
+                
+                if ($response->successful()) {
+                    $data = $response->json();
+                    
+                    if (isset($data['data']['item'])) {
+                        $item = $data['data']['item'];
+                        
+                        $responseSlug = $item['slug'] ?? '';
+                        if ($responseSlug !== $slug) {
+                            return null;
+                        }
+                        
+                        $transformed = $this->transformMangaDetail($data);
+                        
+                        if (($transformed['slug'] ?? '') !== $slug) {
+                            return null;
+                        }
+                        
+                        $saved = $this->saveOrUpdateMangaInternal($transformed, $item);
+                        if (!$saved) {
+                            \Log::warning("getMangaDetail: saveOrUpdateManga returned false", [
+                                'slug' => $slug
+                            ]);
+                        }
+                        
+                        Cache::put($cacheKey, $transformed, 600);
+                        return $transformed;
+                    }
+                }
+                
+                return null;
+            } catch (\Exception $e) {
+                \Log::error("getMangaDetail forceSave error", [
+                    'slug' => $slug,
+                    'error' => $e->getMessage()
+                ]);
+                return null;
+            }
+        }
         
         return Cache::remember($cacheKey, 600, function () use ($slug, $cacheKey) {
             try {
@@ -236,7 +282,12 @@ class OTruyenService
                             return null;
                         }
                         
-                        $this->saveOrUpdateManga($transformed, $item);
+                        $saved = $this->saveOrUpdateMangaInternal($transformed, $item);
+                        if (!$saved) {
+                            \Log::warning("getMangaDetail: saveOrUpdateManga returned false", [
+                                'slug' => $slug
+                            ]);
+                        }
                         return $transformed;
                     }
                 }
@@ -248,9 +299,22 @@ class OTruyenService
         });
     }
 
-    protected function saveOrUpdateManga($transformed, $rawItem)
+    public function saveOrUpdateManga($transformed, $rawItem = null)
+    {
+        if ($rawItem === null && isset($transformed['slug'])) {
+            $rawItem = ['slug' => $transformed['slug'], 'status' => $transformed['status'] ?? 'ongoing'];
+        }
+        return $this->saveOrUpdateMangaInternal($transformed, $rawItem);
+    }
+    
+    protected function saveOrUpdateMangaInternal($transformed, $rawItem)
     {
         try {
+            if (empty($transformed['slug'])) {
+                \Log::warning("saveOrUpdateManga: Empty slug", ['transformed' => $transformed]);
+                return false;
+            }
+            
             $manga = MangaMetadata::where('slug', $transformed['slug'])
                 ->orderBy('id', 'desc')
                 ->first();
@@ -270,7 +334,7 @@ class OTruyenService
                     $tagName = is_string($tag) ? $tag : ($tag['name'] ?? '');
                     $tagNameLower = strtolower($tagName);
                     if (in_array($tagNameLower, ['manga', 'manhua', 'manhwa'])) {
-                        $existingType = $tagName;
+                        $existingType = $tagName; // Giữ nguyên case từ database
                         break;
                     }
                 }
@@ -343,14 +407,29 @@ class OTruyenService
             } else {
                 $existingManga = MangaMetadata::where('slug', $transformed['slug'])->first();
                 if (!$existingManga) {
-                    MangaMetadata::create(array_merge($dataToSave, [
+                    $newManga = MangaMetadata::create(array_merge($dataToSave, [
                         'slug' => $transformed['slug'],
                     ]));
+                    if (!$newManga || !$newManga->id) {
+                        \Log::error("saveOrUpdateManga: Failed to create manga", [
+                            'slug' => $transformed['slug'],
+                            'data' => $dataToSave
+                        ]);
+                        return false;
+                    }
                 } else {
                     $existingManga->update($dataToSave);
                 }
             }
+            
+            return true;
         } catch (\Exception $e) {
+            \Log::error("saveOrUpdateManga: Exception", [
+                'slug' => $transformed['slug'] ?? 'unknown',
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
         }
     }
 
@@ -380,7 +459,7 @@ class OTruyenService
             'author' => $item['author'] ?? ['Đang cập nhật'],
             'status' => $this->mapStatus($item['status'] ?? ''),
             'type' => $typeAndTags['type'],
-            'type_is_default' => $typeIsDefault, 
+            'type_is_default' => $typeIsDefault,
             'tags' => $typeAndTags['tags'],
             'chapters' => $chapters,
             'updated_at' => $item['updatedAt'] ?? null,
@@ -425,6 +504,7 @@ class OTruyenService
                         $chapterNumber = preg_replace('/^Chapter\s+/i', '', $chapterName);
                         $chapterNumber = trim($chapterNumber);
                         $chapterNumber = preg_replace('/[^a-zA-Z0-9.\-]/', '', $chapterNumber);
+                        
                         if (empty($chapterNumber)) {
                             continue;
                         }

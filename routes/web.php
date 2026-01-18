@@ -26,10 +26,8 @@ Route::post('/truyen-tranh/{slug}/vote', function ($slug) {
             return response()->json(['status' => 'error', 'message' => 'Vui lòng đăng nhập'], 401);
         }
         
-        // Lấy hoặc tạo mangaMetadata
         $mangaMetadata = \App\Models\MangaMetadata::where('slug', $slug)->first();
         if (!$mangaMetadata) {
-            // Nếu chưa có, lấy thông tin từ API và tạo mới
             $otruyenService = new \App\Services\OTruyenService();
             $mangaDetail = $otruyenService->getMangaDetail($slug);
             
@@ -230,10 +228,10 @@ Route::get('/truyen-tranh/{slug}/comments', function ($slug) {
         $chapterId = $request->input('chapter_id');
         $page = max(1, (int)$request->input('page', 1));
         $perPage = 20;
-        $orderBy = $request->input('order', 'latest'); // latest, oldest, most_liked
+        $orderBy = $request->input('order', 'latest');
 
         $query = \App\Models\MangaComment::where('manga_id', $mangaMetadata->id)
-            ->whereNull('parent_id'); // Chỉ lấy top-level comments
+            ->whereNull('parent_id');
 
         if ($chapterId) {
             $query->where('chapter_id', $chapterId);
@@ -241,7 +239,6 @@ Route::get('/truyen-tranh/{slug}/comments', function ($slug) {
 
         }
 
-        // Sorting
         if ($orderBy === 'oldest') {
             $query->orderBy('created_at', 'asc');
         } elseif ($orderBy === 'most_liked') {
@@ -262,7 +259,6 @@ Route::get('/truyen-tranh/{slug}/comments', function ($slug) {
         $likedCommentIds = [];
         if ($userId) {
             $commentIds = $comments->pluck('id')->toArray();
-            // Get all reply IDs
             $replyIds = [];
             foreach ($comments as $comment) {
                 $replyIds = array_merge($replyIds, $comment->replies->pluck('id')->toArray());
@@ -452,7 +448,6 @@ Route::get('/', function () {
         unset($manga);
     }
     
-    // Lấy random truyện từ CSDL để gợi ý (chỉ lấy truyện có chapter)
     $suggestedMangas = \App\Models\MangaMetadata::whereNotNull('last_chapter_number')
         ->where('last_chapter_number', '!=', '')
         ->whereNotNull('slug')
@@ -463,7 +458,6 @@ Route::get('/', function () {
         ->limit(24)
         ->get()
         ->map(function($manga) {
-            // Lấy chapter mới nhất từ database nếu có
             $lastChapter = $manga->chapters()
                 ->orderBy('updated_at', 'desc')
                 ->orderBy('chapter_name', 'desc')
@@ -471,7 +465,6 @@ Route::get('/', function () {
             
             $chapterData = [];
             if ($lastChapter) {
-                // Có chapter trong database, dùng slug thực tế
                 $chapterName = $lastChapter->chapter_name;
                 if (!preg_match('/^Chapter\s+/i', $chapterName)) {
                     $chapterName = 'Chapter ' . $chapterName;
@@ -485,8 +478,6 @@ Route::get('/', function () {
                     ],
                 ];
             } elseif ($manga->last_chapter_number) {
-                // Không có chapter trong database, tạo slug từ last_chapter_number
-                // Lấy số từ last_chapter_number (có thể là "Chapter 112" hoặc chỉ "112")
                 $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
                 $chapterNumber = trim($chapterNumber);
                 
@@ -509,13 +500,11 @@ Route::get('/', function () {
             ];
         })
         ->filter(function($manga) {
-            // Chỉ giữ lại truyện có chapters
             return !empty($manga['chapters']);
         })
         ->values()
         ->toArray();
     
-    // Fallback: Nếu không có trong CSDL, lấy từ recently updated
     if (empty($suggestedMangas) && isset($recentlyUpdated['mangas']) && !empty($recentlyUpdated['mangas'])) {
         $suggestedMangas = array_slice(array_map(function($manga) {
             return [
@@ -643,7 +632,6 @@ Route::get('/', function () {
         ->limit(10)
         ->get()
         ->map(function($row) {
-            // Get user avatar or default
             if ($row->user_avatar) {
                 if (filter_var($row->user_avatar, FILTER_VALIDATE_URL)) {
                     $avatar = $row->user_avatar;
@@ -707,7 +695,6 @@ Route::get('/', function () {
                     ->limit($needed)
                     ->get();
                 
-                // Merge và sắp xếp lại theo total_views
                 if ($additionalMangas->count() > 0) {
                     $topMangas = $topMangas->concat($additionalMangas)
                         ->sortByDesc(function($item) {
@@ -719,7 +706,6 @@ Route::get('/', function () {
             }
         }
         
-        // Lấy thông tin chi tiết của các manga
         $mangaIds = $topMangas->pluck('manga_id')->toArray();
         $mangaMetadata = \App\Models\MangaMetadata::whereIn('id', $mangaIds)
             ->get()
@@ -731,7 +717,6 @@ Route::get('/', function () {
             $manga = $mangaMetadata->get($topManga->manga_id);
             if (!$manga) continue;
             
-            // Lấy chapter mới nhất
             $lastChapter = $manga->chapters()
                 ->orderBy('updated_at', 'desc')
                 ->orderBy('chapter_name', 'desc')
@@ -746,7 +731,6 @@ Route::get('/', function () {
                 ];
             }
             
-            // Format views
             $viewsCount = (int)$topManga->total_views;
             $formattedViews = '';
             if ($viewsCount >= 1000000) {
@@ -810,14 +794,11 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
         abort(404, 'Truyện không tồn tại');
     }
     
-    // Kiểm tra slug trong response khớp với slug request
     $responseSlug = $mangaDetail['slug'] ?? '';
     if ($responseSlug !== $slug) {
-        // Slug không khớp, có thể là cache sai - xóa cache và fetch lại
         \Illuminate\Support\Facades\Cache::forget("otruyen:manga_detail:{$slug}");
         $mangaDetail = $otruyenService->getMangaDetail($slug);
         
-        // Nếu vẫn không khớp, báo lỗi
         if (!$mangaDetail || ($mangaDetail['slug'] ?? '') !== $slug) {
             abort(404, 'Truyện không tồn tại hoặc dữ liệu không hợp lệ');
         }
@@ -921,7 +902,6 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
             
             $lastChapterData = null;
             if ($lastChapter) {
-                // Đảm bảo luôn có "Chapter" trước số
                 $chapterName = $lastChapter->chapter_name;
                 if (!preg_match('/^Chapter\s+/i', $chapterName)) {
                     $chapterName = 'Chapter ' . $chapterName;
@@ -1080,6 +1060,109 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
     
     $chaptersForView = $mangaDetail['chapters'] ?? [];
     
+    $getTopFollow = function($period) {
+        $today = now()->toDateString();
+        $startDate = null;
+        $endDate = $today;
+        
+        if ($period === 'day') {
+            $startDate = $today;
+        } elseif ($period === 'week') {
+            $startDate = now()->startOfWeek()->toDateString();
+        } elseif ($period === 'month') {
+            $startDate = now()->startOfMonth()->toDateString();
+        }
+        
+        $topMangas = \App\Models\MangaDailyView::whereBetween('view_date', [$startDate, $endDate])
+            ->select('manga_id', \DB::raw('SUM(views_count) as total_views'))
+            ->groupBy('manga_id')
+            ->orderBy('total_views', 'desc')
+            ->limit(6)
+            ->get();
+        
+        if ($topMangas->count() < 6 && $period === 'day') {
+            $existingMangaIds = $topMangas->pluck('manga_id')->toArray();
+            $needed = 6 - $topMangas->count();
+            
+            if ($needed > 0) {
+                $additionalMangas = \App\Models\MangaDailyView::where('view_date', '<', $today)
+                    ->when(count($existingMangaIds) > 0, function($query) use ($existingMangaIds) {
+                        return $query->whereNotIn('manga_id', $existingMangaIds);
+                    })
+                    ->select('manga_id', \DB::raw('SUM(views_count) as total_views'))
+                    ->groupBy('manga_id')
+                    ->orderBy('total_views', 'desc')
+                    ->limit($needed)
+                    ->get();
+                
+                if ($additionalMangas->count() > 0) {
+                    $topMangas = $topMangas->concat($additionalMangas)
+                        ->sortByDesc(function($item) {
+                            return $item->total_views;
+                        })
+                        ->take(6)
+                        ->values();
+                }
+            }
+        }
+        
+        $mangaIds = $topMangas->pluck('manga_id')->toArray();
+        $mangaMetadata = \App\Models\MangaMetadata::whereIn('id', $mangaIds)
+            ->get()
+            ->keyBy('id');
+        
+        $result = [];
+        $rank = 1;
+        foreach ($topMangas as $topManga) {
+            $manga = $mangaMetadata->get($topManga->manga_id);
+            if (!$manga) continue;
+            
+            $lastChapter = $manga->chapters()
+                ->orderBy('updated_at', 'desc')
+                ->orderBy('chapter_name', 'desc')
+                ->first();
+            
+            $lastChapterData = null;
+            if ($lastChapter) {
+                $lastChapterData = [
+                    'name' => formatChapterNameForDisplay($lastChapter->chapter_name),
+                    'slug' => $lastChapter->chapter_slug,
+                    'updated_at' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                ];
+            }
+            
+            $viewsCount = (int)$topManga->total_views;
+            $formattedViews = '';
+            if ($viewsCount >= 1000000) {
+                $formattedViews = number_format($viewsCount / 1000000, 1) . 'M';
+            } elseif ($viewsCount >= 1000) {
+                $formattedViews = number_format($viewsCount / 1000, 1) . 'K';
+            } else {
+                $formattedViews = number_format($viewsCount);
+            }
+            
+            $result[] = [
+                'id' => $manga->id,
+                'slug' => $manga->slug,
+                'title' => $manga->title ?? 'Đang cập nhật',
+                'cover_url' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                'rating' => $manga->rating ? (float)$manga->rating : 0,
+                'views_count' => $viewsCount,
+                'views_formatted' => $formattedViews,
+                'last_chapter' => $lastChapterData,
+                'rank' => $rank,
+            ];
+            
+            $rank++;
+        }
+        
+        return $result;
+    };
+    
+    $topFollowDay = $getTopFollow('day');
+    $topFollowWeek = $getTopFollow('week');
+    $topFollowMonth = $getTopFollow('month');
+    
     $mangaForView = [
         'id' => $mangaMetadata->id,
         'name' => $mangaMetadata->title,
@@ -1108,6 +1191,9 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
         'comments' => $comments,
         'likedCommentIds' => $likedCommentIds,
         'commentsCount' => $commentsCount,
+        'topFollowDay' => $topFollowDay,
+        'topFollowWeek' => $topFollowWeek,
+        'topFollowMonth' => $topFollowMonth,
     ]);
 })->name('manga.detail');
 
@@ -2406,70 +2492,56 @@ if (!function_exists('processCrawlJob')) {
         $maxPerPoll = 24;
         
         try {
-            $pagesToProcess = [];
-            if ($allPages && $pages[0] === 'all') {
-                if (isset($jobData['total_pages_calculated']) && $jobData['total_pages_calculated']) {
-                    $pagesToProcess = range(1, $jobData['total_pages']);
-                } else {
-                    $firstPageData = $otruyenService->getMangaByList($listType, 1, 24, false);
-                    if ($firstPageData && isset($firstPageData['pagination'])) {
-                        $totalPages = $firstPageData['pagination']['total_pages'] ?? $firstPageData['pagination']['pageRanges'] ?? 1;
-                        $jobData['total_pages'] = $totalPages;
-                        $jobData['total_pages_calculated'] = true;
-                        $pagesToProcess = range(1, $totalPages);
-                    } else {
-                        $pagesToProcess = [1];
-                        $jobData['total_pages'] = 1;
-                    }
-                }
-            } else {
-                $pagesToProcess = $pages;
-                $jobData['total_pages'] = count($pagesToProcess);
-            }
-            
             $totalItems = 0;
             
-            foreach ($pagesToProcess as $pageNum) {
-                if ($currentPage > $pageNum) {
-                    continue;
-                }
-                if ($currentPage == $pageNum && $currentMangaIndexInPage >= 24) {
-                    continue;
-                }
+            if ($allPages && $pages[0] === 'all') {
+                $pageNum = $jobData['current_page'] > 0 ? $jobData['current_page'] : 1;
+                $consecutiveEmptyPages = $jobData['consecutive_empty_pages'] ?? 0;
+                $maxConsecutiveEmpty = 3;
                 
+                while ($consecutiveEmptyPages < $maxConsecutiveEmpty) {
+                    if ($currentMangaIndexInPage > 0 && $currentPage == $pageNum) {
+                        break;
+                    }
+                    
+                    $currentPage = $pageNum;
+                    $currentMangaIndexInPage = 0;
+                    
+                    if ($processedThisPoll >= $maxPerPoll) {
+                        $jobData['current_page'] = $pageNum;
+                        $jobData['consecutive_empty_pages'] = $consecutiveEmptyPages;
+                        $jobData['total_pages'] = $pageNum;
+                        $jobData['current_manga_index_in_page'] = 0;
+                        $jobData['logs'] = array_merge($jobData['logs'] ?? [], $newLogs ?? []);
+                        $jobData['logs_sent_count'] = $logsSentCount + count($newLogs ?? []);
+                        $jobData['processed_items'] = $processedItems;
+                        $jobData['current_item'] = count($processedItems);
+                        $jobData['total_items'] = $totalItems;
+                        session()->put($jobKey, $jobData);
+                        return;
+                    }
                 \Illuminate\Support\Facades\Cache::forget("otruyen:list:{$listType}:page:{$pageNum}:limit:24:shuffle:0");
                 $pageData = $otruyenService->getMangaByList($listType, $pageNum, 24, false);
-                if (!$pageData) {
+                if (!$pageData || empty($pageData['mangas'])) {
+                    $consecutiveEmptyPages++;
                     $newLogs = [];
                     $newLogs[] = [
-                        'message' => "Không thể lấy dữ liệu trang {$pageNum}",
-                        'type' => 'error'
+                        'message' => $pageData ? "Không có truyện nào trong trang {$pageNum}" : "Không thể lấy dữ liệu trang {$pageNum}",
+                        'type' => $pageData ? 'warning' : 'error'
                     ];
                     $jobData['logs'] = array_merge($jobData['logs'] ?? [], $newLogs);
                     $jobData['logs_sent_count'] = $logsSentCount + count($newLogs);
-                    $currentPage = $pageNum + 1;
-                    $currentMangaIndexInPage = 0;
-                    $jobData['current_page'] = $currentPage;
+                    $pageNum++;
+                    $jobData['current_page'] = $pageNum;
+                    $jobData['consecutive_empty_pages'] = $consecutiveEmptyPages;
+                    $jobData['total_pages'] = $pageNum;
                     $jobData['current_manga_index_in_page'] = 0;
                     session()->put($jobKey, $jobData);
                     continue;
                 }
                 
-                if (empty($pageData['mangas'])) {
-                    $newLogs = [];
-                    $newLogs[] = [
-                        'message' => "Không có truyện nào trong trang {$pageNum}",
-                        'type' => 'warning'
-                    ];
-                    $jobData['logs'] = array_merge($jobData['logs'] ?? [], $newLogs);
-                    $jobData['logs_sent_count'] = $logsSentCount + count($newLogs);
-                    $currentPage = $pageNum + 1;
-                    $currentMangaIndexInPage = 0;
-                    $jobData['current_page'] = $currentPage;
-                    $jobData['current_manga_index_in_page'] = 0;
-                    session()->put($jobKey, $jobData);
-                    continue;
-                }
+                $consecutiveEmptyPages = 0;
+                $jobData['consecutive_empty_pages'] = 0;
                 
                 $mangas = $pageData['mangas'];
                 $totalItems += count($mangas);
@@ -2516,12 +2588,18 @@ if (!function_exists('processCrawlJob')) {
                     }
                     
                     try {
-                        $mangaDetail = $otruyenService->getMangaDetail($slug);
+                        $mangaMetadataBefore = \App\Models\MangaMetadata::where('slug', $slug)->first();
+                        $wasExisting = $mangaMetadataBefore !== null;
+                        
+                        $mangaDetail = $otruyenService->getMangaDetail($slug, true);
                         
                         if ($mangaDetail) {
+                            usleep(100000);
+                            
                             $mangaMetadata = \App\Models\MangaMetadata::where('slug', $slug)->first();
+    
                             if ($mangaMetadata) {
-                                if ($mangaMetadata->created_at->diffInSeconds($mangaMetadata->updated_at) <= 1) {
+                                if (!$wasExisting) {
                                     $createdCount++;
                                     $newLogs[] = [
                                         'message' => "✓ Đã tạo mới: {$mangaDetail['name']}",
@@ -2534,8 +2612,33 @@ if (!function_exists('processCrawlJob')) {
                                         'type' => 'info'
                                     ];
                                 }
+                                $processedCount++;
+                            } else {
+                                try {
+                                    $otruyenService->saveOrUpdateManga($mangaDetail, ['slug' => $slug]);
+                                    $mangaMetadata = \App\Models\MangaMetadata::where('slug', $slug)->first();
+                                    if ($mangaMetadata) {
+                                        $createdCount++;
+                                        $newLogs[] = [
+                                            'message' => "✓ Đã tạo mới (force save): {$mangaDetail['name']}",
+                                            'type' => 'success'
+                                        ];
+                                        $processedCount++;
+                                    } else {
+                                        $skippedCount++;
+                                        $newLogs[] = [
+                                            'message' => "⚠ Đã lấy dữ liệu nhưng không lưu được: " . ($mangaDetail['name'] ?? $slug),
+                                            'type' => 'warning'
+                                        ];
+                                    }
+                                } catch (\Exception $saveEx) {
+                                    $skippedCount++;
+                                    $newLogs[] = [
+                                        'message' => "✗ Lỗi lưu: " . ($mangaDetail['name'] ?? $slug) . " - " . $saveEx->getMessage(),
+                                        'type' => 'error'
+                                    ];
+                                }
                             }
-                            $processedCount++;
                         } else {
                             $skippedCount++;
                             $newLogs[] = [
@@ -2563,17 +2666,19 @@ if (!function_exists('processCrawlJob')) {
                         'message' => "Hoàn thành trang {$pageNum}: Tạo mới {$createdCount}, Cập nhật {$updatedCount}, Bỏ qua {$skippedCount}",
                         'type' => 'info'
                     ];
-                    $currentPage = $pageNum + 1;
+                    $pageNum++;
                     $currentMangaIndexInPage = 0;
+                    $jobData['current_page'] = $pageNum;
+                    $jobData['consecutive_empty_pages'] = 0;
                 } else {
-                    $currentPage = $pageNum;
-                    $currentMangaIndexInPage = $mangaIndex;
+                    $jobData['current_page'] = $pageNum;
+                    $jobData['current_manga_index_in_page'] = $mangaIndex;
+                    $jobData['consecutive_empty_pages'] = 0;
                 }
                 
-                $jobData['current_page'] = $currentPage;
-                $jobData['current_manga_index_in_page'] = $currentMangaIndexInPage;
                 $jobData['current_item'] = count($processedItems);
                 $jobData['total_items'] = $totalItems;
+                $jobData['total_pages'] = $pageNum;
                 $jobData['logs'] = array_merge($jobData['logs'] ?? [], $newLogs);
                 $jobData['processed_items'] = $processedItems;
                 $jobData['logs_sent_count'] = $logsSentCount + count($newLogs);
@@ -2585,17 +2690,221 @@ if (!function_exists('processCrawlJob')) {
                 if ($processedThisPoll >= $maxPerPoll && $mangaIndex < count($mangas)) {
                     return;
                 }
-            }
-            
-            $maxPage = max($pagesToProcess);
-            if ($currentPage > $maxPage || ($currentPage == $maxPage && $currentMangaIndexInPage >= 24)) {
-                $jobData['status'] = 'completed';
-                $jobData['logs'][] = [
-                    'message' => "✓ Hoàn tất crawl! Tổng cộng đã xử lý " . count($processedItems) . " truyện",
-                    'type' => 'success'
-                ];
+                
+                }
+                
+                if ($consecutiveEmptyPages >= $maxConsecutiveEmpty) {
+                    $jobData['status'] = 'completed';
+                    $jobData['logs'][] = [
+                        'message' => "✓ Hoàn tất crawl! Đã gặp {$maxConsecutiveEmpty} trang rỗng liên tiếp. Tổng cộng đã xử lý " . count($processedItems) . " truyện",
+                        'type' => 'success'
+                    ];
+                } else {
+                    $jobData['status'] = 'running';
+                }
             } else {
-                $jobData['status'] = 'running';
+                $pagesToProcess = $pages;
+                $jobData['total_pages'] = count($pagesToProcess);
+                
+                foreach ($pagesToProcess as $pageNum) {
+                    if ($currentPage > $pageNum) {
+                        continue;
+                    }
+                    if ($currentPage == $pageNum && $currentMangaIndexInPage >= 24) {
+                        continue;
+                    }
+                    
+                    \Illuminate\Support\Facades\Cache::forget("otruyen:list:{$listType}:page:{$pageNum}:limit:24:shuffle:0");
+                    $pageData = $otruyenService->getMangaByList($listType, $pageNum, 24, false);
+                    if (!$pageData) {
+                        $newLogs = [];
+                        $newLogs[] = [
+                            'message' => "Không thể lấy dữ liệu trang {$pageNum}",
+                            'type' => 'error'
+                        ];
+                        $jobData['logs'] = array_merge($jobData['logs'] ?? [], $newLogs);
+                        $jobData['logs_sent_count'] = $logsSentCount + count($newLogs);
+                        $currentPage = $pageNum + 1;
+                        $currentMangaIndexInPage = 0;
+                        $jobData['current_page'] = $currentPage;
+                        $jobData['current_manga_index_in_page'] = 0;
+                        session()->put($jobKey, $jobData);
+                        continue;
+                    }
+                    
+                    if (empty($pageData['mangas'])) {
+                        $newLogs = [];
+                        $newLogs[] = [
+                            'message' => "Không có truyện nào trong trang {$pageNum}",
+                            'type' => 'warning'
+                        ];
+                        $jobData['logs'] = array_merge($jobData['logs'] ?? [], $newLogs);
+                        $jobData['logs_sent_count'] = $logsSentCount + count($newLogs);
+                        $currentPage = $pageNum + 1;
+                        $currentMangaIndexInPage = 0;
+                        $jobData['current_page'] = $currentPage;
+                        $jobData['current_manga_index_in_page'] = 0;
+                        session()->put($jobKey, $jobData);
+                        continue;
+                    }
+                    
+                    $mangas = $pageData['mangas'];
+                    $totalItems += count($mangas);
+                    
+                    $newLogs = [];
+                    if ($currentPage != $pageNum || $currentMangaIndexInPage == 0) {
+                        $newLogs[] = [
+                            'message' => "Đang crawl trang {$pageNum}... (" . count($mangas) . " truyện)",
+                            'type' => 'info'
+                        ];
+                    }
+                    
+                    $processedCount = 0;
+                    $skippedCount = 0;
+                    $updatedCount = 0;
+                    $createdCount = 0;
+                    
+                    $mangaIndex = $currentMangaIndexInPage;
+                    $totalMangasInPage = count($mangas);
+                    foreach ($mangas as $manga) {
+                        $slug = $manga['slug'] ?? null;
+                        if (!$slug) {
+                            $skippedCount++;
+                            $mangaIndex++;
+                            continue;
+                        }
+                        if (in_array($slug, $processedItems)) {
+                            $skippedCount++;
+                            $mangaIndex++;
+                            continue;
+                        }
+                        
+                        if ($mangaIndex >= $totalMangasInPage) {
+                            break;
+                        }
+                        
+                        if ($processedThisPoll >= $maxPerPoll) {
+                            $jobData['current_page'] = $pageNum;
+                            $jobData['current_manga_index_in_page'] = $mangaIndex;
+                            $jobData['logs'] = array_merge($jobData['logs'] ?? [], $newLogs);
+                            $jobData['logs_sent_count'] = $logsSentCount + count($newLogs);
+                            session()->put($jobKey, $jobData);
+                            return;
+                        }
+                        
+                        try {
+                            $mangaMetadataBefore = \App\Models\MangaMetadata::where('slug', $slug)->first();
+                            $wasExisting = $mangaMetadataBefore !== null;
+                            
+                            $mangaDetail = $otruyenService->getMangaDetail($slug, true);
+                            
+                            if ($mangaDetail) {
+                                usleep(100000);
+                                
+                                $mangaMetadata = \App\Models\MangaMetadata::where('slug', $slug)->first();
+        
+                                if ($mangaMetadata) {
+                                    if (!$wasExisting) {
+                                        $createdCount++;
+                                        $newLogs[] = [
+                                            'message' => "✓ Đã tạo mới: {$mangaDetail['name']}",
+                                            'type' => 'success'
+                                        ];
+                                    } else {
+                                        $updatedCount++;
+                                        $newLogs[] = [
+                                            'message' => "↻ Đã cập nhật: {$mangaDetail['name']}",
+                                            'type' => 'info'
+                                        ];
+                                    }
+                                    $processedCount++;
+                                } else {
+                                    try {
+                                        $otruyenService->saveOrUpdateManga($mangaDetail, ['slug' => $slug]);
+                                        $mangaMetadata = \App\Models\MangaMetadata::where('slug', $slug)->first();
+                                        if ($mangaMetadata) {
+                                            $createdCount++;
+                                            $newLogs[] = [
+                                                'message' => "✓ Đã tạo mới (force save): {$mangaDetail['name']}",
+                                                'type' => 'success'
+                                            ];
+                                            $processedCount++;
+                                        } else {
+                                            $skippedCount++;
+                                            $newLogs[] = [
+                                                'message' => "⚠ Đã lấy dữ liệu nhưng không lưu được: " . ($mangaDetail['name'] ?? $slug),
+                                                'type' => 'warning'
+                                            ];
+                                        }
+                                    } catch (\Exception $saveEx) {
+                                        $skippedCount++;
+                                        $newLogs[] = [
+                                            'message' => "✗ Lỗi lưu: " . ($mangaDetail['name'] ?? $slug) . " - " . $saveEx->getMessage(),
+                                            'type' => 'error'
+                                        ];
+                                    }
+                                }
+                            } else {
+                                $skippedCount++;
+                                $newLogs[] = [
+                                    'message' => "✗ Bỏ qua (không tìm thấy): " . ($manga['name'] ?? $slug),
+                                    'type' => 'warning'
+                                ];
+                            }
+                            
+                            $processedItems[] = $slug;
+                            $processedThisPoll++;
+                        } catch (\Exception $e) {
+                            $skippedCount++;
+                            $processedThisPoll++;
+                            $newLogs[] = [
+                                'message' => "✗ Lỗi crawl: " . ($manga['name'] ?? $slug) . " - " . $e->getMessage(),
+                                'type' => 'error'
+                            ];
+                        }
+                        
+                        $mangaIndex++;
+                    }
+                    
+                    if ($mangaIndex >= count($mangas)) {
+                        $jobData['logs'][] = [
+                            'message' => "Hoàn thành trang {$pageNum}: Tạo mới {$createdCount}, Cập nhật {$updatedCount}, Bỏ qua {$skippedCount}",
+                            'type' => 'info'
+                        ];
+                        $currentPage = $pageNum + 1;
+                        $currentMangaIndexInPage = 0;
+                    } else {
+                        $currentPage = $pageNum;
+                        $currentMangaIndexInPage = $mangaIndex;
+                    }
+                    
+                    $jobData['current_page'] = $currentPage;
+                    $jobData['current_manga_index_in_page'] = $currentMangaIndexInPage;
+                    $jobData['current_item'] = count($processedItems);
+                    $jobData['total_items'] = $totalItems;
+                    $jobData['logs'] = array_merge($jobData['logs'] ?? [], $newLogs);
+                    $jobData['processed_items'] = $processedItems;
+                    $jobData['logs_sent_count'] = $logsSentCount + count($newLogs);
+                    session()->put($jobKey, $jobData);
+                    
+                    if ($currentMangaIndexInPage > 0) {
+                        return;
+                    }
+                    if ($processedThisPoll >= $maxPerPoll && $mangaIndex < count($mangas)) {
+                        return;
+                    }
+                }
+                
+                $maxPage = max($pagesToProcess);
+                if ($currentPage > $maxPage || ($currentPage == $maxPage && $currentMangaIndexInPage >= 24)) {
+                    $jobData['status'] = 'completed';
+                    $jobData['logs'][] = [
+                        'message' => "✓ Hoàn tất crawl! Tổng cộng đã xử lý " . count($processedItems) . " truyện",
+                        'type' => 'success'
+                    ];
+                } else {
+                    $jobData['status'] = 'running';
+                }
             }
             session()->put($jobKey, $jobData);
             

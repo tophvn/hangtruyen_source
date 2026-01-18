@@ -116,13 +116,10 @@
             const $viewAllLink = $('#search-suggest .tab-content > a.view-all');
             
             if (keyword) {
-                // Update "Xem toàn bộ kết quả" link
                 $viewAllLink.attr('href', `/tim-kiem?keyword=${encodeURIComponent(keyword)}`);
                 
-                // Show search result wrapper
                 $searchSuggest.show();
                 
-                // Call API to search
                 $.ajax({
                     method: 'GET',
                     url: `/api/search?keyword=${encodeURIComponent(keyword)}`,
@@ -139,14 +136,12 @@
                     }
                 });
             } else {
-                // If keyword is empty, hide results
                 listMangaElem.empty();
                 $viewAllLink.attr('href', '/tim-kiem');
             }
         }, 300),
     );
     
-    // Handle Enter key to submit form
     $('#form-search input').on('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -159,7 +154,6 @@
         }
     });
     
-    // Handle "Xem toàn bộ kết quả" click
     $(document).on('click', '#search-suggest .view-all', function(e) {
         e.preventDefault();
         const keyword = $('#form-search input').val().trim();
@@ -189,7 +183,6 @@
             const $searchSuggest = $input.closest('.form-search').find('.search-result-wrapper');
             const keyword = $input.val().trim();
             
-            // Only show if there's a keyword
             if (keyword) {
                 $searchSuggest.show();
                 $input.trigger('keyup');
@@ -321,34 +314,27 @@
     }
     
 
-    // Handle dropdown item clicks - but allow account links to navigate normally
     $(document).on('click', '.dropdown-item', function(e) {
         const $item = $(this);
         const href = $item.attr('href');
         
-        // Skip logout button
         if ($item.attr('id') === 'logout') {
             return;
         }
         
-        // Allow normal navigation for account links - don't prevent default, don't stop propagation
         if ($item.hasClass('account-link') || (href && (href.includes('/tai-khoan') || href.includes('account')))) {
-            // Let browser handle navigation normally - don't interfere at all
             return true;
         }
         
-        // For other links, handle programmatically if needed
         if (href && href !== '#' && href !== 'javascript:void(0)') {
             e.preventDefault();
             window.location.href = href;
         }
     });
     
-    // Explicitly handle account links with higher priority to ensure navigation works
     $(document).on('click', '#has-login .account-link', function(e) {
         const href = $(this).attr('href');
         if (href) {
-            // Close dropdown
             const dropdownElement = document.querySelector('#menuAccount');
             if (dropdownElement) {
                 const dropdown = bootstrap.Dropdown.getInstance(dropdownElement);
@@ -356,7 +342,6 @@
                     dropdown.hide();
                 }
             }
-            // Navigate
             window.location.href = href;
         }
     });
