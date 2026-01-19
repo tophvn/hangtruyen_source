@@ -8,10 +8,47 @@
     $totalPages = $totalPages ?? 1;
 @endphp
 
-@section('title', 'Đọc truyện ' . $category['name'] . ' hay mới nhất - Truyện tranh ' . $category['name'] . ' full | HangTruyen' . ($currentPage > 1 ? ' - page ' . $currentPage : ''))
-@section('description', 'Kho truyện tranh ' . $category['name'] . ' hay nhất: Cập nhật các top trending truyện ' . $category['name'] . ' hot nhiều người xem nhất. Truyện ' . $category['name'] . ' full tại HangTruyen' . ($currentPage > 1 ? ' - page ' . $currentPage : ''))
-@section('keywords', $category['name'] . ', đọc truyện, hangtruyen, truyện tranh, truyện full')
+@section('title', 'Đọc Truyện ' . $category['name'] . ' Hay Mới Nhất - Truyện Tranh ' . $category['name'] . ' Full | HangTruyen' . ($currentPage > 1 ? ' - Trang ' . $currentPage : ''))
+@section('description', 'Kho truyện tranh ' . $category['name'] . ' hay nhất: Cập nhật các top trending truyện ' . $category['name'] . ' hot nhiều người xem nhất. Truyện ' . $category['name'] . ' full tại HangTruyen. ' . ($currentPage > 1 ? 'Trang ' . $currentPage . '.' : ''))
+@section('keywords', $category['name'] . ', đọc truyện ' . $category['name'] . ', truyện tranh ' . $category['name'] . ', hangtruyen, truyện tranh, truyện full, manga online, manhua online, manhwa online')
 @section('canonical', url('/the-loai/' . $slug . ($currentPage > 1 ? '?page=' . $currentPage : '')))
+@section('og:url', url('/the-loai/' . $slug . ($currentPage > 1 ? '?page=' . $currentPage : '')))
+@section('og:type', 'website')
+@section('og:title', 'Đọc Truyện ' . $category['name'] . ' Hay Mới Nhất | HangTruyen')
+@section('og:description', 'Kho truyện tranh ' . $category['name'] . ' hay nhất tại HangTruyen')
+@section('og:image', asset('images/logo-dark.png'))
+
+@push('head')
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "{{ $category['title'] }}",
+    "description": "{{ $category['description'] }}",
+    "url": "{{ url('/the-loai/' . $slug) }}"
+}
+</script>
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Trang chủ",
+            "item": "{{ url('/') }}"
+        },
+        {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "{{ $category['name'] }}",
+            "item": "{{ url('/the-loai/' . $slug) }}"
+        }
+    ]
+}
+</script>
+@endpush
 
 @section('content')
 <div class="container">
@@ -79,7 +116,7 @@
             <ul class="pagination" data-count-page="{{ $totalPages }}">
                 @if($currentPage > 1)
                     <li data-page="0">
-                        <a class="prev-page" href="{{ url('/the-loai/' . $slug) }}{{ $currentPage > 2 ? '?page=' . ($currentPage - 1) : '' }}" title="Chuyển đến trang {{ $currentPage - 1 }}" data-page="{{ $currentPage - 1 }}">
+                        <a class="prev-page" href="{{ url('/the-loai/' . $slug) }}{{ $currentPage > 2 ? '?page=' . ($currentPage - 1) : '' }}" title="Chuyển đến trang {{ $currentPage - 1 }}" data-page="{{ $currentPage - 1 }}" rel="prev">
                             <i class="icon-arrow-left"></i>
                         </a>
                     </li>
@@ -109,7 +146,7 @@
 
                 @if($currentPage < $totalPages)
                     <li data-page="0">
-                        <a class="next-page" href="{{ url('/the-loai/' . $slug) }}?page={{ $currentPage + 1 }}" title="Chuyển đến trang {{ $currentPage + 1 }}" data-page="{{ $currentPage + 1 }}">
+                        <a class="next-page" href="{{ url('/the-loai/' . $slug) }}?page={{ $currentPage + 1 }}" title="Chuyển đến trang {{ $currentPage + 1 }}" data-page="{{ $currentPage + 1 }}" rel="next">
                             <i class="icon-arrow-right"></i>
                         </a>
                     </li>

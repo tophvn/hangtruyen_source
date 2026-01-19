@@ -441,8 +441,10 @@ Route::get('/', function () {
             $mangaMetadata = $mangaMetadataMap->get($manga['slug'] ?? '');
             if ($mangaMetadata) {
                 $manga['views'] = (int)($mangaMetadata->views_count ?? 0);
+                $manga['rating'] = (float)($mangaMetadata->rating ?? 0);
             } else {
                 $manga['views'] = 0;
+                $manga['rating'] = 0;
             }
         }
         unset($manga);
@@ -609,56 +611,150 @@ Route::get('/', function () {
         }
     }
     
-    $sapRaMatData = $otruyenService->getMangaByList('sap-ra-mat', 1, 24, true);
-    $hoanThanhData = $otruyenService->getMangaByList('hoan-thanh', 1, 24, true);
-    
-    $topComments = \App\Models\MangaComment::whereNull('parent_id')
-        ->join('users', 'manga_comments.user_id', '=', 'users.id')
-        ->join('manga_metadata', 'manga_comments.manga_id', '=', 'manga_metadata.id')
-        ->select(
-            'manga_comments.id',
-            'manga_comments.content',
-            'manga_comments.created_at',
-            'manga_comments.manga_id',
-            'users.id as user_id',
-            'users.name as user_name',
-            'users.avatar as user_avatar',
-            'manga_metadata.id as manga_metadata_id',
-            'manga_metadata.slug as manga_slug',
-            'manga_metadata.title as manga_title',
-            'manga_metadata.cover_url as manga_cover_url'
-        )
-        ->orderBy('manga_comments.created_at', 'desc')
-        ->limit(10)
+    // Lấy truyện sắp ra mắt từ database (status = ongoing và có chapter)
+    $sapRaMatMangas = \App\Models\MangaMetadata::where('is_active', true)
+        ->where(function($query) {
+            $query->where('status', 'ongoing')
+                  ->orWhereNull('status');
+        })
+        ->whereNotNull('slug')
+        ->whereNotNull('title')
+        ->whereNotNull('last_chapter_number')
+        ->where('last_chapter_number', '!=', '')
+        ->inRandomOrder()
+        ->limit(24)
         ->get()
-        ->map(function($row) {
-            if ($row->user_avatar) {
-                if (filter_var($row->user_avatar, FILTER_VALIDATE_URL)) {
-                    $avatar = $row->user_avatar;
-                } else {
-                    $avatar = asset('storage/' . $row->user_avatar);
+        ->map(function($manga) {
+            $lastChapter = $manga->chapters()
+                ->orderBy('updated_at', 'desc')
+                ->orderBy('chapter_name', 'desc')
+                ->first();
+            
+            $chapters = [];
+            if ($lastChapter) {
+                $chapters[] = [
+                    'id' => $lastChapter->id,
+                    'slug' => $lastChapter->chapter_slug,
+                    'name' => formatChapterNameForDisplay($lastChapter->chapter_name),
+                    'releasedAt' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                ];
+            } elseif ($manga->last_chapter_number) {
+                $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
+                $releasedAt = null;
+                if ($manga->updated_at) {
+                    $releasedAt = formatVietnameseTime($manga->updated_at);
+                } elseif ($manga->last_synced_at) {
+                    $releasedAt = formatVietnameseTime($manga->last_synced_at);
                 }
-            } else {
-                $avatar = asset('images/avatars/type3/' . (($row->user_id % 10) + 1) . '.png');
+                $chapters[] = [
+                    'id' => null,
+                    'slug' => 'chapter-' . $chapterNumber,
+                    'name' => 'Chapter ' . $chapterNumber,
+                    'releasedAt' => $releasedAt,
+                ];
             }
             
             return [
-                'id' => $row->id,
-                'content' => $row->content,
-                'created_at' => $row->created_at,
+                'slug' => $manga->slug,
+                'title' => $manga->title ?? 'Đang cập nhật',
+                'posterPath' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                'avgVote' => $manga->rating ? (float)$manga->rating : 0,
+                'chapters' => $chapters,
+            ];
+        })
+        ->toArray();
+    
+    $hoanThanhMangas = \App\Models\MangaMetadata::where('is_active', true)
+        ->where('status', 'completed')
+        ->whereNotNull('slug')
+        ->whereNotNull('title')
+        ->whereNotNull('last_chapter_number')
+        ->where('last_chapter_number', '!=', '')
+        ->inRandomOrder()
+        ->limit(24)
+        ->get()
+        ->map(function($manga) {
+            $lastChapter = $manga->chapters()
+                ->orderBy('updated_at', 'desc')
+                ->orderBy('chapter_name', 'desc')
+                ->first();
+            
+            $chapters = [];
+            if ($lastChapter) {
+                $chapters[] = [
+                    'id' => $lastChapter->id,
+                    'slug' => $lastChapter->chapter_slug,
+                    'name' => formatChapterNameForDisplay($lastChapter->chapter_name),
+                    'releasedAt' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                ];
+            } elseif ($manga->last_chapter_number) {
+                $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
+                $releasedAt = null;
+                if ($manga->updated_at) {
+                    $releasedAt = formatVietnameseTime($manga->updated_at);
+                } elseif ($manga->last_synced_at) {
+                    $releasedAt = formatVietnameseTime($manga->last_synced_at);
+                }
+                $chapters[] = [
+                    'id' => null,
+                    'slug' => 'chapter-' . $chapterNumber,
+                    'name' => 'Chapter ' . $chapterNumber,
+                    'releasedAt' => $releasedAt,
+                ];
+            }
+            
+            return [
+                'slug' => $manga->slug,
+                'title' => $manga->title ?? 'Đang cập nhật',
+                'posterPath' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                'avgVote' => $manga->rating ? (float)$manga->rating : 0,
+                'chapters' => $chapters,
+            ];
+        })
+        ->toArray();
+    
+    $topComments = \App\Models\MangaComment::whereNull('parent_id')
+        ->with(['user', 'manga'])
+        ->has('user')
+        ->has('manga')
+        ->orderBy('created_at', 'desc')
+        ->limit(10)
+        ->get()
+        ->filter(function($comment) {
+            return $comment->user && $comment->manga;
+        })
+        ->map(function($comment) {
+            $user = $comment->user;
+            $manga = $comment->manga;
+            
+            if ($user->avatar) {
+                if (filter_var($user->avatar, FILTER_VALIDATE_URL)) {
+                    $avatar = $user->avatar;
+                } else {
+                    $avatar = asset('storage/' . $user->avatar);
+                }
+            } else {
+                $avatar = asset('images/avatars/type3/' . (($user->id % 10) + 1) . '.png');
+            }
+            
+            return [
+                'id' => $comment->id,
+                'content' => $comment->content,
+                'created_at' => $comment->created_at,
                 'user' => [
-                    'id' => $row->user_id,
-                    'name' => $row->user_name ?? 'Người dùng',
+                    'id' => $user->id,
+                    'name' => $user->name ?? 'Người dùng',
                     'avatar' => $avatar,
                 ],
                 'manga' => [
-                    'id' => $row->manga_metadata_id,
-                    'slug' => $row->manga_slug ?? '',
-                    'title' => $row->manga_title ?? 'Đang cập nhật',
-                    'cover_url' => $row->manga_cover_url ?? asset('images/pre-load1.png'),
+                    'id' => $manga->id,
+                    'slug' => $manga->slug ?? '',
+                    'title' => $manga->title ?? 'Đang cập nhật',
+                    'cover_url' => $manga->cover_url ?? asset('images/pre-load1.png'),
                 ],
             ];
-        });
+        })
+        ->values();
     
     $getTopFollow = function($period) {
         $today = now()->toDateString();
@@ -764,9 +860,7 @@ Route::get('/', function () {
     $topFollowMonth = $getTopFollow('month');
     
     $blogPosts = \App\Models\Post::where('is_active', true)
-        ->whereNotNull('published_at')
-        ->where('published_at', '<=', now())
-        ->orderBy('published_at', 'desc')
+        ->orderByRaw('COALESCE(published_at, created_at) DESC')
         ->limit(12)
         ->get();
     
@@ -775,8 +869,8 @@ Route::get('/', function () {
         'recentlyUpdatedMetadata' => $recentlyUpdated['metadata'] ?? null,
         'suggestedMangas' => $suggestedMangas,
         'trendingMangas' => $trendingMangas,
-        'sapRaMatMangas' => $sapRaMatData['mangas'] ?? [],
-        'hoanThanhMangas' => $hoanThanhData['mangas'] ?? [],
+        'sapRaMatMangas' => $sapRaMatMangas,
+        'hoanThanhMangas' => $hoanThanhMangas,
         'topComments' => $topComments,
         'topFollowDay' => $topFollowDay,
         'topFollowWeek' => $topFollowWeek,
@@ -1208,9 +1302,8 @@ Route::get('/api/search', function () {
     }
     
     $query = \App\Models\MangaMetadata::where('is_active', true)
-        ->whereHas('chapters', function($q) {
-            $q->whereNotNull('chapter_slug');
-        })
+        ->whereNotNull('last_chapter_number')
+        ->where('last_chapter_number', '!=', '')
         ->where(function($q) use ($keyword) {
             $q->where('title', 'LIKE', '%' . $keyword . '%')
               ->orWhere('slug', 'LIKE', '%' . $keyword . '%');
@@ -1224,6 +1317,7 @@ Route::get('/api/search', function () {
         $latestChapter = $manga->chapters()
             ->whereNotNull('chapter_slug')
             ->orderBy('updated_at', 'desc')
+            ->orderBy('chapter_name', 'desc')
             ->first();
         
         $chapterData = null;
@@ -1232,6 +1326,13 @@ Route::get('/api/search', function () {
                 'id' => $latestChapter->id,
                 'slug' => $latestChapter->chapter_slug,
                 'name' => formatChapterNameForDisplay($latestChapter->chapter_name),
+            ];
+        } elseif ($manga->last_chapter_number) {
+            $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
+            $chapterData = [
+                'id' => null,
+                'slug' => 'chapter-' . $chapterNumber,
+                'name' => 'Chapter ' . $chapterNumber,
             ];
         }
         
@@ -1601,6 +1702,7 @@ Route::get('/truyen-tranh/{mangaSlug}/{chapterSlug}', function ($mangaSlug, $cha
         'comments' => $comments,
         'likedCommentIds' => $likedCommentIds,
         'commentsCount' => $commentsCount,
+        'mangaCover' => $mangaMetadata->cover_url ?? $mangaDetail['cover_url'] ?? asset('images/logo-dark.png'),
     ]);
 })->name('manga.chapter');
 
@@ -2230,6 +2332,113 @@ Route::get('/tin-tuc', function () {
     $currentPage = max(1, (int)request()->get('page', 1));
     $perPage = 6;
     
+    // Get Top Follow data
+    $getTopFollow = function($period) {
+        $today = now()->toDateString();
+        $startDate = null;
+        $endDate = $today;
+        
+        if ($period === 'day') {
+            $startDate = $today;
+        } elseif ($period === 'week') {
+            $startDate = now()->startOfWeek()->toDateString();
+        } elseif ($period === 'month') {
+            $startDate = now()->startOfMonth()->toDateString();
+        }
+        
+        $topMangas = \App\Models\MangaDailyView::whereBetween('view_date', [$startDate, $endDate])
+            ->select('manga_id', \DB::raw('SUM(views_count) as total_views'))
+            ->groupBy('manga_id')
+            ->orderBy('total_views', 'desc')
+            ->limit(6)
+            ->get();
+        
+        if ($topMangas->count() < 6 && $period === 'day') {
+            $existingMangaIds = $topMangas->pluck('manga_id')->toArray();
+            $needed = 6 - $topMangas->count();
+            
+            if ($needed > 0) {
+                $additionalMangas = \App\Models\MangaDailyView::where('view_date', '<', $today)
+                    ->when(count($existingMangaIds) > 0, function($query) use ($existingMangaIds) {
+                        return $query->whereNotIn('manga_id', $existingMangaIds);
+                    })
+                    ->select('manga_id', \DB::raw('SUM(views_count) as total_views'))
+                    ->groupBy('manga_id')
+                    ->orderBy('total_views', 'desc')
+                    ->limit($needed)
+                    ->get();
+                
+                if ($additionalMangas->count() > 0) {
+                    $topMangas = $topMangas->concat($additionalMangas)
+                        ->sortByDesc(function($item) {
+                            return $item->total_views;
+                        })
+                        ->take(6)
+                        ->values();
+                }
+            }
+        }
+        
+        $mangaIds = $topMangas->pluck('manga_id')->toArray();
+        $mangaMetadata = \App\Models\MangaMetadata::whereIn('id', $mangaIds)
+            ->get()
+            ->keyBy('id');
+        
+        $result = [];
+        $rank = 1;
+        foreach ($topMangas as $topManga) {
+            $manga = $mangaMetadata->get($topManga->manga_id);
+            if (!$manga) continue;
+            
+            $lastChapter = $manga->chapters()
+                ->orderBy('updated_at', 'desc')
+                ->orderBy('chapter_name', 'desc')
+                ->first();
+            
+            $lastChapterData = null;
+            if ($lastChapter) {
+                $lastChapterData = [
+                    'name' => formatChapterNameForDisplay($lastChapter->chapter_name),
+                    'slug' => $lastChapter->chapter_slug,
+                    'updated_at' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                ];
+            } elseif ($manga->last_chapter_number) {
+                $lastChapterData = [
+                    'name' => 'Chapter ' . $manga->last_chapter_number,
+                    'slug' => 'chapter-' . $manga->last_chapter_number,
+                    'updated_at' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : null,
+                ];
+            }
+            
+            $viewsFormatted = '';
+            $viewsCount = (int)($topManga->total_views ?? 0);
+            if ($viewsCount >= 1000000) {
+                $viewsFormatted = number_format($viewsCount / 1000000, 1) . 'M';
+            } elseif ($viewsCount >= 1000) {
+                $viewsFormatted = number_format($viewsCount / 1000, 1) . 'K';
+            } else {
+                $viewsFormatted = $viewsCount;
+            }
+            
+            $result[] = [
+                'rank' => $rank++,
+                'slug' => $manga->slug,
+                'title' => $manga->title,
+                'cover_url' => $manga->cover_url ?: asset('images/pre-load1.png'),
+                'rating' => $manga->rating ? (float)$manga->rating : 0,
+                'views_count' => $topManga->total_views,
+                'views_formatted' => $viewsFormatted,
+                'last_chapter' => $lastChapterData,
+            ];
+        }
+        
+        return $result;
+    };
+    
+    $topFollowDay = $getTopFollow('day');
+    $topFollowWeek = $getTopFollow('week');
+    $topFollowMonth = $getTopFollow('month');
+    
     $featuredPost = \App\Models\Post::where('is_active', true)
         ->where('is_featured', true)
         ->whereNotNull('published_at')
@@ -2281,6 +2490,9 @@ Route::get('/tin-tuc', function () {
         'totalPages' => $totalPages,
         'featuredNews' => $featuredNews,
         'otherNews' => $otherNews,
+        'topFollowDay' => $topFollowDay,
+        'topFollowWeek' => $topFollowWeek,
+        'topFollowMonth' => $topFollowMonth,
     ]);
 })->name('news');
 
@@ -2291,16 +2503,25 @@ Route::get('/tin-tuc/{slug}', function ($slug) {
         ->where('published_at', '<=', now())
         ->firstOrFail();
     
+    $featuredPost = \App\Models\Post::where('is_active', true)
+        ->where('is_featured', true)
+        ->whereNotNull('published_at')
+        ->where('published_at', '<=', now())
+        ->where('id', '!=', $post->id)
+        ->inRandomOrder()
+        ->first();
+    
     $relatedPosts = \App\Models\Post::where('is_active', true)
         ->where('id', '!=', $post->id)
         ->whereNotNull('published_at')
         ->where('published_at', '<=', now())
-        ->orderBy('published_at', 'desc')
-        ->limit(5)
+        ->inRandomOrder()
+        ->limit(10)
         ->get();
     
     return view('news.detail', [
         'post' => $post,
+        'featuredPost' => $featuredPost,
         'relatedPosts' => $relatedPosts,
     ]);
 })->name('news.detail');
@@ -2998,6 +3219,44 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
         return response()->json(['status' => 'success', 'message' => 'Bỏ ban user thành công']);
     })->name('admin.users.unban');
     
+    Route::get('/comments', function () {
+        $search = request()->input('search', '');
+        $userSearch = request()->input('user_search', '');
+        
+        $query = \App\Models\MangaComment::with(['user', 'manga', 'chapter', 'parent'])
+            ->orderBy('created_at', 'desc');
+        
+        if ($search) {
+            $query->where('content', 'like', '%' . $search . '%');
+        }
+        
+        if ($userSearch) {
+            $query->whereHas('user', function($q) use ($userSearch) {
+                $q->where('name', 'like', '%' . $userSearch . '%')
+                  ->orWhere('email', 'like', '%' . $userSearch . '%');
+            });
+        }
+        
+        $comments = $query->paginate(20)->withQueryString();
+        
+        return view('admin.comments', compact('comments', 'search', 'userSearch'));
+    })->name('admin.comments');
+    
+    Route::post('/comments/{id}/delete', function ($id) {
+        $comment = \App\Models\MangaComment::findOrFail($id);
+        
+        // Xóa tất cả replies của comment này
+        $comment->replies()->delete();
+        
+        // Xóa tất cả likes của comment này
+        $comment->likes()->delete();
+        
+        // Xóa comment
+        $comment->delete();
+        
+        return response()->json(['status' => 'success', 'message' => 'Xóa bình luận thành công']);
+    })->name('admin.comments.delete');
+    
     Route::get('/mangas', function () {
         $recentMangas = \App\Models\MangaMetadata::orderBy('updated_at', 'desc')
             ->limit(10)
@@ -3140,6 +3399,8 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
         $settings = [
             'facebook_url' => \App\Models\Setting::get('facebook_url', ''),
             'twitter_url' => \App\Models\Setting::get('twitter_url', ''),
+            'youtube_url' => \App\Models\Setting::get('youtube_url', ''),
+            'github_url' => \App\Models\Setting::get('github_url', ''),
             'gmail_url' => \App\Models\Setting::get('gmail_url', ''),
             'gtag_code' => \App\Models\Setting::get('gtag_code', ''),
         ];
@@ -3149,10 +3410,14 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
     Route::post('/settings/social', function () {
         $facebook = request()->input('facebook_url', '');
         $twitter = request()->input('twitter_url', '');
+        $youtube = request()->input('youtube_url', '');
+        $github = request()->input('github_url', '');
         $gmail = request()->input('gmail_url', '');
         
         \App\Models\Setting::set('facebook_url', $facebook);
         \App\Models\Setting::set('twitter_url', $twitter);
+        \App\Models\Setting::set('youtube_url', $youtube);
+        \App\Models\Setting::set('github_url', $github);
         \App\Models\Setting::set('gmail_url', $gmail);
         
         return response()->json([
@@ -3162,7 +3427,7 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
     })->name('admin.settings.social');
     
     Route::post('/settings/social/clear', function () {
-        \App\Models\Setting::whereIn('key', ['facebook_url', 'twitter_url', 'gmail_url'])->delete();
+        \App\Models\Setting::whereIn('key', ['facebook_url', 'twitter_url', 'youtube_url', 'github_url', 'gmail_url'])->delete();
         
         return response()->json([
             'status' => 'success',
@@ -3196,111 +3461,64 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
     })->name('admin.posts');
     
     Route::get('/posts/create', function () {
-        return view('admin.post-form', ['post' => null]);
+        return view('admin.posts-create');
     })->name('admin.posts.create');
+    
+    Route::post('/posts', function (\Illuminate\Http\Request $request) {
+        $request->validate([
+            'title' => 'required|max:255',
+            'slug' => 'required|unique:posts|max:255',
+            'content' => 'required',
+            'description' => 'nullable',
+            'image' => 'nullable|string',
+            'author' => 'nullable|max:255',
+        ]);
+        
+        \App\Models\Post::create([
+            'title' => $request->input('title'),
+            'slug' => $request->input('slug'),
+            'content' => $request->input('content'),
+            'description' => $request->input('description'),
+            'image' => $request->input('image'),
+            'author' => $request->input('author', 'Admin'),
+            'is_featured' => $request->has('is_featured'),
+            'is_active' => $request->has('is_published'),
+            'published_at' => $request->has('is_published') ? now() : null,
+        ]);
+        
+        return redirect()->route('admin.posts')->with('success', 'Tạo bài viết thành công');
+    })->name('admin.posts.store');
     
     Route::get('/posts/{id}/edit', function ($id) {
         $post = \App\Models\Post::findOrFail($id);
-        return view('admin.post-form', ['post' => $post]);
+        return view('admin.posts-edit', compact('post'));
     })->name('admin.posts.edit');
     
-    Route::post('/posts', function () {
-        try {
-            $request = request();
-            
-            \Log::info('Creating post', [
-                'title' => $request->input('title'),
-                'all_data' => $request->all()
-            ]);
-            
-            if (!$request->has('title') || empty(trim($request->input('title')))) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Tiêu đề không được để trống'
-                ], 400);
-            }
-            
-            $slug = \Illuminate\Support\Str::slug($request->input('title'));
-            if (empty($slug)) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Tiêu đề không hợp lệ'
-                ], 400);
-            }
-            
-            $originalSlug = $slug;
-            $counter = 1;
-            while (\App\Models\Post::where('slug', $slug)->exists()) {
-                $slug = $originalSlug . '-' . $counter;
-                $counter++;
-            }
-            
-            $postData = [
-                'slug' => $slug,
-                'title' => trim($request->input('title')),
-                'description' => $request->input('description', ''),
-                'content' => $request->input('content', ''),
-                'image' => $request->input('image', ''),
-                'author' => $request->input('author', auth()->user()->name ?? 'Admin'),
-                'is_featured' => (bool)$request->input('is_featured', 0),
-                'is_active' => (bool)$request->input('is_active', 1),
-                'published_at' => $request->input('published_at') ? now()->parse($request->input('published_at')) : now(),
-            ];
-            
-            \Log::info('Post data to create', $postData);
-            
-            $post = \App\Models\Post::create($postData);
-            
-            \Log::info('Post created successfully', ['post_id' => $post->id]);
-            
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Đã tạo bài viết thành công',
-                'post_id' => $post->id
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Error creating post', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Lỗi: ' . $e->getMessage()
-            ], 500);
-        }
-    })->name('admin.posts.store');
-    
-    Route::put('/posts/{id}', function ($id) {
+    Route::put('/posts/{id}', function (\Illuminate\Http\Request $request, $id) {
         $post = \App\Models\Post::findOrFail($id);
-        $request = request();
         
-        $slug = \Illuminate\Support\Str::slug($request->input('title'));
-        if ($slug !== $post->slug) {
-            $originalSlug = $slug;
-            $counter = 1;
-            while (\App\Models\Post::where('slug', $slug)->where('id', '!=', $id)->exists()) {
-                $slug = $originalSlug . '-' . $counter;
-                $counter++;
-            }
-        }
+        $request->validate([
+            'title' => 'required|max:255',
+            'slug' => 'required|max:255|unique:posts,slug,' . $id,
+            'content' => 'required',
+            'description' => 'nullable',
+            'image' => 'nullable|string',
+            'author' => 'nullable|max:255',
+        ]);
         
         $post->update([
-            'slug' => $slug,
             'title' => $request->input('title'),
-            'description' => $request->input('description'),
+            'slug' => $request->input('slug'),
             'content' => $request->input('content'),
+            'description' => $request->input('description'),
             'image' => $request->input('image'),
-            'author' => $request->input('author'),
-            'is_featured' => (bool)$request->input('is_featured', 0),
-            'is_active' => (bool)$request->input('is_active', 1),
-            'published_at' => $request->input('published_at') ? now()->parse($request->input('published_at')) : $post->published_at,
+            'author' => $request->input('author', 'Admin'),
+            'is_featured' => $request->has('is_featured'),
+            'is_active' => $request->has('is_published'),
+            'published_at' => $request->has('is_published') ? now() : null,
         ]);
         
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Đã cập nhật bài viết thành công'
-        ]);
+        return redirect()->route('admin.posts')->with('success', 'Cập nhật bài viết thành công');
     })->name('admin.posts.update');
     
     Route::delete('/posts/{id}', function ($id) {
@@ -3309,51 +3527,83 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
         
         return response()->json([
             'status' => 'success',
-            'message' => 'Đã xóa bài viết thành công'
+            'message' => 'Xóa bài viết thành công'
         ]);
-    })->name('admin.posts.delete');
+    })->name('admin.posts.destroy');
     
-    Route::post('/posts/upload-image', function () {
-        $file = request()->file('image');
+    Route::post('/posts/upload-image', function (\Illuminate\Http\Request $request) {
+        $request->validate([
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048'
+        ]);
         
-        if (!$file || !$file->isValid()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'File không hợp lệ'
-            ], 400);
-        }
-        
-        $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/jpg', 'image/webp'];
-        if (!in_array($file->getMimeType(), $allowedMimes)) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Chỉ chấp nhận file ảnh (jpg, png, gif, webp)'
-            ], 400);
-        }
-        
-        if ($file->getSize() > 10 * 1024 * 1024) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'File quá lớn (tối đa 10MB)'
-            ], 400);
-        }
-        
-        $uploadDir = public_path('images/posts');
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
-        }
-        
-        $extension = $file->getClientOriginalExtension() ?: 'jpg';
-        $fileName = uniqid('post_') . '.' . strtolower($extension);
-        $filePath = $uploadDir . '/' . $fileName;
-        
-        $file->move($uploadDir, $fileName);
-        
-        $url = asset('images/posts/' . $fileName);
+        $image = $request->file('image');
+        $filename = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
+        $path = $image->storeAs('posts', $filename, 'public');
         
         return response()->json([
-            'status' => 'success',
-            'url' => $url
+            'url' => asset('storage/' . $path)
         ]);
     })->name('admin.posts.upload-image');
+});
+
+Route::get('/sitemap.xml', function () {
+    $sitemap = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+    $sitemap .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+    
+    $baseUrl = url('/');
+    
+    $sitemap .= '  <url>' . "\n";
+    $sitemap .= '    <loc>' . $baseUrl . '</loc>' . "\n";
+    $sitemap .= '    <lastmod>' . date('Y-m-d') . '</lastmod>' . "\n";
+    $sitemap .= '    <changefreq>daily</changefreq>' . "\n";
+    $sitemap .= '    <priority>1.0</priority>' . "\n";
+    $sitemap .= '  </url>' . "\n";
+    
+    $mangas = \App\Models\MangaMetadata::where('is_active', true)
+        ->whereNotNull('slug')
+        ->orderBy('updated_at', 'desc')
+        ->limit(10000)
+        ->get();
+    
+    foreach ($mangas as $manga) {
+        $sitemap .= '  <url>' . "\n";
+        $sitemap .= '    <loc>' . $baseUrl . '/truyen-tranh/' . $manga->slug . '</loc>' . "\n";
+        $sitemap .= '    <lastmod>' . $manga->updated_at->format('Y-m-d') . '</lastmod>' . "\n";
+        $sitemap .= '    <changefreq>weekly</changefreq>' . "\n";
+        $sitemap .= '    <priority>0.8</priority>' . "\n";
+        $sitemap .= '  </url>' . "\n";
+        
+        $chapters = $manga->chapters()
+            ->whereNotNull('chapter_slug')
+            ->orderBy('updated_at', 'desc')
+            ->limit(100)
+            ->get();
+        
+        foreach ($chapters as $chapter) {
+            $sitemap .= '  <url>' . "\n";
+            $sitemap .= '    <loc>' . $baseUrl . '/truyen-tranh/' . $manga->slug . '/' . $chapter->chapter_slug . '</loc>' . "\n";
+            $sitemap .= '    <lastmod>' . $chapter->updated_at->format('Y-m-d') . '</lastmod>' . "\n";
+            $sitemap .= '    <changefreq>monthly</changefreq>' . "\n";
+            $sitemap .= '    <priority>0.6</priority>' . "\n";
+            $sitemap .= '  </url>' . "\n";
+        }
+    }
+    
+    $sitemap .= '</urlset>';
+    
+    return response($sitemap, 200)
+        ->header('Content-Type', 'application/xml');
+})->name('sitemap');
+
+Route::get('/robots.txt', function () {
+    $content = "User-agent: *\n";
+    $content .= "Allow: /\n";
+    $content .= "Disallow: /admin/\n";
+    $content .= "Disallow: /api/\n";
+    $content .= "Disallow: /account/\n";
+    $content .= "\n";
+    $content .= "Sitemap: " . url('/sitemap.xml');
+    
+    return response($content, 200)
+        ->header('Content-Type', 'text/plain');
 });

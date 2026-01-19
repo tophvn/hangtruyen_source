@@ -1,6 +1,7 @@
 @php
     $sapRaMatMangas = $sapRaMatMangas ?? [];
 @endphp
+@if(count($sapRaMatMangas) > 0)
 <section id="manga-select" class="container">
     <div class="m-suggest splide splide-navtop">
         <div class="group-title">
@@ -62,3 +63,4 @@
         </div>
     </div>
 </section>
+@endif

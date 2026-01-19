@@ -85,6 +85,12 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a href="{{ route('admin.comments') }}" class="nav-link {{ request()->routeIs('admin.comments*') ? 'active' : '' }}">
+                                <i class="nav-icon bi bi-chat-dots-fill"></i>
+                                <p>Quản lý Bình luận</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a href="{{ route('admin.mangas') }}" class="nav-link {{ request()->routeIs('admin.mangas*') ? 'active' : '' }}">
                                 <i class="nav-icon bi bi-book"></i>
                                 <p>Quản lý Truyện</p>

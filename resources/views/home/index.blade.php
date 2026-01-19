@@ -1,5 +1,27 @@
 @extends('layouts.app')
 
+@section('title', 'HangTruyen - Đọc Truyện Tranh Online Manga, Manhua, Manhwa Miễn Phí | Cập Nhật Mới Nhất')
+@section('description', 'HangTruyen - Website đọc truyện tranh online miễn phí hàng đầu Việt Nam. Cập nhật truyện manga, manhua, manhwa mới nhất mỗi ngày. Đọc truyện full, không quảng cáo, chất lượng cao. Hàng nghìn truyện tranh hot trending đang chờ bạn khám phá.')
+@section('keywords', 'đọc truyện tranh, truyện tranh online, manga online, manhua online, manhwa online, đọc truyện miễn phí, truyện tranh mới nhất, hangtruyen, đọc manga, đọc manhua, truyện full, truyện hot, truyện trending, truyện tranh việt nam')
+@section('canonical', url('/'))
+@section('og:url', url('/'))
+@section('og:type', 'website')
+@section('og:title', 'HangTruyen - Đọc Truyện Tranh Online Manga, Manhua, Manhwa Miễn Phí')
+@section('og:description', 'HangTruyen - Website đọc truyện tranh online miễn phí hàng đầu Việt Nam. Cập nhật truyện manga, manhua, manhwa mới nhất mỗi ngày.')
+@section('og:image', asset('images/logo-dark.png'))
+
+@push('head')
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": "Danh sách truyện tranh mới nhất",
+    "description": "Tổng hợp các truyện tranh manga, manhua, manhwa mới cập nhật nhất tại HangTruyen",
+    "url": "{{ url('/') }}"
+}
+</script>
+@endpush
+
 @section('content')
     @include('home.components.manga-slider')
     @include('home.components.manga-trend')
@@ -24,6 +46,7 @@
 
     <div class="container content-seo">
         <div class="page-content short-content">
+            <hr>
             <span style="font-weight: 400">Cùng khám phá HangTruyen nền tảng đọc truyện tranh online miễn phí,
                 kho truyện đa dạng, giao diện dễ dùng.</span>
             <h2><b>HangTruyen Web Đọc Truyện Hot Nhất Hiện Nay</b></h2>

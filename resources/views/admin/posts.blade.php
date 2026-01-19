@@ -22,7 +22,6 @@
                             <th style="width: 50px">ID</th>
                             <th>Tiêu đề</th>
                             <th>Slug</th>
-                            <th>Tác giả</th>
                             <th>Nổi bật</th>
                             <th>Trạng thái</th>
                             <th>Ngày đăng</th>
@@ -35,7 +34,6 @@
                                 <td>{{ $post->id }}</td>
                                 <td>{{ $post->title }}</td>
                                 <td><small class="text-muted">{{ $post->slug }}</small></td>
-                                <td>{{ $post->author }}</td>
                                 <td>
                                     @if($post->is_featured)
                                         <span class="badge text-bg-warning">Nổi bật</span>
@@ -45,12 +43,12 @@
                                 </td>
                                 <td>
                                     @if($post->is_active)
-                                        <span class="badge text-bg-success">Hiển thị</span>
+                                        <span class="badge text-bg-success">Đã xuất bản</span>
                                     @else
-                                        <span class="badge text-bg-danger">Ẩn</span>
+                                        <span class="badge text-bg-danger">Nháp</span>
                                     @endif
                                 </td>
-                                <td>{{ $post->published_at ? $post->published_at->format('d/m/Y H:i') : '-' }}</td>
+                                <td>{{ $post->published_at ? $post->published_at->format('d/m/Y H:i') : ($post->created_at ? $post->created_at->format('d/m/Y H:i') : '-') }}</td>
                                 <td>
                                     <a href="{{ route('admin.posts.edit', $post->id) }}" class="btn btn-sm btn-primary">
                                         <i class="bi bi-pencil"></i> Sửa
@@ -62,7 +60,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center">Chưa có bài viết nào</td>
+                                <td colspan="7" class="text-center">Chưa có bài viết nào</td>
                             </tr>
                         @endforelse
                     </tbody>

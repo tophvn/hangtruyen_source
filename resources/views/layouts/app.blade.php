@@ -2,12 +2,17 @@
 <html lang="vi">
 
 <head>
-    <title>Hangtruyen - Trang web đọc truyện tranh Online</title>
-    <meta name="description" content="Đọc truyện tranh manga, manhua, manhwa miễn phí được cập nhật liên tục hàng ngày.">
-    <meta name="keywords" content="đọc truyện, truyện tranh, hangtruyen">
-    <link rel="canonical" href="{{ url('/') }}" />
+    <title>@yield('title', 'HangTruyen - Đọc Truyện Tranh Online Manga, Manhua, Manhwa Miễn Phí | Cập Nhật Mới Nhất')</title>
+    <meta name="description" content="@yield('description', 'HangTruyen - Website đọc truyện tranh online miễn phí hàng đầu Việt Nam. Cập nhật truyện manga, manhua, manhwa mới nhất mỗi ngày. Đọc truyện full, không quảng cáo, chất lượng cao.')">
+    <meta name="keywords" content="@yield('keywords', 'đọc truyện tranh, truyện tranh online, manga online, manhua online, manhwa online, đọc truyện miễn phí, truyện tranh mới nhất, hangtruyen, đọc manga, đọc manhua, truyện full, truyện hot, truyện trending')">
+    <link rel="canonical" href="@yield('canonical', url('/'))" />
 
     <meta name="robots" content="index, follow" />
+    <meta name="author" content="HangTruyen">
+    <meta name="language" content="Vietnamese">
+    <meta name="revisit-after" content="1 days">
+    <meta name="distribution" content="global">
+    <meta name="rating" content="general">
 
     <script type="application/ld+json">
         {
@@ -15,19 +20,55 @@
             "@type": "WebSite",
             "name": "HangTruyen",
             "alternateName": "Hang Truyện",
-            "url": "{{ url('/') }}"
+            "url": "{{ url('/') }}",
+            "potentialAction": {
+                "@type": "SearchAction",
+                "target": "{{ url('/tim-kiem') }}?q={search_term_string}",
+                "query-input": "required name=search_term_string"
+            }
         }
+    </script>
+    @php
+        $facebookUrl = \App\Models\Setting::get('facebook_url', '');
+        $twitterUrl = \App\Models\Setting::get('twitter_url', '');
+        $youtubeUrl = \App\Models\Setting::get('youtube_url', '');
+        $githubUrl = \App\Models\Setting::get('github_url', '');
+        $socialLinks = array_values(array_filter([$facebookUrl, $twitterUrl, $youtubeUrl, $githubUrl]));
+    @endphp
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": "HangTruyen",
+            "url": "{{ url('/') }}",
+            "logo": "{{ asset('images/logo-dark.png') }}"@if(count($socialLinks) > 0),
+            "sameAs": {!! json_encode($socialLinks, JSON_UNESCAPED_SLASHES) !!}
+        @endif
+}
     </script>
 
     <!-- Required meta tags -->
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    
+    <!-- Open Graph / Facebook -->
     <meta property="og:locale" content="vi_VN" />
-    <meta property="og:url" content="{{ url('/') }}" />
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="Hangtruyen - Trang web đọc truyện tranh Online" />
-    <meta property="og:description" content="Đọc truyện tranh manga, manhua, manhwa miễn phí được cập nhật liên tục hàng ngày." />
-    <meta property="og:image" content="{{ asset('images/logo-dark.png') }}" />
+    <meta property="og:url" content="@yield('og:url', url('/'))" />
+    <meta property="og:type" content="@yield('og:type', 'website')" />
+    <meta property="og:title" content="@yield('og:title', 'HangTruyen - Đọc Truyện Tranh Online Manga, Manhua, Manhwa Miễn Phí')" />
+    <meta property="og:description" content="@yield('og:description', 'HangTruyen - Website đọc truyện tranh online miễn phí hàng đầu Việt Nam. Cập nhật truyện manga, manhua, manhwa mới nhất mỗi ngày.')" />
+    <meta property="og:image" content="@yield('og:image', asset('images/logo-dark.png'))" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="HangTruyen" />
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="@yield('og:title', 'HangTruyen - Đọc Truyện Tranh Online Miễn Phí')" />
+    <meta name="twitter:description" content="@yield('og:description', 'HangTruyen - Website đọc truyện tranh online miễn phí hàng đầu Việt Nam.')" />
+    <meta name="twitter:image" content="@yield('og:image', asset('images/logo-dark.png'))" />
+
+    @stack('head')
 
     <meta http-equiv="content-language" content="vi" />
     <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png" />

@@ -1,12 +1,79 @@
 @extends('layouts.manga')
 
-@section('title', 'Truyện tranh ' . ($manga['name'] ?? 'Đang cập nhật') . ' mới nhất miễn phí - HangTruyen')
-@section('description', 'Đọc ' . ($manga['name'] ?? 'Đang cập nhật') . ' mới update full miễn phí tại HangTruyen cập nhật chương nhanh nhất')
-@section('keywords', ($manga['name'] ?? 'Đang cập nhật') . ' truyện tranh, ' . ($manga['name'] ?? 'Đang cập nhật') . ' full, đọc truyện tranh ' . ($manga['name'] ?? 'Đang cập nhật') . ' online')
-@section('canonical', url('/truyen-tranh/' . ($mangaSlug ?? '')))
-@section('og:url', url('/truyen-tranh/' . ($mangaSlug ?? '')))
-@section('og:title', 'Truyện tranh ' . ($manga['name'] ?? 'Đang cập nhật') . ' mới nhất miễn phí - HangTruyen')
-@section('og:description', 'Đọc ' . ($manga['name'] ?? 'Đang cập nhật') . ' mới update full miễn phí tại HangTruyen cập nhật chương nhanh nhất')
+@php
+    $mangaName = $manga['name'] ?? 'Đang cập nhật';
+    $mangaDescription = $manga['description'] ?? '';
+    $mangaCover = $manga['cover_url'] ?? asset('images/logo-dark.png');
+    $mangaRating = $manga['rating'] ?? 0;
+    $mangaStatus = $manga['status'] ?? 'ongoing';
+    $mangaSlugFull = $mangaSlug ?? '';
+    
+    $lastChapterNumber = $mangaMetadata->last_chapter_number ?? null;
+    if (!$lastChapterNumber && isset($manga['chapters']) && count($manga['chapters']) > 0) {
+        $firstChapter = $manga['chapters'][0];
+        $lastChapterNumber = $firstChapter['name'] ?? null;
+    }
+    
+    $titleSuffix = '';
+    if ($lastChapterNumber) {
+        $chapterNum = preg_replace('/^Chapter\s+/i', '', $lastChapterNumber);
+        $titleSuffix = ' (tới Chapter ' . trim($chapterNum) . ')';
+    }
+@endphp
+
+@section('title', 'Truyện tranh ' . $mangaName . $titleSuffix . ' mới nhất miễn phí - HangTruyen')
+@section('description', !empty($mangaDescription) ? strip_tags($mangaDescription) : 'Đọc ' . $mangaName . ' mới update full miễn phí tại HangTruyen. ' . $mangaName . ' là một trong những truyện tranh hot nhất hiện nay, cập nhật chương nhanh nhất.')
+@section('keywords', $mangaName . ', truyện tranh ' . $mangaName . ', đọc ' . $mangaName . ' online, ' . $mangaName . ' full, ' . $mangaName . ' miễn phí, hangtruyen')
+@section('canonical', url('/truyen-tranh/' . $mangaSlugFull))
+@section('og:url', url('/truyen-tranh/' . $mangaSlugFull))
+@section('og:type', 'article')
+@section('og:title', 'Truyện tranh ' . $mangaName . $titleSuffix . ' mới nhất miễn phí - HangTruyen')
+@section('og:description', !empty($mangaDescription) ? strip_tags(substr($mangaDescription, 0, 200)) : 'Đọc ' . $mangaName . ' mới update full miễn phí tại HangTruyen cập nhật chương nhanh nhất')
+@section('og:image', $mangaCover)
+
+@push('head')
+@php
+    $rawDescription = !empty($mangaDescription) ? strip_tags($mangaDescription) : ('Đọc ' . $mangaName . ' mới update full miễn phí tại HangTruyen');
+    $bookDescription = html_entity_decode($rawDescription, ENT_QUOTES, 'UTF-8');
+    $bookData = [
+        '@context' => 'https://schema.org',
+        '@type' => 'Book',
+        'name' => $mangaName,
+        'description' => $bookDescription,
+        'image' => $mangaCover,
+        'url' => url('/truyen-tranh/' . $mangaSlugFull),
+        'aggregateRating' => [
+            '@type' => 'AggregateRating',
+            'ratingValue' => (string)$mangaRating,
+            'bestRating' => '5',
+            'worstRating' => '1'
+        ]
+    ];
+@endphp
+<script type="application/ld+json">
+    {!! json_encode($bookData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) !!}
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Trang chủ",
+                "item": "{{ url('/') }}"
+            },
+            {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "{{ $mangaName }}",
+                "item": "{{ url('/truyen-tranh/' . $mangaSlugFull) }}"
+            }
+        ]
+    }
+    </script>
+@endpush
 
 @section('content')
 <div class="container">

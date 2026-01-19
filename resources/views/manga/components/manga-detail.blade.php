@@ -16,8 +16,6 @@
                                 loading="eager"
                                 fetchpriority="high"
                                 decoding="async"
-                                width="300"
-                                height="400"
                             >
                         </div>
                         <a href="" class="report" data-bs-toggle="modal" data-bs-target="#ReportModal" rel="nofollow">

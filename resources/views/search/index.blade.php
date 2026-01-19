@@ -8,10 +8,47 @@
     $totalPages = $totalPages ?? 1;
 @endphp
 
-@section('title', ($keyword ? $keyword . ' - ' : '') . 'Tìm kiếm - Đọc truyện mới nhất | HangTruyen')
-@section('description', 'Tìm kiếm truyện tranh ' . ($keyword ? $keyword . ' ' : '') . 'mới nhất, truyện full chap đầy đủ. Thông tin về truyện hay cập nhật mới nhất tại HangTruyen')
-@section('keywords', $keyword . ',hangtruyen,đọc truyện,truyện tranh,truyện full')
+@section('title', ($keyword ? $keyword . ' - ' : '') . 'Tìm kiếm Truyện Tranh Mới Nhất | HangTruyen')
+@section('description', 'Tìm kiếm truyện tranh ' . ($keyword ? $keyword . ' ' : '') . 'mới nhất, truyện full chap đầy đủ. Thông tin về truyện hay cập nhật mới nhất tại HangTruyen. ' . ($totalResults > 0 ? 'Tìm thấy ' . number_format($totalResults) . ' kết quả.' : ''))
+@section('keywords', $keyword . ', tìm kiếm truyện tranh, hangtruyen, đọc truyện, truyện tranh, truyện full, manga online, manhua online, manhwa online')
 @section('canonical', url('/tim-kiem' . ($keyword ? '?keyword=' . urlencode($keyword) : '')))
+@section('og:url', url('/tim-kiem' . ($keyword ? '?keyword=' . urlencode($keyword) : '')))
+@section('og:type', 'website')
+@section('og:title', ($keyword ? $keyword . ' - ' : '') . 'Tìm kiếm Truyện Tranh | HangTruyen')
+@section('og:description', 'Tìm kiếm truyện tranh ' . ($keyword ? $keyword . ' ' : '') . 'mới nhất tại HangTruyen')
+@section('og:image', asset('images/logo-dark.png'))
+
+@push('head')
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "SearchResultsPage",
+    "name": "{{ $keyword ? 'Tìm kiếm: ' . $keyword : 'Tìm kiếm truyện tranh' }}",
+    "description": "Kết quả tìm kiếm truyện tranh tại HangTruyen",
+    "url": "{{ url('/tim-kiem' . ($keyword ? '?keyword=' . urlencode($keyword) : '')) }}"
+}
+</script>
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Trang chủ",
+            "item": "{{ url('/') }}"
+        },
+        {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Tìm kiếm{{ $keyword ? ': ' . $keyword : '' }}",
+            "item": "{{ url('/tim-kiem' . ($keyword ? '?keyword=' . urlencode($keyword) : '')) }}"
+        }
+    ]
+}
+</script>
+@endpush
 
 @section('content')
 <div class="search-wrapper">
@@ -128,7 +165,7 @@
                         <ul class="pagination" data-count-page="{{ $totalPages }}">
                             @if($currentPage > 1)
                                 <li data-page="0">
-                                    <a class="prev-page" href="{{ url('/tim-kiem') }}?page={{ $currentPage - 1 }}{{ $queryString ? '&' . $queryString : '' }}" title="Chuyển đến trang {{ $currentPage - 1 }}" data-page="{{ $currentPage - 1 }}">
+                                    <a class="prev-page" href="{{ url('/tim-kiem') }}?page={{ $currentPage - 1 }}{{ $queryString ? '&' . $queryString : '' }}" title="Chuyển đến trang {{ $currentPage - 1 }}" data-page="{{ $currentPage - 1 }}" rel="prev">
                                         <i class="icon-arrow-left"></i>
                                     </a>
                                 </li>
@@ -154,7 +191,7 @@
 
                             @if($currentPage < $totalPages)
                                 <li data-page="0">
-                                    <a class="next-page" href="{{ url('/tim-kiem') }}?page={{ $currentPage + 1 }}{{ $queryString ? '&' . $queryString : '' }}" title="Chuyển đến trang {{ $currentPage + 1 }}" data-page="{{ $currentPage + 1 }}">
+                                    <a class="next-page" href="{{ url('/tim-kiem') }}?page={{ $currentPage + 1 }}{{ $queryString ? '&' . $queryString : '' }}" title="Chuyển đến trang {{ $currentPage + 1 }}" data-page="{{ $currentPage + 1 }}" rel="next">
                                         <i class="icon-arrow-right"></i>
                                     </a>
                                 </li>

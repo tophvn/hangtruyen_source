@@ -87,225 +87,249 @@ handleCutRandomSuggestManga();
 //Splide
 document.addEventListener('DOMContentLoaded', function() {
     // Khởi tạo các instance của Splide và lưu vào mảng
-    const splideInstances = [
-        new Splide('.slide-single', {
-            perPage: 1,
-            type: 'fade',
-            rewind: true,
-            lazyLoad: 'nearby',
-            autoplay: true,
-            interval: 5000,
-            speed: 3000,
-            pauseOnHover: true,
-            pauseOnFocus: true,
-            pauseOnLeave: true,
-            pauseOnScroll: true,
-            pagination: false,
-        }).mount(),
+    const splideInstances = [];
+    
+    // Helper function để khởi tạo Splide nếu element tồn tại
+    function initSplideIfExists(selector, config, extensions) {
+        const element = document.querySelector(selector);
+        if (element && element.querySelector('.splide__track')) {
+            const splide = new Splide(selector, config);
+            if (extensions) {
+                splide.mount(extensions);
+            } else {
+                splide.mount();
+            }
+            return splide;
+        }
+        return null;
+    }
+    
+    // Khởi tạo từng Splide và chỉ thêm vào mảng nếu tồn tại
+    const slideSingle = initSplideIfExists('.slide-single', {
+        perPage: 1,
+        type: 'fade',
+        rewind: true,
+        lazyLoad: 'nearby',
+        autoplay: true,
+        interval: 5000,
+        speed: 3000,
+        pauseOnHover: true,
+        pauseOnFocus: true,
+        pauseOnLeave: true,
+        pauseOnScroll: true,
+        pagination: false,
+    });
+    if (slideSingle) splideInstances.push(slideSingle);
 
-        new Splide('.list-manga', {
-            grid: {
-                rows: 3,
-                cols: 2,
-                gap: {
-                    row: '20px',
-                    col: '20px',
+    const listManga = initSplideIfExists('.list-manga', {
+        grid: {
+            rows: 3,
+            cols: 2,
+            gap: {
+                row: '20px',
+                col: '20px',
+            },
+        },
+        breakpoints: {
+            767: {
+                grid: {
+                    rows: 3,
+                    cols: 1,
+                    gap: {
+                        col: '10px',
+                    },
+                },
+                padding: {
+                    right: '10rem'
                 },
             },
-            breakpoints: {
-                767: {
-                    grid: {
-                        rows: 3,
-                        cols: 1,
-                        gap: {
-                            col: '10px',
-                        },
-                    },
-                    padding: {
-                        right: '10rem'
-                    },
-                },
-                576: {
-                    padding: {
-                        right: '5rem'
-                    },
-                },
-                480: {
-                    padding: {
-                        right: '0'
-                    },
+            576: {
+                padding: {
+                    right: '5rem'
                 },
             },
-            type: 'loop',
-            pagination: false,
-            perMove: 1,
-        }).mount(window.splide.Extensions),
+            480: {
+                padding: {
+                    right: '0'
+                },
+            },
+        },
+        type: 'loop',
+        pagination: false,
+        perMove: 1,
+    }, window.splide?.Extensions);
+    if (listManga) splideInstances.push(listManga);
 
-        new Splide('.top-genres', {
-            perPage: 4,
-            pagination: false,
-            arrows: false,
-            perMove: 1,
-            gap: '20px',
-            breakpoints: {
-                350: {
-                    perPage: 1,
-                    padding: {
-                        right: '5.5rem'
-                    },
-                },
-                480: {
-                    perPage: 2,
-                    padding: {
-                        right: '0'
-                    },
-                    gap: '10px',
-                },
-                576: {
-                    perPage: 2,
-                    padding: {
-                        right: '8rem'
-                    },
-                },
-                640: {
-                    perPage: 3,
-                    padding: {
-                        right: '0'
-                    },
-                },
-                991: {
-                    perPage: 2,
-                    padding: {
-                        right: '3rem'
-                    },
-                },
-                1200: {
-                    perPage: 3,
+    const topGenres = initSplideIfExists('.top-genres', {
+        perPage: 4,
+        pagination: false,
+        arrows: false,
+        perMove: 1,
+        gap: '20px',
+        breakpoints: {
+            350: {
+                perPage: 1,
+                padding: {
+                    right: '5.5rem'
                 },
             },
-        }).mount(),
+            480: {
+                perPage: 2,
+                padding: {
+                    right: '0'
+                },
+                gap: '10px',
+            },
+            576: {
+                perPage: 2,
+                padding: {
+                    right: '8rem'
+                },
+            },
+            640: {
+                perPage: 3,
+                padding: {
+                    right: '0'
+                },
+            },
+            991: {
+                perPage: 2,
+                padding: {
+                    right: '3rem'
+                },
+            },
+            1200: {
+                perPage: 3,
+            },
+        },
+    });
+    if (topGenres) splideInstances.push(topGenres);
 
-        new Splide('.m-trend', {
-            perPage: 3,
-            perMove: 1,
-            type: 'loop',
-            pagination: false,
-            padding: {
-                right: '3rem'
-            },
-            breakpoints: {
-                320: {
-                    perPage: 1,
-                    padding: {
-                        right: '0'
-                    },
-                },
-                576: {
-                    perPage: 1,
-                    padding: {
-                        right: '2rem'
-                    },
-                },
-                640: {
-                    perPage: 1,
-                    padding: {
-                        right: '5rem'
-                    },
-                },
-                768: {
-                    padding: {
-                        right: '0'
-                    },
-                },
-                1200: {
-                    perPage: 2,
-                    padding: {
-                        right: '8rem'
-                    },
+    const mTrend = initSplideIfExists('.m-trend', {
+        perPage: 3,
+        perMove: 1,
+        type: 'loop',
+        pagination: false,
+        padding: {
+            right: '3rem'
+        },
+        breakpoints: {
+            320: {
+                perPage: 1,
+                padding: {
+                    right: '0'
                 },
             },
-        }).mount(),
+            576: {
+                perPage: 1,
+                padding: {
+                    right: '2rem'
+                },
+            },
+            640: {
+                perPage: 1,
+                padding: {
+                    right: '5rem'
+                },
+            },
+            768: {
+                padding: {
+                    right: '0'
+                },
+            },
+            1200: {
+                perPage: 2,
+                padding: {
+                    right: '8rem'
+                },
+            },
+        },
+    });
+    if (mTrend) splideInstances.push(mTrend);
 
-        new Splide('.top-comments', {
-            perPage: 3,
-            perMove: 1,
-            padding: {
-                right: '6rem'
-            },
-            type: 'loop',
-            pagination: false,
-            autoplay: true,
-            interval: 6000,
-            speed: 1000,
-            pauseOnHover: true,
-            pauseOnFocus: true,
-            pauseOnLeave: true,
-            pauseOnScroll: true,
-            arrows: false,
-            gap: '16px',
-            breakpoints: {
-                320: {
-                    perPage: 1,
-                    padding: {
-                        right: '1rem'
-                    },
-                },
-                576: {
-                    perPage: 1,
-                    padding: {
-                        right: '3rem'
-                    },
-                    gap: '8px',
-                },
-                768: {
-                    perPage: 2,
+    const topComments = initSplideIfExists('.top-comments', {
+        perPage: 3,
+        perMove: 1,
+        padding: {
+            right: '6rem'
+        },
+        type: 'loop',
+        pagination: false,
+        autoplay: true,
+        interval: 6000,
+        speed: 1000,
+        pauseOnHover: true,
+        pauseOnFocus: true,
+        pauseOnLeave: true,
+        pauseOnScroll: true,
+        arrows: false,
+        gap: '16px',
+        breakpoints: {
+            320: {
+                perPage: 1,
+                padding: {
+                    right: '1rem'
                 },
             },
-        }).mount(),
+            576: {
+                perPage: 1,
+                padding: {
+                    right: '3rem'
+                },
+                gap: '8px',
+            },
+            768: {
+                perPage: 2,
+            },
+        },
+    });
+    if (topComments) splideInstances.push(topComments);
 
-        new Splide('.blog-home', {
-            perPage: 5,
-            perMove: 1,
-            gap: '16px',
-            type: 'slide',
-            loop: false,
-            rewind: false,
-            pagination: false,
-            padding: {
-                right: '3rem'
+    const blogHome = initSplideIfExists('.blog-home', {
+        perPage: 5,
+        perMove: 1,
+        gap: '16px',
+        type: 'slide',
+        loop: false,
+        rewind: false,
+        pagination: false,
+        padding: {
+            right: '3rem'
+        },
+        breakpoints: {
+            1300: {
+                perPage: 4,
             },
-            breakpoints: {
-                1300: {
-                    perPage: 4,
-                },
-                1200: {
-                    perPage: 3,
-                },
-                768: {
-                    perPage: 2,
-                },
-                640: {
-                    perPage: 1,
-                    gap: '10px',
-                    padding: {
-                        right: '7rem'
-                    },
-                },
-                576: {
-                    perPage: 1,
-                    padding: {
-                        right: '2rem'
-                    },
+            1200: {
+                perPage: 3,
+            },
+            768: {
+                perPage: 2,
+            },
+            640: {
+                perPage: 1,
+                gap: '10px',
+                padding: {
+                    right: '7rem'
                 },
             },
-        }).mount(),
-    ];
+            576: {
+                perPage: 1,
+                padding: {
+                    right: '2rem'
+                },
+            },
+        },
+    });
+    if (blogHome) splideInstances.push(blogHome);
 
     // Lặp qua từng instance và xóa aria-hidden
     splideInstances.forEach((splideInstance) => {
-        splideInstance.root.querySelectorAll('[aria-hidden]').forEach((el) => {
-            el.removeAttribute('aria-hidden');
-        });
+        if (splideInstance && splideInstance.root) {
+            splideInstance.root.querySelectorAll('[aria-hidden]').forEach((el) => {
+                el.removeAttribute('aria-hidden');
+            });
+        }
     });
 });
 
@@ -317,7 +341,10 @@ async function handleUpdateSuggestion() {
     listMangasRecommend.empty().append(htmlListMangas);
 
     handleCutRandomSuggestManga();
-    renderSuggest($('#m-suggest .m-suggest').get(0));
+    const suggestElement = $('#m-suggest .m-suggest').get(0);
+    if (suggestElement && suggestElement.querySelector('.splide__track')) {
+        renderSuggest(suggestElement);
+    }
     observeNewImages();
 }
 

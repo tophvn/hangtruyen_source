@@ -15,11 +15,70 @@
 @endphp
 @section('title', $title)
 @section('description', $description)
-@section('keywords', $mangaTitle . ',' . $chapterName . ',đọc truyện,truyện tranh,hangtruyen')
+@section('keywords', $mangaTitle . ', ' . $chapterName . ', đọc truyện, truyện tranh, hangtruyen, ' . $mangaTitle . ' ' . $chapterName . ' online')
 @section('canonical', url('/truyen-tranh/' . $mangaSlug . '/' . $chapterSlug))
 @section('og:url', url('/truyen-tranh/' . $mangaSlug . '/' . $chapterSlug))
+@section('og:type', 'article')
 @section('og:title', $title)
 @section('og:description', $description)
+@section('og:image', isset($mangaCover) && $mangaCover ? $mangaCover : asset('images/logo-dark.png'))
+
+@push('head')
+@if(isset($chapterImages) && is_array($chapterImages) && count($chapterImages) > 0)
+<link rel="preload" as="image" href="{{ $chapterImages[0] }}" fetchpriority="high">
+@if(count($chapterImages) > 1)
+<link rel="preload" as="image" href="{{ $chapterImages[1] }}">
+@endif
+@endif
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "{{ $mangaTitle }} - {{ $chapterName }}",
+    "description": "{{ $description }}",
+    "url": "{{ url('/truyen-tranh/' . $mangaSlug . '/' . $chapterSlug) }}",
+    "image": "{{ isset($mangaCover) && $mangaCover ? $mangaCover : asset('images/logo-dark.png') }}",
+    "author": {
+        "@type": "Organization",
+        "name": "HangTruyen"
+    },
+    "publisher": {
+        "@type": "Organization",
+        "name": "HangTruyen",
+        "logo": {
+            "@type": "ImageObject",
+            "url": "{{ asset('images/logo-dark.png') }}"
+        }
+    }
+}
+</script>
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Trang chủ",
+            "item": "{{ url('/') }}"
+        },
+        {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "{{ $mangaTitle }}",
+            "item": "{{ url('/truyen-tranh/' . $mangaSlug) }}"
+        },
+        {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "{{ $chapterName }}",
+            "item": "{{ url('/truyen-tranh/' . $mangaSlug . '/' . $chapterSlug) }}"
+        }
+    ]
+}
+</script>
+@endpush
 
 @section('content')
 <div id="manga-images" data-mode="vertical">
@@ -28,14 +87,26 @@
             @foreach($chapterImages as $index => $imageUrl)
                 <div class="mi-item" data-page="{{ $index + 1 }}">
                     <div class="loaded i-right">
-                        <img 
-                            class="lzl reading-img" 
-                            data-src="{{ $imageUrl }}" 
-                            data-original="{{ $imageUrl }}" 
-                            alt="Trang {{ $index + 1 }}" 
-                            src="{{ asset('images/pre-load1.png') }}"
-                            loading="lazy"
-                        />
+                        @if($index < 3)
+                            <img 
+                                class="reading-img" 
+                                src="{{ $imageUrl }}" 
+                                alt="Trang {{ $index + 1 }}" 
+                                loading="eager"
+                                fetchpriority="{{ $index === 0 ? 'high' : 'auto' }}"
+                                decoding="async"
+                            />
+                        @else
+                            <img 
+                                class="lzl reading-img" 
+                                data-src="{{ $imageUrl }}" 
+                                data-original="{{ $imageUrl }}" 
+                                alt="Trang {{ $index + 1 }}" 
+                                src="{{ asset('images/pre-load1.png') }}"
+                                loading="lazy"
+                                decoding="async"
+                            />
+                        @endif
                     </div>
                 </div>
             @endforeach

@@ -7,7 +7,7 @@
         </div>
         <div class="col-12 col-xl-9">
             <div class="top-comments splide">
-                <h3 class="title">Bình luận mới nhất</h3>
+                <h3 class="title" style="display: block !important;">Bình luận mới nhất</h3>
                 <div class="splide__track">
                     <ul class="splide__list">
                         @forelse($topComments ?? [] as $comment)

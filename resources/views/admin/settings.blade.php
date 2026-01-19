@@ -43,6 +43,22 @@
 
                             <div class="row mb-3">
                                 <div class="col-md-12">
+                                    <label for="youtube_url" class="form-label">YouTube URL:</label>
+                                    <input type="url" class="form-control" id="youtube_url" name="youtube_url" value="{{ $settings['youtube_url'] ?? '' }}" placeholder="https://youtube.com/...">
+                                    <small class="form-text text-muted">Link YouTube hiển thị ở footer</small>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label for="github_url" class="form-label">GitHub URL:</label>
+                                    <input type="url" class="form-control" id="github_url" name="github_url" value="{{ $settings['github_url'] ?? '' }}" placeholder="https://github.com/...">
+                                    <small class="form-text text-muted">Link GitHub hiển thị ở footer</small>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-12">
                                     <label for="gmail_url" class="form-label">Gmail:</label>
                                     <input type="email" class="form-control" id="gmail_url" name="gmail_url" value="{{ $settings['gmail_url'] }}" placeholder="example@gmail.com">
                                     <small class="form-text text-muted">Email liên hệ hiển thị ở trang Về chúng tôi</small>
@@ -104,6 +120,8 @@
             const formData = {
                 facebook_url: $('#facebook_url').val(),
                 twitter_url: $('#twitter_url').val(),
+                youtube_url: $('#youtube_url').val(),
+                github_url: $('#github_url').val(),
                 gmail_url: $('#gmail_url').val(),
                 _token: '{{ csrf_token() }}'
             };
@@ -137,6 +155,8 @@
                         if (response.status === 'success') {
                             $('#facebook_url').val('');
                             $('#twitter_url').val('');
+                            $('#youtube_url').val('');
+                            $('#github_url').val('');
                             $('#gmail_url').val('');
                             alert('Đã xóa cấu hình thành công');
                         } else {

@@ -1,6 +1,7 @@
 @php
     $hoanThanhMangas = $hoanThanhMangas ?? [];
 @endphp
+@if(count($hoanThanhMangas) > 0)
 <section id="m-finish" class="container">
     <div class="m-suggest splide splide-navtop">
         <div class="group-title">
@@ -63,3 +64,4 @@
         </div>
     </div>
 </section>
+@endif

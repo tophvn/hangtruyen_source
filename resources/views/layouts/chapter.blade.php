@@ -27,10 +27,26 @@
     <meta property="og:title" content="@yield('og:title', 'Hangtruyen - Trang web đọc truyện tranh Online')" />
     <meta property="og:description" content="@yield('og:description', 'Đọc truyện tranh manga, manhua, manhwa miễn phí được cập nhật liên tục hàng ngày.')" />
     <meta property="og:image" content="@yield('og:image', asset('images/logo-dark.png'))" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="HangTruyen" />
+    
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="@yield('og:title', 'Hangtruyen - Trang web đọc truyện tranh Online')" />
+    <meta name="twitter:description" content="@yield('og:description', 'Đọc truyện tranh manga, manhua, manhwa miễn phí được cập nhật liên tục hàng ngày.')" />
+    <meta name="twitter:image" content="@yield('og:image', asset('images/logo-dark.png'))" />
+
+    @stack('head')
 
     <meta http-equiv="content-language" content="vi" />
     <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
     <link rel="shortcut icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
+    
+    <!-- Preconnect to image CDN -->
+    <link rel="preconnect" href="https://sv1.otruyencdn.com" crossorigin>
+    <link rel="preconnect" href="https://img.otruyenapi.com" crossorigin>
+    <link rel="dns-prefetch" href="https://sv1.otruyencdn.com">
+    <link rel="dns-prefetch" href="https://img.otruyenapi.com">
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="{{ asset('manifest.json') }}">

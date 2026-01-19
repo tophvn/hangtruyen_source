@@ -152,19 +152,27 @@
                                 <div class="col-md-12">
                                     <label class="form-label">Danh sách truyện đã chọn (tối đa 8):</label>
                                     <div id="trending-selected" class="border p-3" style="min-height: 100px; background: #f8f9fa;">
+                                        <div class="alert alert-info mb-2">
+                                            <i class="bi bi-info-circle"></i> Kéo và thả để thay đổi thứ tự hiển thị
+                                        </div>
                                         @if(isset($trendingMangas) && $trendingMangas->count() > 0)
-                                            @foreach($trendingMangas as $manga)
-                                                <div class="d-flex align-items-center mb-2 p-2 border rounded selected-manga-item" data-slug="{{ $manga->slug }}">
-                                                    <img src="{{ $manga->cover_url ?: asset('images/pre-load1.png') }}" style="width: 50px; height: 70px; object-fit: cover; margin-right: 10px;">
-                                                    <div class="flex-grow-1">
-                                                        <strong>{{ $manga->title }}</strong><br>
-                                                        <small class="text-muted">{{ $manga->slug }}</small>
+                                            <div id="sortable-mangas">
+                                                @foreach($trendingMangas as $manga)
+                                                    <div class="d-flex align-items-center mb-2 p-2 border rounded selected-manga-item sortable-item" data-slug="{{ $manga->slug }}" data-order="{{ $loop->index }}">
+                                                        <div class="drag-handle me-2" style="cursor: move; color: #999;">
+                                                            <i class="bi bi-grip-vertical"></i>
+                                                        </div>
+                                                        <img src="{{ $manga->cover_url ?: asset('images/pre-load1.png') }}" style="width: 50px; height: 70px; object-fit: cover; margin-right: 10px;">
+                                                        <div class="flex-grow-1">
+                                                            <strong>{{ $manga->title }}</strong><br>
+                                                            <small class="text-muted">{{ $manga->slug }}</small>
+                                                        </div>
+                                                        <button type="button" class="btn btn-sm btn-danger remove-trending-manga" data-slug="{{ $manga->slug }}">
+                                                            <i class="bi bi-x"></i>
+                                                        </button>
                                                     </div>
-                                                    <button type="button" class="btn btn-sm btn-danger remove-trending-manga" data-slug="{{ $manga->slug }}">
-                                                        <i class="bi bi-x"></i>
-                                                    </button>
-                                                </div>
-                                            @endforeach
+                                                @endforeach
+                                            </div>
                                         @else
                                             <p class="text-muted">Chưa có truyện nào được chọn</p>
                                         @endif
@@ -188,6 +196,29 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+<style>
+.sortable-item {
+    transition: all 0.3s ease;
+}
+.sortable-item:hover {
+    background-color: #f0f0f0;
+}
+.sortable-ghost {
+    opacity: 0.4;
+    background-color: #e3f2fd;
+}
+.drag-handle {
+    transition: color 0.2s ease;
+}
+.drag-handle:hover {
+    color: #007bff !important;
+}
+.sortable-item.sortable-drag {
+    background-color: #e3f2fd;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+</style>
 <script>
     $(document).ready(function() {
         let crawlRunning = false;
@@ -448,7 +479,7 @@
             const selectedDiv = $('#trending-selected');
             
             if (selectedMangas.length === 0) {
-                selectedDiv.html('<p class="text-muted">Chưa có truyện nào được chọn</p>');
+                selectedDiv.html('<div class="alert alert-info mb-2"><i class="bi bi-info-circle"></i> Kéo và thả để thay đổi thứ tự hiển thị</div><p class="text-muted">Chưa có truyện nào được chọn</p>');
                 return;
             }
             
@@ -457,12 +488,15 @@
                 method: 'GET',
                 data: { q: selectedMangas.join(',') },
                 success: function(response) {
-                    let html = '';
-                    selectedMangas.forEach(function(slug) {
+                    let html = '<div class="alert alert-info mb-2"><i class="bi bi-info-circle"></i> Kéo và thả để thay đổi thứ tự hiển thị</div><div id="sortable-mangas">';
+                    selectedMangas.forEach(function(slug, index) {
                         const manga = response.find(m => m.slug === slug);
                         if (manga) {
                             html += `
-                                <div class="d-flex align-items-center mb-2 p-2 border rounded selected-manga-item" data-slug="${manga.slug}">
+                                <div class="d-flex align-items-center mb-2 p-2 border rounded selected-manga-item sortable-item" data-slug="${manga.slug}" data-order="${index}">
+                                    <div class="drag-handle me-2" style="cursor: move; color: #999;">
+                                        <i class="bi bi-grip-vertical"></i>
+                                    </div>
                                     <img src="${manga.cover_url || '/images/pre-load1.png'}" style="width: 50px; height: 70px; object-fit: cover; margin-right: 10px;">
                                     <div class="flex-grow-1">
                                         <strong>${manga.title}</strong><br>
@@ -475,10 +509,42 @@
                             `;
                         }
                     });
+                    html += '</div>';
                     selectedDiv.html(html);
+                    
+                    // Initialize Sortable
+                    initializeSortable();
                 }
             });
         }
+        
+        function initializeSortable() {
+            const sortableEl = document.getElementById('sortable-mangas');
+            if (sortableEl) {
+                new Sortable(sortableEl, {
+                    animation: 150,
+                    handle: '.drag-handle',
+                    onEnd: function(evt) {
+                        // Update selectedMangas array based on new order
+                        const items = sortableEl.querySelectorAll('.sortable-item');
+                        const newOrder = [];
+                        items.forEach(function(item) {
+                            newOrder.push(item.dataset.slug);
+                        });
+                        selectedMangas = newOrder;
+                        
+                        console.log('New order:', selectedMangas);
+                    }
+                });
+            }
+        }
+        
+        // Initialize Sortable on page load if mangas exist
+        $(document).ready(function() {
+            setTimeout(function() {
+                initializeSortable();
+            }, 100);
+        });
         
         $('#trending-form').on('submit', function(e) {
             e.preventDefault();

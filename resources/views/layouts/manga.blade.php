@@ -27,6 +27,16 @@
     <meta property="og:title" content="@yield('og:title', 'Hangtruyen - Trang web đọc truyện tranh Online')" />
     <meta property="og:description" content="@yield('og:description', 'Đọc truyện tranh manga, manhua, manhwa miễn phí được cập nhật liên tục hàng ngày.')" />
     <meta property="og:image" content="@yield('og:image', asset('images/logo-dark.png'))" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="HangTruyen" />
+    
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="@yield('og:title', 'Hangtruyen - Trang web đọc truyện tranh Online')" />
+    <meta name="twitter:description" content="@yield('og:description', 'Đọc truyện tranh manga, manhua, manhwa miễn phí được cập nhật liên tục hàng ngày.')" />
+    <meta name="twitter:image" content="@yield('og:image', asset('images/logo-dark.png'))" />
+
+    @stack('head')
 
     <meta http-equiv="content-language" content="vi" />
     <meta name="csrf-token" content="{{ csrf_token() }}">
