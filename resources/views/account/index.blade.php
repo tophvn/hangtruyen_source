@@ -207,7 +207,7 @@
                                                 </li>
                                             </ul>
                                         @endif
-                                        <button class="unfollow-manga-btn btn btn-sm btn-outline-danger mt-2" data-id="{{ $manga['id'] }}">Bỏ theo dõi</button>
+                                        <button class="unfollow-manga-btn btn btn-sm btn-outline-danger mt-2" data-slug="{{ $manga['slug'] }}">Bỏ theo dõi</button>
                                     </div>
                                 </div>
                             </div>
