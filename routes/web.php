@@ -3397,6 +3397,16 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
     
     Route::get('/settings', function () {
         $settings = [
+            // Site/Head settings
+            'site_name' => \App\Models\Setting::get('site_name', 'HangTruyen'),
+            'site_description' => \App\Models\Setting::get('site_description', ''),
+            'site_keywords' => \App\Models\Setting::get('site_keywords', ''),
+            'favicon_path' => \App\Models\Setting::get('favicon_path', '/images/favicon.png'),
+            'logo_path' => \App\Models\Setting::get('logo_path', '/images/logo.png'),
+            'logo_dark_path' => \App\Models\Setting::get('logo_dark_path', '/images/logo-dark.png'),
+            'mini_logo_path' => \App\Models\Setting::get('mini_logo_path', '/images/mini-logo.png'),
+
+            // Social + Google Tag
             'facebook_url' => \App\Models\Setting::get('facebook_url', ''),
             'twitter_url' => \App\Models\Setting::get('twitter_url', ''),
             'youtube_url' => \App\Models\Setting::get('youtube_url', ''),
@@ -3404,8 +3414,211 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
             'gmail_url' => \App\Models\Setting::get('gmail_url', ''),
             'gtag_code' => \App\Models\Setting::get('gtag_code', ''),
         ];
-        return view('admin.settings', compact('settings'));
+        
+        $effects = [
+            'none' => 'Không dùng hiệu ứng',
+            'bubbles' => 'Bubbles',
+            'firework' => 'Pháo hoa',
+            'fireworks_sound' => 'Pháo hoa (có âm thanh)',
+            'halloween' => 'Halloween',
+            'hearts' => 'Trái tim',
+            'hoadao' => 'Hoa đào',
+            'hoamai' => 'Hoa mai',
+            'leaves' => 'Lá rơi',
+            'lixi' => 'Lì xì',
+            'matrix' => 'Matrix',
+            'quockhanh' => 'Quốc khánh',
+            'snow' => 'Tuyết rơi',
+            'stars' => 'Ngôi sao',
+            'trungthu' => 'Trung thu',
+        ];
+        $currentEffect = \App\Models\Setting::get('site_effect', 'none');
+        
+        return view('admin.settings', [
+            'settings' => $settings,
+            'effects' => $effects,
+            'currentEffect' => $currentEffect,
+        ]);
     })->name('admin.settings');
+
+    Route::post('/settings/site', function (\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'site_name' => 'nullable|string|max:255',
+            'site_description' => 'nullable|string|max:2000',
+            'site_keywords' => 'nullable|string|max:2000',
+
+            'favicon' => 'nullable|file|mimes:png|max:2048',
+            'logo' => 'nullable|file|mimes:png|max:5120',
+            'logo_dark' => 'nullable|file|mimes:png|max:5120',
+            'mini_logo' => 'nullable|file|mimes:png|max:5120',
+        ]);
+
+        $setOrDelete = function (string $key, $value) {
+            if (is_string($value)) {
+                $value = trim($value);
+            }
+            if ($value === null || $value === '') {
+                \App\Models\Setting::where('key', $key)->delete();
+                return;
+            }
+            \App\Models\Setting::set($key, $value);
+        };
+
+        $setOrDelete('site_name', $validated['site_name'] ?? null);
+        $setOrDelete('site_description', $validated['site_description'] ?? null);
+        $setOrDelete('site_keywords', $validated['site_keywords'] ?? null);
+
+        $imagesDir = public_path('images');
+        if (!is_dir($imagesDir)) {
+            @mkdir($imagesDir, 0755, true);
+        }
+
+        $defaultsDir = public_path('images/_defaults');
+        if (!is_dir($defaultsDir)) {
+            @mkdir($defaultsDir, 0755, true);
+        }
+        foreach (['favicon.png', 'logo.png', 'logo-dark.png', 'mini-logo.png'] as $fname) {
+            $src = $imagesDir . DIRECTORY_SEPARATOR . $fname;
+            $dst = $defaultsDir . DIRECTORY_SEPARATOR . $fname;
+            if (file_exists($src) && !file_exists($dst)) {
+                @copy($src, $dst);
+            }
+        }
+
+        if ($request->hasFile('favicon')) {
+            $request->file('favicon')->move($imagesDir, 'favicon.png');
+            \App\Models\Setting::set('favicon_path', '/images/favicon.png');
+        }
+        if ($request->hasFile('logo')) {
+            $request->file('logo')->move($imagesDir, 'logo.png');
+            \App\Models\Setting::set('logo_path', '/images/logo.png');
+        }
+        if ($request->hasFile('logo_dark')) {
+            $request->file('logo_dark')->move($imagesDir, 'logo-dark.png');
+            \App\Models\Setting::set('logo_dark_path', '/images/logo-dark.png');
+        }
+        if ($request->hasFile('mini_logo')) {
+            $request->file('mini_logo')->move($imagesDir, 'mini-logo.png');
+            \App\Models\Setting::set('mini_logo_path', '/images/mini-logo.png');
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã lưu cấu hình Website thành công',
+        ]);
+    })->name('admin.settings.site');
+
+    Route::post('/settings/site/images/reset', function (\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'target' => 'required|string|in:favicon,logo,logo_dark,mini_logo,all',
+        ]);
+
+        $imagesDir = public_path('images');
+        $defaultsDir = public_path('images/_defaults');
+
+        $map = [
+            'favicon' => 'favicon.png',
+            'logo' => 'logo.png',
+            'logo_dark' => 'logo-dark.png',
+            'mini_logo' => 'mini-logo.png',
+        ];
+
+        $targets = $validated['target'] === 'all'
+            ? array_keys($map)
+            : [$validated['target']];
+
+        foreach ($targets as $key) {
+            $fname = $map[$key] ?? null;
+            if (!$fname) {
+                continue;
+            }
+
+            $src = $defaultsDir . DIRECTORY_SEPARATOR . $fname;
+            $dst = $imagesDir . DIRECTORY_SEPARATOR . $fname;
+
+            if (!file_exists($src)) {
+                if (!is_dir($defaultsDir)) {
+                    @mkdir($defaultsDir, 0755, true);
+                }
+                if (file_exists($dst)) {
+                    @copy($dst, $src);
+                }
+            }
+
+            if (!file_exists($src)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Không tìm thấy ảnh mặc định để khôi phục. Vui lòng kiểm tra thư mục public/images/_defaults.',
+                ], 422);
+            }
+
+            @copy($src, $dst);
+        }
+
+        \App\Models\Setting::set('favicon_path', '/images/favicon.png');
+        \App\Models\Setting::set('logo_path', '/images/logo.png');
+        \App\Models\Setting::set('logo_dark_path', '/images/logo-dark.png');
+        \App\Models\Setting::set('mini_logo_path', '/images/mini-logo.png');
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã khôi phục ảnh mặc định thành công',
+        ]);
+    })->name('admin.settings.site.images.reset');
+
+    Route::post('/settings/site/text/reset', function (\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'target' => 'required|string|in:description,keywords,all',
+        ]);
+
+        $targets = $validated['target'] === 'all'
+            ? ['site_description', 'site_keywords']
+            : ($validated['target'] === 'description' ? ['site_description'] : ['site_keywords']);
+
+        \App\Models\Setting::whereIn('key', $targets)->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã khôi phục mặc định thành công',
+        ]);
+    })->name('admin.settings.site.text.reset');
+
+    Route::post('/settings/effect', function (\Illuminate\Http\Request $request) {
+        $effects = [
+            'none',
+            'bubbles',
+            'firework',
+            'fireworks_sound',
+            'halloween',
+            'hearts',
+            'hoadao',
+            'hoamai',
+            'leaves',
+            'lixi',
+            'matrix',
+            'quockhanh',
+            'snow',
+            'stars',
+            'trungthu',
+        ];
+
+        $validated = $request->validate([
+            'site_effect' => 'required|string|in:' . implode(',', $effects),
+        ]);
+
+        $value = $validated['site_effect'] ?? 'none';
+
+        if ($value === 'none') {
+            \App\Models\Setting::where('key', 'site_effect')->delete();
+        } else {
+            \App\Models\Setting::set('site_effect', $value);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã lưu cấu hình hiệu ứng thành công',
+        ]);
+    })->name('admin.settings.effect');
     
     Route::post('/settings/social', function () {
         $facebook = request()->input('facebook_url', '');

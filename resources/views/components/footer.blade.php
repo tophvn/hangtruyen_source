@@ -3,10 +3,16 @@
         <div class="row">
             <div class="col-12 col-lg-4">
                 <div class="f-left">
+                    @php
+                        $siteName = trim((string) \App\Models\Setting::get('site_name', 'HangTruyen'));
+                        if ($siteName === '') {
+                            $siteName = 'HangTruyen';
+                        }
+                    @endphp
                     <a href="{{ url('/') }}" class="logo">
                         <img class="" alt="Truyện tranh online mới nhất" src="{{ asset('images/logo-dark.png') }}" width="146" height="52" />
                     </a>
-                    <p class="mt-3">Hangtruyen là website đọc <b>truyện tranh</b> online uy tín hàng đầu Việt Nam. Tất cả các truyện trên website đăng tải được Hangtruyen biên dịch và tổng hợp từ nhiều nguồn trên Internet.</p>
+                    <p class="mt-3">{{ $siteName }} là website đọc <b>truyện tranh</b> online uy tín hàng đầu Việt Nam. Tất cả các truyện trên website đăng tải được {{ $siteName }} biên dịch và tổng hợp từ nhiều nguồn trên Internet.</p>
                 </div>
             </div>
             <div class="col-12 col-lg-6">

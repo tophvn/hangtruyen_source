@@ -1,0 +1,87 @@
+<div class="lixis" aria-hidden="true">
+    <div class="lixi">🧧</div>
+    <div class="lixi">🧧</div>
+    <div class="lixi">🧧</div>
+    <div class="lixi">🧧</div>
+    <div class="lixi">🧧</div>
+    <div class="lixi">🧧</div>
+    <div class="lixi">🧧</div>
+    <div class="lixi">🧧</div>
+</div>
+
+<style>
+    .lixi {
+        font-size: 2em;
+        position: fixed;
+        top: -10%;
+        z-index: 9999;
+        pointer-events: none;
+        user-select: none;
+        animation-name: lixi-fall, lixi-shake;
+        animation-duration: 8s, 4s;
+        animation-timing-function: linear, ease-in-out;
+        animation-iteration-count: infinite, infinite;
+    }
+
+    @keyframes lixi-fall {
+        0% {
+            top: -10%;
+        }
+
+        100% {
+            top: 100%;
+        }
+    }
+
+    @keyframes lixi-shake {
+
+        0%,
+        100% {
+            transform: translateX(0) rotate(0deg);
+        }
+
+        50% {
+            transform: translateX(100px) rotate(20deg);
+        }
+    }
+
+    .lixi:nth-of-type(1) {
+        left: 5%;
+        animation-delay: 0s, 0s;
+    }
+
+    .lixi:nth-of-type(2) {
+        left: 15%;
+        animation-delay: 2s, 1s;
+    }
+
+    .lixi:nth-of-type(3) {
+        left: 30%;
+        animation-delay: 4s, 0.5s;
+    }
+
+    .lixi:nth-of-type(4) {
+        left: 45%;
+        animation-delay: 1s, 2s;
+    }
+
+    .lixi:nth-of-type(5) {
+        left: 60%;
+        animation-delay: 5s, 1.5s;
+    }
+
+    .lixi:nth-of-type(6) {
+        left: 75%;
+        animation-delay: 3s, 0.8s;
+    }
+
+    .lixi:nth-of-type(7) {
+        left: 85%;
+        animation-delay: 6s, 2.5s;
+    }
+
+    .lixi:nth-of-type(8) {
+        left: 95%;
+        animation-delay: 0.5s, 1.2s;
+    }
+</style>

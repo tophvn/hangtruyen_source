@@ -1,0 +1,245 @@
+<style>
+    #fireworksSoundCanvas {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 9998;
+        pointer-events: none;
+        background: transparent;
+    }
+
+    .info-text-firework {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.8rem;
+        pointer-events: none;
+        font-family: 'Inter', sans-serif;
+    }
+</style>
+
+<canvas id="fireworksSoundCanvas"></canvas>
+<div class="info-text-firework" id="infoTextFirework">Lễ hội pháo hoa đang diễn ra...</div>
+
+<!-- Tone.js library for audio generation -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+
+<script>
+    (function () {
+        const canvas = document.getElementById('fireworksSoundCanvas');
+        const ctx = canvas.getContext('2d');
+        const infoText = document.getElementById('infoTextFirework');
+        let cw = window.innerWidth;
+        let ch = window.innerHeight;
+        canvas.width = cw;
+        canvas.height = ch;
+
+        let fireworks = [];
+        let particles = [];
+        let hue = 120;
+        let timerTick = 0;
+        let timerTotal = 80;
+        let audioStarted = false;
+
+        let launchSynth, explosionSynth, reverb;
+
+        function setupAudio() {
+            reverb = new Tone.Reverb({
+                decay: 4,
+                preDelay: 0.01,
+                wet: 0.3
+            }).toDestination();
+
+            launchSynth = new Tone.NoiseSynth({
+                noise: { type: 'pink' },
+                envelope: {
+                    attack: 0.005,
+                    decay: 0.2,
+                    sustain: 0.1,
+                    release: 0.5,
+                },
+            }).connect(reverb);
+
+            explosionSynth = new Tone.NoiseSynth({
+                noise: { type: 'white' },
+                envelope: {
+                    attack: 0.005,
+                    decay: 0.1,
+                    sustain: 0,
+                    release: 0.2,
+                },
+            }).connect(reverb);
+        }
+
+        function random(min, max) { return Math.random() * (max - min) + min; }
+        function calculateDistance(p1x, p1y, p2x, p2y) {
+            const xDistance = p1x - p2x;
+            const yDistance = p1y - p2y;
+            return Math.sqrt(Math.pow(xDistance, 2) + Math.pow(yDistance, 2));
+        }
+
+        class Particle {
+            constructor(x, y, hue) {
+                this.x = x;
+                this.y = y;
+                this.coords = [];
+                this.coordCount = 5;
+                while (this.coordCount--) { this.coords.push([this.x, this.y]); }
+                this.angle = random(0, Math.PI * 2);
+                this.speed = random(1, 10);
+                this.friction = 0.95;
+                this.gravity = 1;
+                this.hue = hue;
+                this.brightness = random(50, 80);
+                this.alpha = 1;
+                this.decay = random(0.015, 0.03);
+            }
+
+            update() {
+                this.coords.pop();
+                this.coords.unshift([this.x, this.y]);
+                this.speed *= this.friction;
+                this.y += this.gravity;
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed;
+                this.alpha -= this.decay;
+                return !(this.alpha <= this.decay);
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.moveTo(this.coords[this.coords.length - 1][0], this.coords[this.coords.length - 1][1]);
+                ctx.lineTo(this.x, this.y);
+                ctx.strokeStyle = `hsla(${this.hue}, 100%, ${this.brightness}%, ${this.alpha})`;
+                ctx.stroke();
+            }
+        }
+
+        class Firework {
+            constructor(startX, startY, targetX, targetY) {
+                this.x = startX;
+                this.y = startY;
+                this.startX = startX;
+                this.startY = startY;
+                this.targetX = targetX;
+                this.targetY = targetY;
+                this.distanceToTarget = calculateDistance(startX, startY, targetX, targetY);
+                this.distanceTraveled = 0;
+                this.coords = [];
+                this.coordCount = 3;
+                while (this.coordCount--) { this.coords.push([this.x, this.y]); }
+                this.angle = Math.atan2(targetY - startY, targetX - startX);
+                this.speed = 2;
+                this.acceleration = 1.05;
+                this.brightness = random(50, 70);
+                this.targetRadius = 1;
+
+                if (audioStarted) {
+                    launchSynth.triggerAttackRelease('8n', Tone.now(), random(0.5, 1));
+                }
+            }
+
+            update() {
+                this.coords.pop();
+                this.coords.unshift([this.x, this.y]);
+                if (this.targetRadius < 8) { this.targetRadius += 0.3; } else { this.targetRadius = 1; }
+                this.speed *= this.acceleration;
+                const vx = Math.cos(this.angle) * this.speed;
+                const vy = Math.sin(this.angle) * this.speed;
+                this.distanceTraveled = calculateDistance(this.startX, this.startY, this.x + vx, this.y + vy);
+
+                if (this.distanceTraveled >= this.distanceToTarget) {
+                    createParticles(this.targetX, this.targetY);
+                    return false;
+                } else {
+                    this.x += vx;
+                    this.y += vy;
+                    return true;
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.moveTo(this.coords[this.coords.length - 1][0], this.coords[this.coords.length - 1][1]);
+                ctx.lineTo(this.x, this.y);
+                ctx.strokeStyle = `hsl(${hue}, 100%, ${this.brightness}%)`;
+                ctx.stroke();
+            }
+        }
+
+        function createParticles(x, y) {
+            if (audioStarted) {
+                try {
+                    explosionSynth.triggerAttackRelease("16n", Tone.now(), random(0.8, 1));
+                } catch (e) { }
+            }
+            const particleCount = 30;
+            const particleHue = hue + random(-20, 20);
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle(x, y, particleHue));
+            }
+        }
+
+        function loop() {
+            requestAnimationFrame(loop);
+            hue += 0.5;
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, cw, ch);
+            ctx.globalCompositeOperation = 'lighter';
+
+            let i = fireworks.length;
+            while (i--) {
+                if (!fireworks[i].update()) {
+                    fireworks.splice(i, 1);
+                } else {
+                    fireworks[i].draw();
+                }
+            }
+
+            let j = particles.length;
+            while (j--) {
+                if (!particles[j].update()) {
+                    particles.splice(j, 1);
+                } else {
+                    particles[j].draw();
+                }
+            }
+
+            if (timerTick >= timerTotal) {
+                fireworks.push(new Firework(cw / 2, ch, random(0, cw), random(0, ch / 2)));
+                timerTick = 0;
+            } else {
+                timerTick++;
+            }
+        }
+
+        function startAudio() {
+            if (audioStarted) return;
+            Tone.start().then(() => {
+                audioStarted = true;
+                setupAudio();
+                if (infoText) infoText.style.display = 'none';
+                window.removeEventListener('click', startAudio);
+            }).catch(() => { });
+        }
+
+        window.addEventListener('click', startAudio);
+
+        window.addEventListener('resize', () => {
+            cw = window.innerWidth;
+            ch = window.innerHeight;
+            canvas.width = cw;
+            canvas.height = ch;
+        });
+
+        // Loop automatically
+        loop();
+    })();
+</script>

@@ -1,0 +1,90 @@
+<style>
+    #snowCanvas {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 9998;
+        pointer-events: none;
+        background: transparent;
+    }
+</style>
+
+<canvas id="snowCanvas"></canvas>
+
+<script>
+    (function () {
+        const canvas = document.getElementById("snowCanvas");
+        const ctx = canvas.getContext("2d");
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener("resize", resize);
+        resize();
+
+        const flakes = [];
+
+        class Snowflake {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height * -1; // Start above screen
+                this.size = Math.random() * 3 + 1;
+                this.speed = Math.random() * 1 + 0.5;
+                this.velY = this.speed;
+                this.velX = 0;
+                this.stepSize = Math.random() / 30;
+                this.step = 0;
+                this.opacity = Math.random() * 0.5 + 0.3;
+            }
+
+            update() {
+                this.step += this.stepSize;
+                this.velX = Math.cos(this.step);
+                this.y += this.velY;
+                this.x += this.velX;
+
+                if (this.y > canvas.height) {
+                    this.reset();
+                }
+            }
+
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = -10;
+                this.speed = Math.random() * 1 + 0.5;
+                this.velY = this.speed;
+                this.opacity = Math.random() * 0.5 + 0.3;
+            }
+
+            draw() {
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function initSnow() {
+            for (let i = 0; i < 150; i++) {
+                flakes.push(new Snowflake());
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Snow is simpler, clear is fine
+
+            for (const flake of flakes) {
+                flake.update();
+                flake.draw();
+            }
+            requestAnimationFrame(animate);
+        }
+
+        initSnow();
+        animate();
+    })();
+</script>

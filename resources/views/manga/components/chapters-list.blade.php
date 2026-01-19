@@ -17,6 +17,12 @@
                 <div class="tl-update">Lượt xem</div>
                 <div class="tl-update">Người đăng</div>
             </div>
+            @php
+                $siteName = trim((string) \App\Models\Setting::get('site_name', 'HangTruyen'));
+                if ($siteName === '') {
+                    $siteName = 'HangTruyen';
+                }
+            @endphp
             <div class="list-chapters">
                 @if(isset($manga['chapters']) && count($manga['chapters']) > 0)
                     @foreach($manga['chapters'] as $chapter)
@@ -31,7 +37,7 @@
                             </a>
                             <span class="ll-update">Đang cập nhật</span>
                             <span class="ll-update">{{ number_format($cv) }}</span>
-                            <span class="ll-trans">HangTruyen</span>
+                            <span class="ll-trans">{{ $siteName }}</span>
                         </div>
                     @endforeach
                 @else

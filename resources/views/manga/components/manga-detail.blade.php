@@ -89,8 +89,14 @@
                                 </div>
                             </div>
                         </div>
+                        @php
+                            $siteName = trim((string) \App\Models\Setting::get('site_name', 'HangTruyen'));
+                            if ($siteName === '') {
+                                $siteName = 'HangTruyen';
+                            }
+                        @endphp
                         <div class="sort-des">
-                            <h2 class="label">Tóm tắt nội dung truyện {{ $mangaName }} tại HangTruyen</h2>
+                            <h2 class="label">Tóm tắt nội dung truyện {{ $mangaName }} tại {{ $siteName }}</h2>
                             <div class="line-clamp">{!! $manga['description'] ?? '<p>Đang cập nhật</p>' !!}</div>
                             <a class="show-full-des color" href="#" data-bs-toggle="modal" data-bs-target="#fullDescriptionModal">Đọc thêm</a>
                         </div>

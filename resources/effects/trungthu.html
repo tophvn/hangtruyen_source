@@ -1,0 +1,76 @@
+<div class="lanterns" aria-hidden="true">
+    <div class="lantern">🏮</div>
+    <div class="lantern">🌕</div>
+    <div class="lantern">🏮</div>
+    <div class="lantern">🏮</div>
+    <div class="lantern">🌕</div>
+    <div class="lantern">🏮</div>
+</div>
+
+<style>
+    .lantern {
+        font-size: 2.5em;
+        position: fixed;
+        top: -15%;
+        z-index: 9999;
+        pointer-events: none;
+        user-select: none;
+        filter: drop-shadow(0 0 10px rgba(255, 69, 0, 0.5));
+        animation-name: lantern-fall, lantern-sway;
+        animation-duration: 12s, 5s;
+        animation-timing-function: linear, ease-in-out;
+        animation-iteration-count: infinite, infinite;
+    }
+
+    @keyframes lantern-fall {
+        0% {
+            top: -15%;
+        }
+
+        100% {
+            top: 100%;
+        }
+    }
+
+    @keyframes lantern-sway {
+
+        0%,
+        100% {
+            transform: translateX(0) rotate(-5deg);
+        }
+
+        50% {
+            transform: translateX(50px) rotate(5deg);
+        }
+    }
+
+    .lantern:nth-of-type(1) {
+        left: 10%;
+        animation-delay: 0s, 0s;
+    }
+
+    .lantern:nth-of-type(2) {
+        left: 25%;
+        animation-delay: 4s, 1s;
+    }
+
+    .lantern:nth-of-type(3) {
+        left: 45%;
+        animation-delay: 8s, 0.5s;
+    }
+
+    .lantern:nth-of-type(4) {
+        left: 65%;
+        animation-delay: 2s, 2.5s;
+    }
+
+    .lantern:nth-of-type(5) {
+        left: 80%;
+        animation-delay: 6s, 1.5s;
+    }
+
+    .lantern:nth-of-type(6) {
+        left: 90%;
+        animation-delay: 10s, 0.8s;
+    }
+</style>

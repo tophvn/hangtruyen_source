@@ -1,0 +1,67 @@
+<style>
+    #starsCanvas {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 9998;
+        pointer-events: none;
+        background: transparent;
+    }
+</style>
+<canvas id="starsCanvas"></canvas>
+<script>
+    (function () {
+        const canvas = document.getElementById("starsCanvas");
+        const ctx = canvas.getContext("2d");
+        let cw, ch;
+
+        function resize() {
+            cw = canvas.width = window.innerWidth;
+            ch = canvas.height = window.innerHeight;
+        }
+        window.addEventListener("resize", resize);
+        resize();
+
+        const stars = [];
+
+        class Star {
+            constructor() {
+                this.x = Math.random() * cw;
+                this.y = Math.random() * ch;
+                this.size = Math.random() * 1.5;
+                this.blinkSpeed = Math.random() * 0.05 + 0.01;
+                this.alpha = Math.random();
+                this.goingUp = true;
+            }
+
+            update() {
+                if (this.goingUp) {
+                    this.alpha += this.blinkSpeed;
+                    if (this.alpha >= 1) this.goingUp = false;
+                } else {
+                    this.alpha -= this.blinkSpeed;
+                    if (this.alpha <= 0.2) this.goingUp = true;
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.alpha})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        for (let i = 0; i < 200; i++) stars.push(new Star());
+
+        function animate() {
+            ctx.clearRect(0, 0, cw, ch);
+            stars.forEach(s => { s.update(); s.draw(); });
+            requestAnimationFrame(animate);
+        }
+        animate();
+    })();
+</script>

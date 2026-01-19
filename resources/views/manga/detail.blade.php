@@ -1,6 +1,11 @@
 @extends('layouts.manga')
 
 @php
+    $siteName = trim((string) \App\Models\Setting::get('site_name', 'HangTruyen'));
+    if ($siteName === '') {
+        $siteName = 'HangTruyen';
+    }
+    
     $mangaName = $manga['name'] ?? 'Đang cập nhật';
     $mangaDescription = $manga['description'] ?? '';
     $mangaCover = $manga['cover_url'] ?? asset('images/logo-dark.png');
@@ -21,19 +26,19 @@
     }
 @endphp
 
-@section('title', 'Truyện tranh ' . $mangaName . $titleSuffix . ' mới nhất miễn phí - HangTruyen')
-@section('description', !empty($mangaDescription) ? strip_tags($mangaDescription) : 'Đọc ' . $mangaName . ' mới update full miễn phí tại HangTruyen. ' . $mangaName . ' là một trong những truyện tranh hot nhất hiện nay, cập nhật chương nhanh nhất.')
-@section('keywords', $mangaName . ', truyện tranh ' . $mangaName . ', đọc ' . $mangaName . ' online, ' . $mangaName . ' full, ' . $mangaName . ' miễn phí, hangtruyen')
+@section('title', 'Truyện tranh ' . $mangaName . $titleSuffix . ' mới nhất miễn phí - ' . $siteName)
+@section('description', !empty($mangaDescription) ? strip_tags($mangaDescription) : 'Đọc ' . $mangaName . ' mới update full miễn phí tại ' . $siteName . '. ' . $mangaName . ' là một trong những truyện tranh hot nhất hiện nay, cập nhật chương nhanh nhất.')
+@section('keywords', $mangaName . ', truyện tranh ' . $mangaName . ', đọc ' . $mangaName . ' online, ' . $mangaName . ' full, ' . $mangaName . ' miễn phí, ' . strtolower($siteName))
 @section('canonical', url('/truyen-tranh/' . $mangaSlugFull))
 @section('og:url', url('/truyen-tranh/' . $mangaSlugFull))
 @section('og:type', 'article')
-@section('og:title', 'Truyện tranh ' . $mangaName . $titleSuffix . ' mới nhất miễn phí - HangTruyen')
-@section('og:description', !empty($mangaDescription) ? strip_tags(substr($mangaDescription, 0, 200)) : 'Đọc ' . $mangaName . ' mới update full miễn phí tại HangTruyen cập nhật chương nhanh nhất')
+@section('og:title', 'Truyện tranh ' . $mangaName . $titleSuffix . ' mới nhất miễn phí - ' . $siteName)
+@section('og:description', !empty($mangaDescription) ? strip_tags(substr($mangaDescription, 0, 200)) : 'Đọc ' . $mangaName . ' mới update full miễn phí tại ' . $siteName . ' cập nhật chương nhanh nhất')
 @section('og:image', $mangaCover)
 
 @push('head')
 @php
-    $rawDescription = !empty($mangaDescription) ? strip_tags($mangaDescription) : ('Đọc ' . $mangaName . ' mới update full miễn phí tại HangTruyen');
+    $rawDescription = !empty($mangaDescription) ? strip_tags($mangaDescription) : ('Đọc ' . $mangaName . ' mới update full miễn phí tại ' . $siteName);
     $bookDescription = html_entity_decode($rawDescription, ENT_QUOTES, 'UTF-8');
     $bookData = [
         '@context' => 'https://schema.org',

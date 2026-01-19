@@ -1,3 +1,10 @@
+@php
+    $siteName = trim((string) \App\Models\Setting::get('site_name', 'HangTruyen'));
+    if ($siteName === '') {
+        $siteName = 'HangTruyen';
+    }
+@endphp
+
 <section id="manga-slider" class="container">
     <div class="slide-single splide" role="group" aria-label="Banner">
         <div class="splide__track">
@@ -64,5 +71,5 @@
             </button>
         </div>
     </div>
-    <h1 class="main-title">HangTruyen Chính Thức - Đọc truyện tranh miễn phí</h1>
+    <h1 class="main-title">{{ $siteName }} Chính Thức - Đọc truyện tranh miễn phí</h1>
 </section>

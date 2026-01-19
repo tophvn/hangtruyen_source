@@ -1,0 +1,78 @@
+<style>
+    #heartsCanvas {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 9998;
+        pointer-events: none;
+        background: transparent;
+    }
+</style>
+<canvas id="heartsCanvas"></canvas>
+<script>
+    (function () {
+        const canvas = document.getElementById("heartsCanvas");
+        const ctx = canvas.getContext("2d");
+        let cw, ch;
+
+        function resize() {
+            cw = canvas.width = window.innerWidth;
+            ch = canvas.height = window.innerHeight;
+        }
+        window.addEventListener("resize", resize);
+        resize();
+
+        const hearts = [];
+
+        class Heart {
+            constructor() {
+                this.reset();
+                this.y = Math.random() * ch; // Initial spread
+            }
+
+            reset() {
+                this.x = Math.random() * cw;
+                this.y = -20;
+                this.size = Math.random() * 10 + 5;
+                this.speed = Math.random() * 2 + 1;
+                this.opacity = Math.random() * 0.5 + 0.3;
+                this.hue = Math.random() * 20 + 340; // Pink/Red range
+                this.swing = Math.random() * 2;
+                this.swingSpeed = Math.random() * 0.05 + 0.02;
+                this.step = 0;
+            }
+
+            update() {
+                this.step += this.swingSpeed;
+                this.x += Math.sin(this.step) * this.swing;
+                this.y += this.speed;
+                if (this.y > ch + 20) this.reset();
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.opacity = this.opacity;
+                ctx.fillStyle = `hsla(${this.hue}, 100%, 70%, ${this.opacity})`;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.bezierCurveTo(-this.size / 2, -this.size / 2, -this.size, this.size / 3, 0, this.size);
+                ctx.bezierCurveTo(this.size, this.size / 3, this.size / 2, -this.size / 2, 0, 0);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        for (let i = 0; i < 50; i++) hearts.push(new Heart());
+
+        function animate() {
+            ctx.clearRect(0, 0, cw, ch);
+            hearts.forEach(h => { h.update(); h.draw(); });
+            requestAnimationFrame(animate);
+        }
+        animate();
+    })();
+</script>

@@ -1,5 +1,12 @@
+@php
+    $siteName = trim((string) \App\Models\Setting::get('site_name', 'HangTruyen'));
+    if ($siteName === '') {
+        $siteName = 'HangTruyen';
+    }
+@endphp
+
 <section id="manga-feature_genres" class="container">
-    <h2 class="m-title title">Tags nổi bật<span class="sub">Các tags tại Hang Truyện</span></h2>
+    <h2 class="m-title title">Tags nổi bật<span class="sub">Các tags tại {{ $siteName }}</span></h2>
     <div class="top-genres splide">
         <div class="splide__track">
             <div class="splide__list">

@@ -1,0 +1,151 @@
+<div class="flags" aria-hidden="true">
+    <div class="vflag">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 360">
+            <rect width="540" height="360" fill="#da251d" />
+            <polygon fill="#ff0"
+                points="270,70 299,158 392,158 317,213 345,301 270,246 195,301 223,213 148,158 241,158" />
+        </svg>
+    </div>
+    <div class="vflag">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 360">
+            <rect width="540" height="360" fill="#da251d" />
+            <polygon fill="#ff0"
+                points="270,70 299,158 392,158 317,213 345,301 270,246 195,301 223,213 148,158 241,158" />
+        </svg>
+    </div>
+    <div class="vflag">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 360">
+            <rect width="540" height="360" fill="#da251d" />
+            <polygon fill="#ff0"
+                points="270,70 299,158 392,158 317,213 345,301 270,246 195,301 223,213 148,158 241,158" />
+        </svg>
+    </div>
+    <div class="vflag">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 360">
+            <rect width="540" height="360" fill="#da251d" />
+            <polygon fill="#ff0"
+                points="270,70 299,158 392,158 317,213 345,301 270,246 195,301 223,213 148,158 241,158" />
+        </svg>
+    </div>
+    <div class="vflag">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 360">
+            <rect width="540" height="360" fill="#da251d" />
+            <polygon fill="#ff0"
+                points="270,70 299,158 392,158 317,213 345,301 270,246 195,301 223,213 148,158 241,158" />
+        </svg>
+    </div>
+    <div class="vflag">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 360">
+            <rect width="540" height="360" fill="#da251d" />
+            <polygon fill="#ff0"
+                points="270,70 299,158 392,158 317,213 345,301 270,246 195,301 223,213 148,158 241,158" />
+        </svg>
+    </div>
+    <div class="vflag">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 360">
+            <rect width="540" height="360" fill="#da251d" />
+            <polygon fill="#ff0"
+                points="270,70 299,158 392,158 317,213 345,301 270,246 195,301 223,213 148,158 241,158" />
+        </svg>
+    </div>
+    <div class="vflag">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 360">
+            <rect width="540" height="360" fill="#da251d" />
+            <polygon fill="#ff0"
+                points="270,70 299,158 392,158 317,213 345,301 270,246 195,301 223,213 148,158 241,158" />
+        </svg>
+    </div>
+</div>
+
+<style>
+    .vflag {
+        position: fixed;
+        bottom: -15%;
+        z-index: 9999;
+        pointer-events: none;
+        user-select: none;
+        animation-name: flag-rise, flag-wave;
+        animation-duration: 10s, 4s;
+        animation-timing-function: linear, ease-in-out;
+        animation-iteration-count: infinite, infinite;
+    }
+
+    .vflag svg {
+        width: 50px;
+        height: auto;
+        border-radius: 4px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    @keyframes flag-rise {
+        0% {
+            bottom: -15%;
+            opacity: 0;
+        }
+
+        10% {
+            opacity: 1;
+        }
+
+        90% {
+            opacity: 1;
+        }
+
+        100% {
+            bottom: 110%;
+            opacity: 0;
+        }
+    }
+
+    @keyframes flag-wave {
+
+        0%,
+        100% {
+            transform: translateX(0) rotate(-10deg);
+        }
+
+        50% {
+            transform: translateX(40px) rotate(10deg);
+        }
+    }
+
+    .vflag:nth-of-type(1) {
+        left: 5%;
+        animation-delay: 0s;
+    }
+
+    .vflag:nth-of-type(2) {
+        left: 15%;
+        animation-delay: 3s;
+    }
+
+    .vflag:nth-of-type(3) {
+        left: 30%;
+        animation-delay: 6s;
+    }
+
+    .vflag:nth-of-type(4) {
+        left: 45%;
+        animation-delay: 1.5s;
+    }
+
+    .vflag:nth-of-type(5) {
+        left: 60%;
+        animation-delay: 4.5s;
+    }
+
+    .vflag:nth-of-type(6) {
+        left: 75%;
+        animation-delay: 8s;
+    }
+
+    .vflag:nth-of-type(7) {
+        left: 85%;
+        animation-delay: 2s;
+    }
+
+    .vflag:nth-of-type(8) {
+        left: 92%;
+        animation-delay: 5.5s;
+    }
+</style>

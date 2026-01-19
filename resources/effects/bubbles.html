@@ -1,0 +1,76 @@
+<style>
+    #bubblesCanvas {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 9998;
+        pointer-events: none;
+        background: transparent;
+    }
+</style>
+<canvas id="bubblesCanvas"></canvas>
+<script>
+    (function () {
+        const canvas = document.getElementById("bubblesCanvas");
+        const ctx = canvas.getContext("2d");
+        let cw, ch;
+
+        function resize() {
+            cw = canvas.width = window.innerWidth;
+            ch = canvas.height = window.innerHeight;
+        }
+        window.addEventListener("resize", resize);
+        resize();
+
+        const bubbles = [];
+
+        class Bubble {
+            constructor() {
+                this.reset();
+                this.y = Math.random() * ch;
+            }
+
+            reset() {
+                this.x = Math.random() * cw;
+                this.y = ch + 50;
+                this.radius = Math.random() * 15 + 5;
+                this.speed = Math.random() * 1 + 0.5;
+                this.opacity = Math.random() * 0.3 + 0.1;
+                this.swing = Math.random() * 1;
+                this.step = Math.random() * 1000;
+            }
+
+            update() {
+                this.y -= this.speed;
+                this.x += Math.sin(this.step += 0.02) * this.swing;
+                if (this.y < -50) this.reset();
+            }
+
+            draw() {
+                ctx.strokeStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Highlight
+                ctx.beginPath();
+                ctx.arc(this.x - this.radius / 3, this.y - this.radius / 3, this.radius / 4, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity / 2})`;
+                ctx.fill();
+            }
+        }
+
+        for (let i = 0; i < 40; i++) bubbles.push(new Bubble());
+
+        function animate() {
+            ctx.clearRect(0, 0, cw, ch);
+            bubbles.forEach(b => { b.update(); b.draw(); });
+            requestAnimationFrame(animate);
+        }
+        animate();
+    })();
+</script>

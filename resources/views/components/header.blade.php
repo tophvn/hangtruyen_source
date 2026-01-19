@@ -11,9 +11,15 @@
             <a class="d-flex d-xl-none menu-random" href="/random">
                 <img alt="" src="{{ asset('images/random.png') }}" alt="Random" width="24" height="24" />
             </a>
+            @php
+                $siteName = trim((string) \App\Models\Setting::get('site_name', 'HangTruyen'));
+                if ($siteName === '') {
+                    $siteName = 'HangTruyen';
+                }
+            @endphp
             <a class="logo" title="Truyện tranh online" href="{{ url('/') }}">
-                <img class="logo-light" alt="Đọc truyện tranh miễn phí tại HangTruyen" src="{{ asset('images/logo.png') }}" width="150" height="54"/>
-                <img class="logo-dark" alt="Đọc truyện tranh miễn phí tại HangTruyen" src="{{ asset('images/logo-dark.png') }}" width="150" height="54"/>
+                <img class="logo-light" alt="Đọc truyện tranh miễn phí tại {{ $siteName }}" src="{{ asset('images/logo.png') }}" width="150" height="54"/>
+                <img class="logo-dark" alt="Đọc truyện tranh miễn phí tại {{ $siteName }}" src="{{ asset('images/logo-dark.png') }}" width="150" height="54"/>
             </a>
 
             <ul class="nav navbar-nav flex-row flex-wrap main-menu d-none d-xl-flex">

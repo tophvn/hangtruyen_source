@@ -2,13 +2,49 @@
 <html lang="vi">
 
 <head>
-    <title>@yield('title', 'HangTruyen - Đọc Truyện Tranh Online Manga, Manhua, Manhwa Miễn Phí | Cập Nhật Mới Nhất')</title>
-    <meta name="description" content="@yield('description', 'HangTruyen - Website đọc truyện tranh online miễn phí hàng đầu Việt Nam. Cập nhật truyện manga, manhua, manhwa mới nhất mỗi ngày. Đọc truyện full, không quảng cáo, chất lượng cao.')">
-    <meta name="keywords" content="@yield('keywords', 'đọc truyện tranh, truyện tranh online, manga online, manhua online, manhwa online, đọc truyện miễn phí, truyện tranh mới nhất, hangtruyen, đọc manga, đọc manhua, truyện full, truyện hot, truyện trending')">
-    <link rel="canonical" href="@yield('canonical', url('/'))" />
+    @php
+        $siteName = trim((string) \App\Models\Setting::get('site_name', 'HangTruyen'));
+        if ($siteName === '') {
+            $siteName = 'HangTruyen';
+        }
+
+        $defaultDescription = $siteName . ' - Website đọc truyện tranh online miễn phí hàng đầu Việt Nam. Cập nhật truyện manga, manhua, manhwa mới nhất mỗi ngày. Đọc truyện full, không quảng cáo, chất lượng cao. Hàng nghìn truyện tranh hot trending đang chờ bạn khám phá.';
+        $defaultKeywords = 'đọc truyện tranh, truyện tranh online, manga online, manhua online, manhwa online, đọc truyện miễn phí, truyện tranh mới nhất, hangtruyen, đọc manga, đọc manhua, truyện full, truyện hot, truyện trending, truyện tranh việt nam';
+
+        $settingsDescription = trim((string) \App\Models\Setting::get('site_description', ''));
+        $settingsKeywords = trim((string) \App\Models\Setting::get('site_keywords', ''));
+
+        $globalDescription = $settingsDescription !== '' ? $settingsDescription : $defaultDescription;
+        $globalKeywords = $settingsKeywords !== '' ? $settingsKeywords : $defaultKeywords;
+
+        $replaceNames = ['HangTruyen', 'Hang Truyện', 'Hangtruyen'];
+
+        $pageTitle = trim((string) $__env->yieldContent('title', $siteName . ' - Đọc Truyện Tranh Online Manga, Manhua, Manhwa Miễn Phí | Cập Nhật Mới Nhất'));
+        $pageTitle = str_ireplace($replaceNames, $siteName, $pageTitle);
+
+        $pageDescription = trim((string) $__env->yieldContent('description', $globalDescription));
+        $pageDescription = str_ireplace($replaceNames, $siteName, $pageDescription);
+
+        $pageKeywords = trim((string) $__env->yieldContent('keywords', $globalKeywords));
+        $pageKeywords = str_ireplace($replaceNames, $siteName, $pageKeywords);
+
+        $canonicalUrl = trim((string) $__env->yieldContent('canonical', url()->current()));
+        $ogUrl = trim((string) $__env->yieldContent('og:url', url()->current()));
+
+        $ogTitle = trim((string) $__env->yieldContent('og:title', $siteName . ' - Đọc Truyện Tranh Online Manga, Manhua, Manhwa Miễn Phí'));
+        $ogTitle = str_ireplace($replaceNames, $siteName, $ogTitle);
+
+        $ogDescription = trim((string) $__env->yieldContent('og:description', $globalDescription));
+        $ogDescription = str_ireplace($replaceNames, $siteName, $ogDescription);
+    @endphp
+
+    <title>{{ $pageTitle }}</title>
+    <meta name="description" content="{{ $pageDescription }}">
+    <meta name="keywords" content="{{ $pageKeywords }}">
+    <link rel="canonical" href="{{ $canonicalUrl }}" />
 
     <meta name="robots" content="index, follow" />
-    <meta name="author" content="HangTruyen">
+    <meta name="author" content="{{ $siteName }}">
     <meta name="language" content="Vietnamese">
     <meta name="revisit-after" content="1 days">
     <meta name="distribution" content="global">
@@ -18,8 +54,8 @@
         {
             "@context": "https://schema.org",
             "@type": "WebSite",
-            "name": "HangTruyen",
-            "alternateName": "Hang Truyện",
+            "name": "{{ $siteName }}",
+            "alternateName": "{{ $siteName }}",
             "url": "{{ url('/') }}",
             "potentialAction": {
                 "@type": "SearchAction",
@@ -39,7 +75,7 @@
         {
             "@context": "https://schema.org",
             "@type": "Organization",
-            "name": "HangTruyen",
+            "name": "{{ $siteName }}",
             "url": "{{ url('/') }}",
             "logo": "{{ asset('images/logo-dark.png') }}"@if(count($socialLinks) > 0),
             "sameAs": {!! json_encode($socialLinks, JSON_UNESCAPED_SLASHES) !!}
@@ -53,19 +89,19 @@
     
     <!-- Open Graph / Facebook -->
     <meta property="og:locale" content="vi_VN" />
-    <meta property="og:url" content="@yield('og:url', url('/'))" />
+    <meta property="og:url" content="{{ $ogUrl }}" />
     <meta property="og:type" content="@yield('og:type', 'website')" />
-    <meta property="og:title" content="@yield('og:title', 'HangTruyen - Đọc Truyện Tranh Online Manga, Manhua, Manhwa Miễn Phí')" />
-    <meta property="og:description" content="@yield('og:description', 'HangTruyen - Website đọc truyện tranh online miễn phí hàng đầu Việt Nam. Cập nhật truyện manga, manhua, manhwa mới nhất mỗi ngày.')" />
+    <meta property="og:title" content="{{ $ogTitle }}" />
+    <meta property="og:description" content="{{ $ogDescription }}" />
     <meta property="og:image" content="@yield('og:image', asset('images/logo-dark.png'))" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:site_name" content="HangTruyen" />
+    <meta property="og:site_name" content="{{ $siteName }}" />
     
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="@yield('og:title', 'HangTruyen - Đọc Truyện Tranh Online Miễn Phí')" />
-    <meta name="twitter:description" content="@yield('og:description', 'HangTruyen - Website đọc truyện tranh online miễn phí hàng đầu Việt Nam.')" />
+    <meta name="twitter:title" content="{{ $ogTitle }}" />
+    <meta name="twitter:description" content="{{ $ogDescription }}" />
     <meta name="twitter:image" content="@yield('og:image', asset('images/logo-dark.png'))" />
 
     @stack('head')
@@ -79,7 +115,7 @@
     <meta name="theme-color" content="#596FB7">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="HangTruyen">
+    <meta name="apple-mobile-web-app-title" content="{{ $siteName }}">
     <link rel="apple-touch-icon" href="{{ asset('images/favicon.png') }}">
     
     <!-- Bootstrap CSS -->
@@ -233,6 +269,17 @@
             }, 100);
         });
     </script>
+    @php
+        $activeEffect = \App\Models\Setting::get('site_effect', 'none');
+        $effectHtml = '';
+        if ($activeEffect && $activeEffect !== 'none') {
+            $effectPath = resource_path('effects/' . $activeEffect . '.html');
+            if (is_file($effectPath)) {
+                $effectHtml = file_get_contents($effectPath);
+            }
+        }
+    @endphp
+    {!! $effectHtml !!}
 </body>
 
 </html>

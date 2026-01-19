@@ -1,0 +1,67 @@
+<style>
+    #matrixCanvas {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 9998;
+        pointer-events: none;
+        background: transparent;
+    }
+</style>
+<canvas id="matrixCanvas"></canvas>
+<script>
+    (function () {
+        const canvas = document.getElementById("matrixCanvas");
+        const ctx = canvas.getContext("2d");
+        let cw, ch, columns;
+        const fontSize = 16;
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$+-*/=%\"'#&_()[]{}<>^|!;:,.".split("");
+        let drops = [];
+
+        function resize() {
+            cw = canvas.width = window.innerWidth;
+            ch = canvas.height = window.innerHeight;
+            columns = Math.floor(cw / fontSize);
+            drops = [];
+            for (let x = 0; x < columns; x++) drops[x] = 1;
+        }
+        window.addEventListener("resize", resize);
+        resize();
+
+        function draw() {
+            ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.fillRect(0, 0, cw, ch);
+            ctx.globalCompositeOperation = 'source-over';
+
+            ctx.fillStyle = "#0F0";
+            ctx.font = fontSize + "px monospace";
+
+            for (let i = 0; i < drops.length; i++) {
+                const text = chars[Math.floor(Math.random() * chars.length)];
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                if (drops[i] * fontSize > ch && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+        }
+
+        let lastTime = 0;
+        const fps = 30;
+        const interval = 1000 / fps;
+
+        function animate(time) {
+            if (time - lastTime > interval) {
+                draw();
+                lastTime = time;
+            }
+            requestAnimationFrame(animate);
+        }
+        requestAnimationFrame(animate);
+    })();
+</script>
