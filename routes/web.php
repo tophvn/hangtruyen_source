@@ -801,10 +801,24 @@ Route::get('/', function () {
                 $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
                 $chapterNumber = trim($chapterNumber);
                 
+                $actualChapter = \App\Models\MangaChapter::where('manga_id', $manga->id)
+                    ->where('chapter_name', 'LIKE', '%' . $chapterNumber . '%')
+                    ->orderBy('updated_at', 'desc')
+                    ->first();
+                
+                $updatedAt = null;
+                if ($actualChapter && $actualChapter->updated_at) {
+                    $updatedAt = formatVietnameseTime($actualChapter->updated_at);
+                } elseif ($manga->updated_at) {
+                    $updatedAt = formatVietnameseTime($manga->updated_at);
+                } elseif ($manga->last_synced_at) {
+                    $updatedAt = formatVietnameseTime($manga->last_synced_at);
+                }
+                
                 $lastChapterData = [
                     'name' => 'Chapter ' . $chapterNumber,
                     'slug' => 'chapter-' . $chapterNumber,
-                    'updated_at' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : null,
+                    'updated_at' => $updatedAt,
                 ];
             }
             
@@ -1198,10 +1212,25 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
                 $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
                 $chapterNumber = trim($chapterNumber);
                 
+                
+                $actualChapter = \App\Models\MangaChapter::where('manga_id', $manga->id)
+                    ->where('chapter_name', 'LIKE', '%' . $chapterNumber . '%')
+                    ->orderBy('updated_at', 'desc')
+                    ->first();
+                
+                $updatedAt = null;
+                if ($actualChapter && $actualChapter->updated_at) {
+                    $updatedAt = formatVietnameseTime($actualChapter->updated_at);
+                } elseif ($manga->updated_at) {
+                    $updatedAt = formatVietnameseTime($manga->updated_at);
+                } elseif ($manga->last_synced_at) {
+                    $updatedAt = formatVietnameseTime($manga->last_synced_at);
+                }
+                
                 $lastChapterData = [
                     'name' => 'Chapter ' . $chapterNumber,
                     'slug' => 'chapter-' . $chapterNumber,
-                    'updated_at' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : null,
+                    'updated_at' => $updatedAt,
                 ];
             }
             
@@ -2192,32 +2221,46 @@ Route::get('/hot-nhat', function () {
             foreach ($topMangas as $manga) {
                 $chapters = [];
                 
-                if ($manga->last_chapter_number) {
-                    $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
-                    $chapterNumber = trim($chapterNumber);
-                    
-                    $chapters[] = [
-                        'id' => null,
-                        'slug' => 'chapter-' . $chapterNumber,
-                        'name' => 'Chapter ' . $chapterNumber,
-                        'releasedAt' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : null,
-                    ];
+            if ($manga->last_chapter_number) {
+                $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
+                $chapterNumber = trim($chapterNumber);
+                
+                $actualChapter = \App\Models\MangaChapter::where('manga_id', $manga->id)
+                    ->where('chapter_name', 'LIKE', '%' . $chapterNumber . '%')
+                    ->orderBy('updated_at', 'desc')
+                    ->first();
+                
+                $releasedAt = null;
+                if ($actualChapter && $actualChapter->updated_at) {
+                    $releasedAt = formatVietnameseTime($actualChapter->updated_at);
+                } elseif ($manga->updated_at) {
+                    $releasedAt = formatVietnameseTime($manga->updated_at);
+                } elseif ($manga->last_synced_at) {
+                    $releasedAt = formatVietnameseTime($manga->last_synced_at);
                 }
                 
-                $viewsCount = (int)($manga->views_count ?? 0);
-                
-                $result[] = [
-                    'slug' => $manga->slug,
-                    'title' => $manga->title ?? 'Đang cập nhật',
-                    'posterPath' => $manga->cover_url ?? asset('images/pre-load1.png'),
-                    'avgVote' => $manga->rating ? (float)$manga->rating : 0,
-                    'countView' => $viewsCount,
-                    'chapters' => $chapters,
+                $chapters[] = [
+                    'id' => null,
+                    'slug' => 'chapter-' . $chapterNumber,
+                    'name' => 'Chapter ' . $chapterNumber,
+                    'releasedAt' => $releasedAt,
                 ];
             }
             
-            return $result;
-        } else {
+            $viewsCount = (int)($manga->views_count ?? 0);
+            
+            $result[] = [
+                'slug' => $manga->slug,
+                'title' => $manga->title ?? 'Đang cập nhật',
+                'posterPath' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                'avgVote' => $manga->rating ? (float)$manga->rating : 0,
+                'countView' => $viewsCount,
+                'chapters' => $chapters,
+            ];
+        }
+        
+        return $result;
+    } else {
             if ($period === 'day') {
                 $startDate = $today;
             } elseif ($period === 'week') {
@@ -2250,11 +2293,25 @@ Route::get('/hot-nhat', function () {
                     $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
                     $chapterNumber = trim($chapterNumber);
                     
+                    $actualChapter = \App\Models\MangaChapter::where('manga_id', $manga->id)
+                        ->where('chapter_name', 'LIKE', '%' . $chapterNumber . '%')
+                        ->orderBy('updated_at', 'desc')
+                        ->first();
+                    
+                    $releasedAt = null;
+                    if ($actualChapter && $actualChapter->updated_at) {
+                        $releasedAt = formatVietnameseTime($actualChapter->updated_at);
+                    } elseif ($manga->updated_at) {
+                        $releasedAt = formatVietnameseTime($manga->updated_at);
+                    } elseif ($manga->last_synced_at) {
+                        $releasedAt = formatVietnameseTime($manga->last_synced_at);
+                    }
+                    
                     $chapters[] = [
                         'id' => null,
                         'slug' => 'chapter-' . $chapterNumber,
                         'name' => 'Chapter ' . $chapterNumber,
-                        'releasedAt' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : null,
+                        'releasedAt' => $releasedAt,
                     ];
                 }
                 
@@ -2367,10 +2424,24 @@ Route::get('/tin-tuc', function () {
                 $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
                 $chapterNumber = trim($chapterNumber);
                 
+                $actualChapter = \App\Models\MangaChapter::where('manga_id', $manga->id)
+                    ->where('chapter_name', 'LIKE', '%' . $chapterNumber . '%')
+                    ->orderBy('updated_at', 'desc')
+                    ->first();
+                
+                $updatedAt = null;
+                if ($actualChapter && $actualChapter->updated_at) {
+                    $updatedAt = formatVietnameseTime($actualChapter->updated_at);
+                } elseif ($manga->updated_at) {
+                    $updatedAt = formatVietnameseTime($manga->updated_at);
+                } elseif ($manga->last_synced_at) {
+                    $updatedAt = formatVietnameseTime($manga->last_synced_at);
+                }
+                
                 $lastChapterData = [
                     'name' => 'Chapter ' . $chapterNumber,
                     'slug' => 'chapter-' . $chapterNumber,
-                    'updated_at' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : null,
+                    'updated_at' => $updatedAt,
                 ];
             }
             
