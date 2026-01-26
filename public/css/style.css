@@ -3073,12 +3073,14 @@ ul.pagination li.active a {
 .reading-header {
     background-color: #fffdf8;
     padding: 6px 40px;
-    position: sticky;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     z-index: 2000;
-    transition: 0.3s;
+    transition: transform 0.3s ease;
+    transform: translateY(0);
+    will-change: transform;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -3104,7 +3106,7 @@ ul.pagination li.active a {
 }
 
 .reading-header.expanded {
-    top: 0 !important;
+    transform: translateY(0) !important;
 }
 
 .reading-header.expanded .reading-header-btn i::before {

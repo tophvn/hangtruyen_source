@@ -261,6 +261,17 @@
                         </div>
                     </div>
                 </div>
+                <div class="tl-trans dropdown">
+                    <a href="" class="dropdown-toggle" data-bs-toggle="dropdown">
+                        <span>Người đăng</span>
+                        <i class="icon-arrow-down-1"></i>
+                    </a>
+                    <div class="dropdown-menu">
+                        <span class="active">
+                            <span class="dropdown-item" data-value="Admin" href="">Admin</span>
+                        </span>
+                    </div>
+                </div>
                 @if(isset($nextChapter) && $nextChapter)
                     <button type="button" class="navi next" onclick="window.location.href='{{ $nextChapter['url'] }}'" title="Chapter Sau">
                         <i class="icon-arrow-right"></i>
@@ -435,52 +446,96 @@
     <script src="{{ asset('js/custom.js') }}?v=1.06"></script>
     
     <script>
-        if (typeof jQuery === 'undefined') {
-            console.error('jQuery is not loaded');
-        }
-        let lastScrollTop = 0;
-        const readingHeader = document.getElementById('readingHeader');
-        const readingHeaderBtn = document.getElementById('reading-header-btn');
-        let isHeaderExpanded = false;
-        
-        if (readingHeader && readingHeaderBtn) {
-            window.addEventListener('scroll', function() {
-                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-                
-                if (isHeaderExpanded) {
-                    return;
-                }
-                
-                if (scrollTop > lastScrollTop && scrollTop > 100) {
-                    readingHeader.style.top = '-100%';
-                    readingHeaderBtn.style.opacity = '1';
-                    readingHeaderBtn.style.visibility = 'visible';
-                } else if (scrollTop < lastScrollTop) {
-                    readingHeader.style.top = '0';
-                    readingHeaderBtn.style.opacity = '0';
-                    readingHeaderBtn.style.visibility = 'hidden';
-                }
-                
-                lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
-            });
+        (function() {
+            let lastScrollTop = 0;
+            let ticking = false;
+            let isHeaderExpanded = false;
+            let readingHeader = null;
+            let readingHeaderBtn = null;
             
-            readingHeaderBtn.addEventListener('click', function() {
-                isHeaderExpanded = !isHeaderExpanded;
-                readingHeader.classList.toggle('expanded');
-                if (isHeaderExpanded) {
-                    readingHeader.style.top = '0';
-                    readingHeaderBtn.style.opacity = '0';
-                    readingHeaderBtn.style.visibility = 'hidden';
-                } else {
-                    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-                    if (scrollTop > 100) {
-                        readingHeader.style.top = '-100%';
+            function initReadingHeader() {
+                readingHeader = document.getElementById('readingHeader');
+                readingHeaderBtn = document.getElementById('reading-header-btn');
+                
+                if (!readingHeader || !readingHeaderBtn) {
+                    console.warn('Reading header elements not found');
+                    return false;
+                }
+                
+                function getHeaderHeight() {
+                    return readingHeader.offsetHeight || 100;
+                }
+                
+                function handleScroll() {
+                    if (isHeaderExpanded || !readingHeader || !readingHeaderBtn) {
+                        ticking = false;
+                        return;
+                    }
+                    
+                    const scrollTop = Math.max(
+                        window.pageYOffset || 0,
+                        document.documentElement.scrollTop || 0,
+                        document.body.scrollTop || 0,
+                        window.scrollY || 0
+                    );
+                    
+                    const headerHeight = getHeaderHeight();
+                    
+                    if (scrollTop > lastScrollTop && scrollTop > 50) {
+                        readingHeader.style.transform = `translateY(-${headerHeight}px)`;
                         readingHeaderBtn.style.opacity = '1';
                         readingHeaderBtn.style.visibility = 'visible';
+                    } 
+                    else if (scrollTop < lastScrollTop) {
+                        readingHeader.style.transform = 'translateY(0)';
+                        readingHeaderBtn.style.opacity = '0';
+                        readingHeaderBtn.style.visibility = 'hidden';
                     }
+                    
+                    lastScrollTop = scrollTop;
+                    ticking = false;
                 }
-            });
-        }
+                
+                window.addEventListener('scroll', function() {
+                    if (!ticking) {
+                        window.requestAnimationFrame(handleScroll);
+                        ticking = true;
+                    }
+                }, { passive: true });
+                
+                readingHeaderBtn.addEventListener('click', function() {
+                    isHeaderExpanded = !isHeaderExpanded;
+                    readingHeader.classList.toggle('expanded');
+                    const headerHeight = getHeaderHeight();
+                    const scrollTop = Math.max(
+                        window.pageYOffset || 0,
+                        document.documentElement.scrollTop || 0,
+                        document.body.scrollTop || 0,
+                        window.scrollY || 0
+                    );
+                    
+                    if (isHeaderExpanded) {
+                        readingHeader.style.transform = 'translateY(0)';
+                        readingHeaderBtn.style.opacity = '0';
+                        readingHeaderBtn.style.visibility = 'hidden';
+                    } else {
+                        if (scrollTop > 50) {
+                            readingHeader.style.transform = `translateY(-${headerHeight}px)`;
+                            readingHeaderBtn.style.opacity = '1';
+                            readingHeaderBtn.style.visibility = 'visible';
+                        }
+                    }
+                });
+                
+                return true;
+            }
+            
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initReadingHeader);
+            } else {
+                setTimeout(initReadingHeader, 50);
+            }
+        })();
 
         const formSearchChap = document.getElementById('form-search-chap');
         if (formSearchChap) {

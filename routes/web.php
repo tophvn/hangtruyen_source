@@ -460,26 +460,9 @@ Route::get('/', function () {
         ->limit(24)
         ->get()
         ->map(function($manga) {
-            $lastChapter = $manga->chapters()
-                ->orderBy('updated_at', 'desc')
-                ->orderBy('chapter_name', 'desc')
-                ->first();
-            
             $chapterData = [];
-            if ($lastChapter) {
-                $chapterName = $lastChapter->chapter_name;
-                if (!preg_match('/^Chapter\s+/i', $chapterName)) {
-                    $chapterName = 'Chapter ' . $chapterName;
-                }
-                $chapterData = [
-                    [
-                        'id' => $lastChapter->id,
-                        'slug' => $lastChapter->chapter_slug,
-                        'name' => $chapterName,
-                        'releasedAt' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
-                    ],
-                ];
-            } elseif ($manga->last_chapter_number) {
+            
+            if ($manga->last_chapter_number) {
                 $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
                 $chapterNumber = trim($chapterNumber);
                 
@@ -1311,21 +1294,14 @@ Route::get('/api/search', function () {
     
     $results = [];
     foreach ($query as $manga) {
-        $latestChapter = $manga->chapters()
-            ->whereNotNull('chapter_slug')
-            ->orderBy('updated_at', 'desc')
-            ->orderBy('chapter_name', 'desc')
-            ->first();
-        
+        // BẮT BUỘC: Luôn dùng last_chapter_number từ metadata (chapter mới nhất thực sự)
+        // KHÔNG dùng chapter từ database (chapters đã đọc)
         $chapterData = null;
-        if ($latestChapter) {
-            $chapterData = [
-                'id' => $latestChapter->id,
-                'slug' => $latestChapter->chapter_slug,
-                'name' => formatChapterNameForDisplay($latestChapter->chapter_name),
-            ];
-        } elseif ($manga->last_chapter_number) {
+        
+        if ($manga->last_chapter_number) {
             $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
+            $chapterNumber = trim($chapterNumber);
+            
             $chapterData = [
                 'id' => null,
                 'slug' => 'chapter-' . $chapterNumber,
