@@ -19,7 +19,6 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-// Auth API routes - sử dụng web middleware để có session
 Route::middleware('web')->group(function() {
     Route::get('/auth/user', [AuthController::class, 'user'])->name('api.auth.user');
     Route::post('/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');

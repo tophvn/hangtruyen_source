@@ -223,9 +223,6 @@
     $(document).ready(function() {
         let crawlRunning = false;
         let crawlInterval = null;
-
-        // Ensure we're on the update tab when form is submitted
-        // Toggle pages config
         $('#custom-pages').on('change', function() {
             if ($(this).is(':checked')) {
                 $('#pages-config').show();
@@ -237,7 +234,6 @@
             }
         });
 
-        // Toggle all pages
         $('#all-pages').on('change', function() {
             if ($(this).is(':checked')) {
                 $('#pages-input').prop('disabled', true);
@@ -246,12 +242,10 @@
             }
         });
 
-        // Crawl form submit
         $('#crawl-form').on('submit', function(e) {
             e.preventDefault();
             e.stopPropagation();
             
-            // Ensure we're on the update tab
             const updateTab = document.querySelector('#update');
             const updateTabButton = document.querySelector('button[data-bs-target="#update"]');
             if (updateTabButton && !updateTabButton.classList.contains('active')) {
@@ -283,7 +277,6 @@
                 data.pages = '1';
             }
 
-            // Show logs
             $('#crawl-logs').show();
             $('#log-content').html('');
             addLog('Bắt đầu crawl...', 'info');
@@ -294,13 +287,11 @@
                 addLog(`Trang: ${pages}`, 'info');
             }
 
-            // Disable form
             $('#crawl-form input, #crawl-form select, #crawl-form button').prop('disabled', true);
             $('#start-crawl-btn').hide();
             $('#stop-crawl-btn').show();
             crawlRunning = true;
 
-            // Start crawl
             startCrawl(data);
             return false;
         });
@@ -315,7 +306,6 @@
                         addLog(`Job ID: ${response.job_id}`, 'success');
                         addLog('Đang crawl, vui lòng chờ...', 'info');
                         
-                        // Poll for progress
                         checkProgress(response.job_id);
                     } else {
                         addLog(`Lỗi: ${response.message}`, 'error');
@@ -355,10 +345,9 @@
                     },
                     error: function(xhr) {
                         console.error('Progress check error:', xhr);
-                        // Continue polling even on error
                     }
                 });
-            }, 2000); // Poll every 2 seconds
+            }, 2000);
         }
 
         function stopCrawl() {
@@ -389,7 +378,6 @@
             const logLine = `<div style="color: ${color};">[${timestamp}] ${message}</div>`;
             $('#log-content').append(logLine);
             
-            // Auto scroll to bottom
             const logContainer = $('#crawl-logs .card-body');
             if (logContainer.length && logContainer[0]) {
                 logContainer.scrollTop(logContainer[0].scrollHeight);
@@ -512,7 +500,6 @@
                     html += '</div>';
                     selectedDiv.html(html);
                     
-                    // Initialize Sortable
                     initializeSortable();
                 }
             });
@@ -525,7 +512,6 @@
                     animation: 150,
                     handle: '.drag-handle',
                     onEnd: function(evt) {
-                        // Update selectedMangas array based on new order
                         const items = sortableEl.querySelectorAll('.sortable-item');
                         const newOrder = [];
                         items.forEach(function(item) {
@@ -539,7 +525,6 @@
             }
         }
         
-        // Initialize Sortable on page load if mangas exist
         $(document).ready(function() {
             setTimeout(function() {
                 initializeSortable();

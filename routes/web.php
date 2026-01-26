@@ -611,7 +611,6 @@ Route::get('/', function () {
         }
     }
     
-    // Lấy truyện sắp ra mắt từ database (status = ongoing và có chapter)
     $sapRaMatMangas = \App\Models\MangaMetadata::where('is_active', true)
         ->where(function($query) {
             $query->where('status', 'ongoing')
@@ -813,17 +812,16 @@ Route::get('/', function () {
             $manga = $mangaMetadata->get($topManga->manga_id);
             if (!$manga) continue;
             
-            $lastChapter = $manga->chapters()
-                ->orderBy('updated_at', 'desc')
-                ->orderBy('chapter_name', 'desc')
-                ->first();
-            
             $lastChapterData = null;
-            if ($lastChapter) {
+            
+            if ($manga->last_chapter_number) {
+                $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
+                $chapterNumber = trim($chapterNumber);
+                
                 $lastChapterData = [
-                    'name' => formatChapterNameForDisplay($lastChapter->chapter_name),
-                    'slug' => $lastChapter->chapter_slug,
-                    'updated_at' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                    'name' => 'Chapter ' . $chapterNumber,
+                    'slug' => 'chapter-' . $chapterNumber,
+                    'updated_at' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : null,
                 ];
             }
             
@@ -1211,17 +1209,16 @@ Route::get('/truyen-tranh/{slug}', function ($slug) {
             $manga = $mangaMetadata->get($topManga->manga_id);
             if (!$manga) continue;
             
-            $lastChapter = $manga->chapters()
-                ->orderBy('updated_at', 'desc')
-                ->orderBy('chapter_name', 'desc')
-                ->first();
-            
             $lastChapterData = null;
-            if ($lastChapter) {
+            
+            if ($manga->last_chapter_number) {
+                $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
+                $chapterNumber = trim($chapterNumber);
+                
                 $lastChapterData = [
-                    'name' => formatChapterNameForDisplay($lastChapter->chapter_name),
-                    'slug' => $lastChapter->chapter_slug,
-                    'updated_at' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                    'name' => 'Chapter ' . $chapterNumber,
+                    'slug' => 'chapter-' . $chapterNumber,
+                    'updated_at' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : null,
                 ];
             }
             
@@ -2217,18 +2214,17 @@ Route::get('/hot-nhat', function () {
             
             $result = [];
             foreach ($topMangas as $manga) {
-                $lastChapter = $manga->chapters()
-                    ->orderBy('updated_at', 'desc')
-                    ->orderBy('chapter_name', 'desc')
-                    ->first();
-                
                 $chapters = [];
-                if ($lastChapter) {
+                
+                if ($manga->last_chapter_number) {
+                    $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
+                    $chapterNumber = trim($chapterNumber);
+                    
                     $chapters[] = [
-                        'id' => $lastChapter->id,
-                        'slug' => $lastChapter->chapter_slug,
-                        'name' => formatChapterNameForDisplay($lastChapter->chapter_name),
-                        'releasedAt' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                        'id' => null,
+                        'slug' => 'chapter-' . $chapterNumber,
+                        'name' => 'Chapter ' . $chapterNumber,
+                        'releasedAt' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : null,
                     ];
                 }
                 
@@ -2272,18 +2268,17 @@ Route::get('/hot-nhat', function () {
                 $manga = $mangaMetadata->get($topManga->manga_id);
                 if (!$manga) continue;
                 
-                $lastChapter = $manga->chapters()
-                    ->orderBy('updated_at', 'desc')
-                    ->orderBy('chapter_name', 'desc')
-                    ->first();
-                
                 $chapters = [];
-                if ($lastChapter) {
+                
+                if ($manga->last_chapter_number) {
+                    $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
+                    $chapterNumber = trim($chapterNumber);
+                    
                     $chapters[] = [
-                        'id' => $lastChapter->id,
-                        'slug' => $lastChapter->chapter_slug,
-                        'name' => formatChapterNameForDisplay($lastChapter->chapter_name),
-                        'releasedAt' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                        'id' => null,
+                        'slug' => 'chapter-' . $chapterNumber,
+                        'name' => 'Chapter ' . $chapterNumber,
+                        'releasedAt' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : null,
                     ];
                 }
                 
@@ -2390,22 +2385,15 @@ Route::get('/tin-tuc', function () {
             $manga = $mangaMetadata->get($topManga->manga_id);
             if (!$manga) continue;
             
-            $lastChapter = $manga->chapters()
-                ->orderBy('updated_at', 'desc')
-                ->orderBy('chapter_name', 'desc')
-                ->first();
-            
             $lastChapterData = null;
-            if ($lastChapter) {
+            
+            if ($manga->last_chapter_number) {
+                $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
+                $chapterNumber = trim($chapterNumber);
+                
                 $lastChapterData = [
-                    'name' => formatChapterNameForDisplay($lastChapter->chapter_name),
-                    'slug' => $lastChapter->chapter_slug,
-                    'updated_at' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
-                ];
-            } elseif ($manga->last_chapter_number) {
-                $lastChapterData = [
-                    'name' => 'Chapter ' . $manga->last_chapter_number,
-                    'slug' => 'chapter-' . $manga->last_chapter_number,
+                    'name' => 'Chapter ' . $chapterNumber,
+                    'slug' => 'chapter-' . $chapterNumber,
                     'updated_at' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : null,
                 ];
             }
@@ -3245,13 +3233,10 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
     Route::post('/comments/{id}/delete', function ($id) {
         $comment = \App\Models\MangaComment::findOrFail($id);
         
-        // Xóa tất cả replies của comment này
         $comment->replies()->delete();
         
-        // Xóa tất cả likes của comment này
         $comment->likes()->delete();
         
-        // Xóa comment
         $comment->delete();
         
         return response()->json(['status' => 'success', 'message' => 'Xóa bình luận thành công']);
@@ -3485,21 +3470,137 @@ Route::prefix('admin')->middleware(['auth', 'admin'])->group(function () {
             }
         }
 
+        $imageErrors = [];
+        
         if ($request->hasFile('favicon')) {
-            $request->file('favicon')->move($imagesDir, 'favicon.png');
-            \App\Models\Setting::set('favicon_path', '/images/favicon.png');
+            try {
+                $file = $request->file('favicon');
+                $targetPath = $imagesDir . DIRECTORY_SEPARATOR . 'favicon.png';
+                if (file_exists($targetPath)) {
+                    @unlink($targetPath);
+                }
+                if ($file->move($imagesDir, 'favicon.png')) {
+                    if (file_exists($targetPath)) {
+                        try {
+                            \App\Models\Setting::set('favicon_path', '/images/favicon.png');
+                            $saved = \App\Models\Setting::get('favicon_path');
+                            if ($saved !== '/images/favicon.png') {
+                                $imageErrors[] = 'Database không được cập nhật cho favicon_path';
+                            }
+                        } catch (\Exception $dbError) {
+                            $imageErrors[] = 'Lỗi database khi lưu favicon_path: ' . $dbError->getMessage();
+                            \Log::error('Database error saving favicon_path: ' . $dbError->getMessage());
+                        }
+                    } else {
+                        $imageErrors[] = 'Không thể lưu file favicon.png';
+                    }
+                } else {
+                    $imageErrors[] = 'Không thể di chuyển file favicon. Vui lòng kiểm tra quyền ghi thư mục public/images';
+                }
+            } catch (\Exception $e) {
+                $imageErrors[] = 'Lỗi khi lưu favicon: ' . $e->getMessage();
+                \Log::error('Error saving favicon: ' . $e->getMessage());
+            }
         }
+        
         if ($request->hasFile('logo')) {
-            $request->file('logo')->move($imagesDir, 'logo.png');
-            \App\Models\Setting::set('logo_path', '/images/logo.png');
+            try {
+                $file = $request->file('logo');
+                $targetPath = $imagesDir . DIRECTORY_SEPARATOR . 'logo.png';
+                if (file_exists($targetPath)) {
+                    @unlink($targetPath);
+                }
+                if ($file->move($imagesDir, 'logo.png')) {
+                    if (file_exists($targetPath)) {
+                        try {
+                            \App\Models\Setting::set('logo_path', '/images/logo.png');
+                            $saved = \App\Models\Setting::get('logo_path');
+                            if ($saved !== '/images/logo.png') {
+                                $imageErrors[] = 'Database không được cập nhật cho logo_path';
+                            }
+                        } catch (\Exception $dbError) {
+                            $imageErrors[] = 'Lỗi database khi lưu logo_path: ' . $dbError->getMessage();
+                            \Log::error('Database error saving logo_path: ' . $dbError->getMessage());
+                        }
+                    } else {
+                        $imageErrors[] = 'Không thể lưu file logo.png';
+                    }
+                } else {
+                    $imageErrors[] = 'Không thể di chuyển file logo. Vui lòng kiểm tra quyền ghi thư mục public/images';
+                }
+            } catch (\Exception $e) {
+                $imageErrors[] = 'Lỗi khi lưu logo: ' . $e->getMessage();
+                \Log::error('Error saving logo: ' . $e->getMessage());
+            }
         }
+        
         if ($request->hasFile('logo_dark')) {
-            $request->file('logo_dark')->move($imagesDir, 'logo-dark.png');
-            \App\Models\Setting::set('logo_dark_path', '/images/logo-dark.png');
+            try {
+                $file = $request->file('logo_dark');
+                $targetPath = $imagesDir . DIRECTORY_SEPARATOR . 'logo-dark.png';
+                if (file_exists($targetPath)) {
+                    @unlink($targetPath);
+                }
+                if ($file->move($imagesDir, 'logo-dark.png')) {
+                    if (file_exists($targetPath)) {
+                        try {
+                            \App\Models\Setting::set('logo_dark_path', '/images/logo-dark.png');
+                            $saved = \App\Models\Setting::get('logo_dark_path');
+                            if ($saved !== '/images/logo-dark.png') {
+                                $imageErrors[] = 'Database không được cập nhật cho logo_dark_path';
+                            }
+                        } catch (\Exception $dbError) {
+                            $imageErrors[] = 'Lỗi database khi lưu logo_dark_path: ' . $dbError->getMessage();
+                            \Log::error('Database error saving logo_dark_path: ' . $dbError->getMessage());
+                        }
+                    } else {
+                        $imageErrors[] = 'Không thể lưu file logo-dark.png';
+                    }
+                } else {
+                    $imageErrors[] = 'Không thể di chuyển file logo-dark. Vui lòng kiểm tra quyền ghi thư mục public/images';
+                }
+            } catch (\Exception $e) {
+                $imageErrors[] = 'Lỗi khi lưu logo-dark: ' . $e->getMessage();
+                \Log::error('Error saving logo-dark: ' . $e->getMessage());
+            }
         }
+        
         if ($request->hasFile('mini_logo')) {
-            $request->file('mini_logo')->move($imagesDir, 'mini-logo.png');
-            \App\Models\Setting::set('mini_logo_path', '/images/mini-logo.png');
+            try {
+                $file = $request->file('mini_logo');
+                $targetPath = $imagesDir . DIRECTORY_SEPARATOR . 'mini-logo.png';
+                if (file_exists($targetPath)) {
+                    @unlink($targetPath);
+                }
+                if ($file->move($imagesDir, 'mini-logo.png')) {
+                    if (file_exists($targetPath)) {
+                        try {
+                            \App\Models\Setting::set('mini_logo_path', '/images/mini-logo.png');
+                            $saved = \App\Models\Setting::get('mini_logo_path');
+                            if ($saved !== '/images/mini-logo.png') {
+                                $imageErrors[] = 'Database không được cập nhật cho mini_logo_path';
+                            }
+                        } catch (\Exception $dbError) {
+                            $imageErrors[] = 'Lỗi database khi lưu mini_logo_path: ' . $dbError->getMessage();
+                            \Log::error('Database error saving mini_logo_path: ' . $dbError->getMessage());
+                        }
+                    } else {
+                        $imageErrors[] = 'Không thể lưu file mini-logo.png';
+                    }
+                } else {
+                    $imageErrors[] = 'Không thể di chuyển file mini-logo. Vui lòng kiểm tra quyền ghi thư mục public/images';
+                }
+            } catch (\Exception $e) {
+                $imageErrors[] = 'Lỗi khi lưu mini-logo: ' . $e->getMessage();
+                \Log::error('Error saving mini-logo: ' . $e->getMessage());
+            }
+        }
+        
+        if (!empty($imageErrors)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => implode('; ', $imageErrors),
+            ], 422);
         }
 
         return response()->json([

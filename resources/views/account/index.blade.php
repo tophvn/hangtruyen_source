@@ -35,11 +35,9 @@
                             $avatar = null;
                             $avatarInitial = strtoupper(substr($user->name ?? 'U', 0, 1));
                             if ($user->avatar) {
-                                // Nếu là URL (từ Google, etc.)
                                 if (filter_var($user->avatar, FILTER_VALIDATE_URL)) {
                                     $avatar = $user->avatar;
                                 } else {
-                                    // Nếu là path local
                                     $avatar = asset($user->avatar);
                                 }
                             }
@@ -253,12 +251,10 @@
 
 @push('scripts')
 <script>
-    // Handle tab switching with hash
     let page = new URLSearchParams(window.location.search).get('page') || 1;
 
     $('.nav-item').on('click', function (e) {
         const newUrl = new URL(window.location.href);
-        // Reset pagination when switching tabs
         newUrl.searchParams.delete('reading_page');
         newUrl.searchParams.delete('following_page');
 
@@ -312,7 +308,6 @@
         handleChooseTab();
     };
 
-    // Handle avatar upload
     $('input#changeAvatar').on('change', async function (e) {
         e.preventDefault();
         const file = this.files[0];
@@ -351,7 +346,6 @@
                         .empty();
                     $('input[name="avatar"]').val(response.data.path || response.data.url);
                     
-                    // Hiển thị thông báo thành công
                     if (typeof alertNoti === 'function') {
                         alertNoti('Upload ảnh đại diện thành công');
                     }
@@ -373,7 +367,6 @@
         }
     });
 
-    // Handle profile update
     $('#form-prf').on('submit', async function (e) {
         e.preventDefault();
         const formData = Object.fromEntries(new FormData(e.target).entries());
@@ -398,7 +391,6 @@
                     alert('Cập nhật thông tin thành công');
                 }
                 if (response.data && response.data.user) {
-                    // Update session if needed
                     location.reload();
                 }
             }
@@ -420,7 +412,6 @@
         }
     });
 
-    // Handle clear reading history
     $('.clear-reading-manga-btn').on('click', async function (e) {
         e.preventDefault();
         const mangaId = $(this).data('id');
@@ -463,7 +454,6 @@
         }
     });
 
-    // Handle unfollow
     $('.unfollow-manga-btn').on('click', async function (e) {
         e.preventDefault();
         const mangaSlug = $(this).data('slug');

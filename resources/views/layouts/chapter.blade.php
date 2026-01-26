@@ -435,7 +435,6 @@
     <script src="{{ asset('js/custom.js') }}?v=1.06"></script>
     
     <script>
-        // Ensure jQuery is loaded
         if (typeof jQuery === 'undefined') {
             console.error('jQuery is not loaded');
         }
@@ -483,7 +482,6 @@
             });
         }
 
-        // Chapter search functionality
         const formSearchChap = document.getElementById('form-search-chap');
         if (formSearchChap) {
             const searchInput = formSearchChap.querySelector('input');
@@ -504,9 +502,7 @@
             }
         }
 
-        // Lightmode toggle functionality - must be inside document ready
         $(document).ready(function() {
-            // Handle lightmode dropdown clicks
             $(document).on('click', '#lightmode .dl-mode', function(e) {
                 e.preventDefault();
                 const isLightMode = $(this).attr('data-value') === 'false';
@@ -522,10 +518,8 @@
                 }
             }
 
-            // Update on page load and when darkmode changes
             handleUpdateDarkmodeConfig();
             
-            // Also update when body class changes (in case darkmode is toggled elsewhere)
             const observer = new MutationObserver(function(mutations) {
                 mutations.forEach(function(mutation) {
                     if (mutation.type === 'attributes' && mutation.attributeName === 'class') {

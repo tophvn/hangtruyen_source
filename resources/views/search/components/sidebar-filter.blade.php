@@ -59,24 +59,19 @@
                             $tagId = $tag['id'] ?? '';
                             $tagValue = $tag['slug'] ?? $tag['name'] ?? (is_string($tag) ? $tag : '');
                             $tagName = $tag['name'] ?? (is_string($tag) ? $tag : '');
-                            // Check if selected by ID, slug, or name
                             $isSelected = isset($tags) && is_array($tags) && (
                                 in_array($tagId, $tags) || 
                                 in_array($tagValue, $tags) || 
                                 in_array($tagName, $tags)
                             );
                             
-                            // Tag colors: green, red, yellow
                             $tagColorClass = '';
-                            // tag-red: 
                             if (in_array($tagId, [2, 13, 41])) {
                                 $tagColorClass = 'tag-red';
                             }
-                            // tag-green: 
                             elseif (in_array($tagId, [45, 32])) {
                                 $tagColorClass = 'tag-green';
                             }
-                            // tag-yellow:
                             elseif (in_array($tagId, [33, 28, 5])) {
                                 $tagColorClass = 'tag-yellow';
                             }
