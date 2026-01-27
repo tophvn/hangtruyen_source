@@ -112,15 +112,16 @@ class OTruyenService
             return '';
         }
         
+        // Build full CDN URL first, then đi qua proxy của chính site
         if (strpos($thumbUrl, 'http') === 0) {
-            return $thumbUrl;
+            $fullUrl = $thumbUrl;
+        } elseif (strpos($thumbUrl, '/') === 0) {
+            $fullUrl = 'https://img.otruyenapi.com' . $thumbUrl;
+        } else {
+            $fullUrl = 'https://img.otruyenapi.com/uploads/comics/' . $thumbUrl;
         }
         
-        if (strpos($thumbUrl, '/') === 0) {
-            return 'https://img.otruyenapi.com' . $thumbUrl;
-        }
-        
-        return 'https://img.otruyenapi.com/uploads/comics/' . $thumbUrl;
+        return $this->wrapImageWithProxy($fullUrl);
     }
 
     protected function getLatestChapters($manga)
@@ -334,7 +335,7 @@ class OTruyenService
                     $tagName = is_string($tag) ? $tag : ($tag['name'] ?? '');
                     $tagNameLower = strtolower($tagName);
                     if (in_array($tagNameLower, ['manga', 'manhua', 'manhwa'])) {
-                        $existingType = $tagName; // Giữ nguyên case từ database
+                        $existingType = $tagName;
                         break;
                     }
                 }
@@ -613,14 +614,14 @@ class OTruyenService
         }
         
         if (strpos($thumbUrl, 'http') === 0) {
-            return $thumbUrl;
+            $fullUrl = $thumbUrl;
+        } elseif (strpos($thumbUrl, '/') === 0) {
+            $fullUrl = rtrim($domain, '/') . $thumbUrl;
+        } else {
+            $fullUrl = rtrim($domain, '/') . '/uploads/comics/' . $thumbUrl;
         }
         
-        if (strpos($thumbUrl, '/') === 0) {
-            return $domain . $thumbUrl;
-        }
-        
-        return $domain . '/uploads/comics/' . $thumbUrl;
+        return $this->wrapImageWithProxy($fullUrl);
     }
 
     public function getChapterImages($apiUrl)
@@ -651,7 +652,8 @@ class OTruyenService
                             foreach ($chapterImages as $image) {
                                 $imageFile = $image['image_file'] ?? '';
                                 if (!empty($imageFile)) {
-                                    $imageUrls[] = rtrim($domainCdn, '/') . '/' . trim($chapterPath, '/') . '/' . $imageFile;
+                                    $rawUrl = rtrim($domainCdn, '/') . '/' . trim($chapterPath, '/') . '/' . $imageFile;
+                                    $imageUrls[] = $this->wrapImageWithProxy($rawUrl);
                                 }
                             }
                             
@@ -667,6 +669,26 @@ class OTruyenService
                 return null;
             }
         });
+    }
+    protected function wrapImageWithProxy($url)
+    {
+        if (empty($url)) {
+            return '';
+        }
+        
+        if (strpos($url, '/proxy-img') === 0 || strpos($url, url('/proxy-img')) === 0) {
+            return $url;
+        }
+
+        if (
+            preg_match('~img\.otruyenapi\.com(/uploads/[^?]+)~i', $url, $matches) ||
+            preg_match('~sv1\.otruyencdn\.com(/uploads/[^?]+)~i', $url, $matches)
+        ) {
+            $path = $matches[1]; 
+            return url($path);
+        }
+
+        return url('/proxy-img?url=' . urlencode($url));
     }
 
     public function getCategories()
