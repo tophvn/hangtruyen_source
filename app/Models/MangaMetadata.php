@@ -37,6 +37,11 @@ class MangaMetadata extends Model
         'last_synced_at' => 'datetime',
     ];
 
+    public function getCoverUrlAttribute($value)
+    {
+        return proxyImageUrl($value);
+    }
+
     public function chapters()
     {
         return $this->hasMany(MangaChapter::class, 'manga_id');

@@ -221,7 +221,7 @@ class SearchController extends Controller
             $results[] = [
                 'slug' => $manga->slug,
                 'title' => $manga->title,
-                'posterPath' => $manga->cover_url ?: asset('images/pre-load1.png'),
+                'posterPath' => proxyImageUrl($manga->cover_url),
                 'avgVote' => (float) ($manga->rating ?? 0),
                 'countView' => (int) ($manga->views_count ?? 0),
                 'chapters' => $chapterData,
@@ -368,7 +368,7 @@ class SearchController extends Controller
             if ($chapterData) {
                 $results[] = [
                     'title' => $manga->title,
-                    'posterPath' => $manga->cover_url ?: asset('images/pre-load1.png'),
+                    'posterPath' => proxyImageUrl($manga->cover_url),
                     'slug' => '/truyen-tranh/' . $manga->slug,
                     'chapters' => [$chapterData]
                 ];

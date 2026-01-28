@@ -57,7 +57,7 @@ class MangaController extends Controller
                     'source_identifier' => $mangaDetail['id'] ?? $slug,
                     'title' => $mangaDetail['name'] ?? 'Đang cập nhật',
                     'description' => strip_tags($mangaDetail['description'] ?? ''),
-                    'cover_url' => $mangaDetail['cover_url'] ?? '',
+                    'cover_url' => proxyImageUrl($mangaDetail['cover_url'] ?? null),
                     'author' => is_array($mangaDetail['author'] ?? []) ? implode(', ', $mangaDetail['author']) : ($mangaDetail['author'] ?? ''),
                     'status' => $mangaDetail['status'] ?? 'ongoing',
                     'tags' => array_map(function ($tag) {
@@ -103,7 +103,7 @@ class MangaController extends Controller
         // Update metadata
         $mangaMetadata->title = $mangaDetail['name'] ?? $mangaMetadata->title;
         if (empty($mangaMetadata->cover_url) && !empty($mangaDetail['cover_url'])) {
-            $mangaMetadata->cover_url = $mangaDetail['cover_url'];
+            $mangaMetadata->cover_url = proxyImageUrl($mangaDetail['cover_url']);
         }
         if (empty($mangaMetadata->description) && !empty($mangaDetail['description'])) {
             $mangaMetadata->description = $mangaDetail['description'];
@@ -245,7 +245,7 @@ class MangaController extends Controller
             'id' => $mangaMetadata->id,
             'name' => $mangaMetadata->title,
             'slug' => $mangaMetadata->slug,
-            'cover_url' => $mangaMetadata->cover_url ?? $mangaDetail['cover_url'] ?? asset('images/pre-load1.png'),
+            'cover_url' => proxyImageUrl($mangaMetadata->cover_url ?? $mangaDetail['cover_url'] ?? null),
             'description' => $mangaMetadata->description ?? $mangaDetail['description'] ?? '',
             'author' => $authorFormatted,
             'status' => $mangaMetadata->status ?? $mangaDetail['status'] ?? 'ongoing',
@@ -435,7 +435,7 @@ class MangaController extends Controller
             'comments' => $comments,
             'likedCommentIds' => $likedCommentIds,
             'commentsCount' => $commentsCount,
-            'mangaCover' => $mangaMetadata->cover_url ?? $mangaDetail['cover_url'] ?? asset('images/logo-dark.png'),
+            'mangaCover' => proxyImageUrl($mangaMetadata->cover_url ?? $mangaDetail['cover_url'] ?? null),
         ]);
     }
 
@@ -460,7 +460,7 @@ class MangaController extends Controller
                     'source_identifier' => $slug,
                     'title' => $mangaDetail['name'] ?? 'Đang cập nhật',
                     'description' => $mangaDetail['description'] ?? null,
-                    'cover_url' => $mangaDetail['cover_url'] ?? null,
+                    'cover_url' => proxyImageUrl($mangaDetail['cover_url'] ?? null),
                     'author' => is_array($mangaDetail['author'] ?? [])
                         ? implode(', ', $mangaDetail['author'])
                         : ($mangaDetail['author'] ?? null),
@@ -672,7 +672,7 @@ class MangaController extends Controller
                         'id' => $manga->id,
                         'slug' => $manga->slug,
                         'title' => $manga->title,
-                        'cover_url' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                        'cover_url' => proxyImageUrl($manga->cover_url),
                         'rating' => $manga->rating ? (float) $manga->rating : 0,
                         'views_count' => $viewsFormatted . ' lượt xem',
                         'last_chapter' => $lastChapterData,
@@ -772,7 +772,7 @@ class MangaController extends Controller
                 'id' => $manga->id,
                 'slug' => $manga->slug,
                 'title' => $manga->title ?? 'Đang cập nhật',
-                'cover_url' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                'cover_url' => proxyImageUrl($manga->cover_url),
                 'rating' => $manga->rating ? (float) $manga->rating : 0,
                 'views_count' => $viewsCount,
                 'views_formatted' => $formattedViews,

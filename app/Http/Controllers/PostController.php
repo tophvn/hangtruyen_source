@@ -197,7 +197,7 @@ class PostController extends Controller
                 'rank' => $rank++,
                 'slug' => $manga->slug,
                 'title' => $manga->title,
-                'cover_url' => $manga->cover_url ?: asset('images/pre-load1.png'),
+                'cover_url' => proxyImageUrl($manga->cover_url),
                 'rating' => $manga->rating ? (float) $manga->rating : 0,
                 'views_count' => $topManga->total_views,
                 'views_formatted' => $viewsFormatted,

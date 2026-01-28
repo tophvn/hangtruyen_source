@@ -56,3 +56,34 @@ if (!function_exists('formatChapterNameForDisplay')) {
         return $chapterName;
     }
 }
+if (!function_exists('proxyImageUrl')) {
+    function proxyImageUrl($url)
+    {
+        if (empty($url)) {
+            return asset('images/pre-load1.png');
+        }
+
+        if (strpos($url, '/') === 0 && !str_starts_with($url, '//')) {
+            return $url;
+        }
+
+        $siteUrl = url('/');
+        if (str_starts_with($url, $siteUrl)) {
+            return $url;
+        }
+
+        if (
+            preg_match('~img\.otruyenapi\.com(/uploads/[^?]+)~i', $url, $matches) ||
+            preg_match('~sv1\.otruyencdn\.com(/uploads/[^?]+)~i', $url, $matches)
+        ) {
+            $path = $matches[1];
+            return url($path);
+        }
+
+        if (strpos($url, 'http') !== 0) {
+            return $url;
+        }
+
+        return url('/proxy-img?url=' . urlencode($url));
+    }
+}

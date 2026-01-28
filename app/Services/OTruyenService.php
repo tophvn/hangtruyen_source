@@ -16,38 +16,38 @@ class OTruyenService
     public function getRecentlyUpdated($page = 1, $perPage = 30, $minCount = 24)
     {
         $cacheKey = "otruyen:recently_updated:{$page}:{$minCount}";
-        
+
         return Cache::remember($cacheKey, 600, function () use ($page, $minCount) {
             try {
                 $allMangas = [];
                 $currentPage = $page;
                 $maxPages = 3;
                 $lastData = null;
-                
+
                 while (count($allMangas) < $minCount && $currentPage <= $maxPages) {
                     $pageCacheKey = "otruyen:page:{$currentPage}";
                     $pageData = Cache::remember($pageCacheKey, 600, function () use ($currentPage) {
                         $url = "{$this->baseUrl}/danh-sach/truyen-moi";
                         $params = ['page' => $currentPage];
-                        
+
                         $response = Http::timeout($this->timeout)
                             ->withoutVerifying()
                             ->get($url, $params);
-                        
+
                         if ($response->successful()) {
                             return $response->json();
                         }
-                        
+
                         return null;
                     });
-                    
+
                     if ($pageData) {
                         $lastData = $pageData;
                         $items = $pageData['data']['items'] ?? $pageData['data'] ?? [];
-                        
+
                         if (is_array($items) && count($items) > 0) {
                             $transformed = $this->transformMangas($items);
-                            
+
                             foreach ($transformed as $manga) {
                                 if (count($manga['chapters'] ?? []) > 0) {
                                     $allMangas[] = $manga;
@@ -56,7 +56,7 @@ class OTruyenService
                                     }
                                 }
                             }
-                            
+
                             if (empty($transformed) || count($items) < 24) {
                                 break;
                             }
@@ -66,17 +66,17 @@ class OTruyenService
                     } else {
                         break;
                     }
-                    
+
                     $currentPage++;
                 }
-                
+
                 if (count($allMangas) > 0) {
                     return [
                         'mangas' => array_slice($allMangas, 0, $minCount),
                         'metadata' => $this->extractMetadata($lastData ?? []),
                     ];
                 }
-                
+
                 return ['mangas' => [], 'metadata' => null];
             } catch (\Exception $e) {
                 return ['mangas' => [], 'metadata' => null];
@@ -88,10 +88,10 @@ class OTruyenService
     {
         return array_map(function ($manga) {
             $slug = $manga['slug'] ?? $this->generateSlug($manga['name'] ?? '', $manga['_id'] ?? '');
-            
+
             $chapters = $this->getLatestChapters($manga);
             $updatedAt = $manga['updated_at'] ?? $manga['updatedAt'] ?? null;
-            
+
             return [
                 'id' => $manga['_id'] ?? null,
                 'slug' => $slug,
@@ -111,7 +111,7 @@ class OTruyenService
         if (empty($thumbUrl)) {
             return '';
         }
-        
+
         // Build full CDN URL first, then đi qua proxy của chính site
         if (strpos($thumbUrl, 'http') === 0) {
             $fullUrl = $thumbUrl;
@@ -120,7 +120,7 @@ class OTruyenService
         } else {
             $fullUrl = 'https://img.otruyenapi.com/uploads/comics/' . $thumbUrl;
         }
-        
+
         return $this->wrapImageWithProxy($fullUrl);
     }
 
@@ -128,7 +128,7 @@ class OTruyenService
     {
         $chapters = [];
         $updatedAt = $manga['updated_at'] ?? $manga['updatedAt'] ?? null;
-        
+
         if (isset($manga['chaptersLatest']) && is_array($manga['chaptersLatest']) && count($manga['chaptersLatest']) > 0) {
             foreach ($manga['chaptersLatest'] as $chapter) {
                 $chapterName = $chapter['chapter_name'] ?? null;
@@ -139,15 +139,15 @@ class OTruyenService
                     'updated_at' => $updatedAt,
                 ];
             }
-            
+
             if (count($chapters) == 1) {
                 $chapterName = $chapters[0]['number'];
                 if (is_numeric($chapterName)) {
-                    $currentNumber = (int)$chapterName;
+                    $currentNumber = (int) $chapterName;
                     if ($currentNumber > 1) {
                         $prevNumber = $currentNumber - 1;
                         array_unshift($chapters, [
-                            'number' => (string)$prevNumber,
+                            'number' => (string) $prevNumber,
                             'name' => 'Chapter ' . $prevNumber,
                             'id' => null,
                             'updated_at' => $updatedAt,
@@ -163,11 +163,11 @@ class OTruyenService
                 'id' => $manga['chapter_latest']['chapter_id'] ?? null,
                 'updated_at' => $updatedAt,
             ];
-            
-            if (is_numeric($chapterName) && (int)$chapterName > 1) {
-                $prevNumber = (int)$chapterName - 1;
+
+            if (is_numeric($chapterName) && (int) $chapterName > 1) {
+                $prevNumber = (int) $chapterName - 1;
                 array_unshift($chapters, [
-                    'number' => (string)$prevNumber,
+                    'number' => (string) $prevNumber,
                     'name' => 'Chapter ' . $prevNumber,
                     'id' => null,
                     'updated_at' => $updatedAt,
@@ -186,14 +186,14 @@ class OTruyenService
                 }
             }
         }
-        
+
         return array_slice($chapters, 0, 2);
     }
 
     protected function extractMetadata($data)
     {
         $pagination = $data['data']['params']['pagination'] ?? $data['data']['pagination'] ?? $data['pagination'] ?? [];
-        
+
         return [
             'total_count' => $pagination['totalItems'] ?? $pagination['total_items'] ?? $data['total'] ?? $data['totalCount'] ?? 0,
             'total_pages' => $pagination['pageRanges'] ?? $pagination['total_pages'] ?? $data['totalPage'] ?? $data['totalPages'] ?? 1,
@@ -211,43 +211,43 @@ class OTruyenService
     public function getMangaDetail($slug, $forceSave = false)
     {
         $cacheKey = "otruyen:manga_detail:{$slug}";
-        
+
         if ($forceSave) {
             Cache::forget($cacheKey);
             try {
                 $response = Http::timeout($this->timeout)
                     ->withoutVerifying()
                     ->get("{$this->baseUrl}/truyen-tranh/{$slug}");
-                
+
                 if ($response->successful()) {
                     $data = $response->json();
-                    
+
                     if (isset($data['data']['item'])) {
                         $item = $data['data']['item'];
-                        
+
                         $responseSlug = $item['slug'] ?? '';
                         if ($responseSlug !== $slug) {
                             return null;
                         }
-                        
+
                         $transformed = $this->transformMangaDetail($data);
-                        
+
                         if (($transformed['slug'] ?? '') !== $slug) {
                             return null;
                         }
-                        
+
                         $saved = $this->saveOrUpdateMangaInternal($transformed, $item);
                         if (!$saved) {
                             \Log::warning("getMangaDetail: saveOrUpdateManga returned false", [
                                 'slug' => $slug
                             ]);
                         }
-                        
+
                         Cache::put($cacheKey, $transformed, 600);
                         return $transformed;
                     }
                 }
-                
+
                 return null;
             } catch (\Exception $e) {
                 \Log::error("getMangaDetail forceSave error", [
@@ -257,32 +257,32 @@ class OTruyenService
                 return null;
             }
         }
-        
+
         return Cache::remember($cacheKey, 600, function () use ($slug, $cacheKey) {
             try {
                 $response = Http::timeout($this->timeout)
                     ->withoutVerifying()
                     ->get("{$this->baseUrl}/truyen-tranh/{$slug}");
-                
+
                 if ($response->successful()) {
                     $data = $response->json();
-                    
+
                     if (isset($data['data']['item'])) {
                         $item = $data['data']['item'];
-                        
+
                         $responseSlug = $item['slug'] ?? '';
                         if ($responseSlug !== $slug) {
                             Cache::forget($cacheKey);
                             return null;
                         }
-                        
+
                         $transformed = $this->transformMangaDetail($data);
-                        
+
                         if (($transformed['slug'] ?? '') !== $slug) {
                             Cache::forget($cacheKey);
                             return null;
                         }
-                        
+
                         $saved = $this->saveOrUpdateMangaInternal($transformed, $item);
                         if (!$saved) {
                             \Log::warning("getMangaDetail: saveOrUpdateManga returned false", [
@@ -292,7 +292,7 @@ class OTruyenService
                         return $transformed;
                     }
                 }
-                
+
                 return null;
             } catch (\Exception $e) {
                 return null;
@@ -307,7 +307,7 @@ class OTruyenService
         }
         return $this->saveOrUpdateMangaInternal($transformed, $rawItem);
     }
-    
+
     protected function saveOrUpdateMangaInternal($transformed, $rawItem)
     {
         try {
@@ -315,20 +315,20 @@ class OTruyenService
                 \Log::warning("saveOrUpdateManga: Empty slug", ['transformed' => $transformed]);
                 return false;
             }
-            
+
             $manga = MangaMetadata::where('slug', $transformed['slug'])
                 ->orderBy('id', 'desc')
                 ->first();
-            
+
             $chaptersCount = count($transformed['chapters'] ?? []);
             $lastChapterNumber = $chaptersCount > 0 ? $transformed['chapters'][0]['name'] : null;
-            $authorString = is_array($transformed['author'] ?? []) 
-                ? implode(', ', $transformed['author']) 
+            $authorString = is_array($transformed['author'] ?? [])
+                ? implode(', ', $transformed['author'])
                 : ($transformed['author'] ?? '');
-            $tagsArray = array_map(function($tag) {
+            $tagsArray = array_map(function ($tag) {
                 return $tag['name'] ?? '';
             }, $transformed['tags'] ?? []);
-            
+
             $existingType = null;
             if ($manga && is_array($manga->tags)) {
                 foreach ($manga->tags as $tag) {
@@ -340,7 +340,7 @@ class OTruyenService
                     }
                 }
             }
-            
+
             if ($existingType) {
                 if (!in_array($existingType, $tagsArray)) {
                     $tagsArray[] = $existingType;
@@ -354,13 +354,13 @@ class OTruyenService
                     }
                 }
             }
-            
+
             $statusEnum = $rawItem['status'] ?? 'ongoing';
-            
-            $originNameArray = is_array($transformed['origin_name'] ?? []) 
-                ? $transformed['origin_name'] 
+
+            $originNameArray = is_array($transformed['origin_name'] ?? [])
+                ? $transformed['origin_name']
                 : [];
-            
+
             $dataToSave = [
                 'source_type' => 'otruyen',
                 'source_identifier' => $transformed['id'] ?? $transformed['slug'],
@@ -376,18 +376,25 @@ class OTruyenService
                 'last_synced_at' => now(),
                 'is_active' => true,
             ];
-            
+
             if ($manga) {
                 $needsUpdate = false;
-                
-                if ($manga->title != $dataToSave['title']) $needsUpdate = true;
-                if ($manga->description != $dataToSave['description']) $needsUpdate = true;
-                if ($manga->cover_url != $dataToSave['cover_url']) $needsUpdate = true;
-                if ($manga->author != $dataToSave['author']) $needsUpdate = true;
-                if ($manga->status != $dataToSave['status']) $needsUpdate = true;
-                if ($manga->chapters_count != $dataToSave['chapters_count']) $needsUpdate = true;
-                if ($manga->last_chapter_number != $dataToSave['last_chapter_number']) $needsUpdate = true;
-                
+
+                if ($manga->title != $dataToSave['title'])
+                    $needsUpdate = true;
+                if ($manga->description != $dataToSave['description'])
+                    $needsUpdate = true;
+                if ($manga->cover_url != $dataToSave['cover_url'])
+                    $needsUpdate = true;
+                if ($manga->author != $dataToSave['author'])
+                    $needsUpdate = true;
+                if ($manga->status != $dataToSave['status'])
+                    $needsUpdate = true;
+                if ($manga->chapters_count != $dataToSave['chapters_count'])
+                    $needsUpdate = true;
+                if ($manga->last_chapter_number != $dataToSave['last_chapter_number'])
+                    $needsUpdate = true;
+
                 $existingTags = is_array($manga->tags) ? $manga->tags : [];
                 $existingTagsSorted = array_values(array_unique($existingTags));
                 sort($existingTagsSorted);
@@ -396,10 +403,11 @@ class OTruyenService
                 if ($existingTagsSorted !== $tagsArraySorted) {
                     $needsUpdate = true;
                 }
-                
+
                 $existingOriginNames = is_array($manga->origin_name) ? $manga->origin_name : [];
-                if (json_encode($existingOriginNames) != json_encode($originNameArray)) $needsUpdate = true;
-                
+                if (json_encode($existingOriginNames) != json_encode($originNameArray))
+                    $needsUpdate = true;
+
                 if ($needsUpdate) {
                     $manga->update($dataToSave);
                 } else {
@@ -422,7 +430,7 @@ class OTruyenService
                     $existingManga->update($dataToSave);
                 }
             }
-            
+
             return true;
         } catch (\Exception $e) {
             \Log::error("saveOrUpdateManga: Exception", [
@@ -438,18 +446,18 @@ class OTruyenService
     {
         $item = $data['data']['item'] ?? [];
         $imageDomain = $data['APP_DOMAIN_CDN_IMAGE'] ?? 'https://img.otruyenapi.com';
-        
+
         $chaptersData = $item['chapters'] ?? [];
         if (!is_array($chaptersData)) {
             $chaptersData = [];
         }
-        
+
         $chapters = $this->extractChapters($chaptersData);
         $categories = $this->extractCategories($item['category'] ?? []);
         $typeAndTags = $this->separateTypeAndTags($categories);
-        
+
         $typeIsDefault = empty($categories) || !$this->hasTypeInCategories($categories);
-        
+
         return [
             'id' => $item['_id'] ?? null,
             'name' => $item['name'] ?? 'Đang cập nhật',
@@ -467,7 +475,7 @@ class OTruyenService
             'seo' => $data['data']['seoOnPage'] ?? [],
         ];
     }
-    
+
     protected function hasTypeInCategories($categories)
     {
         $typeKeywords = ['manga', 'manhua', 'manhwa', 'truyen-mau', 'truyen-tranh'];
@@ -485,33 +493,33 @@ class OTruyenService
     {
         $allChapters = [];
         $seenChapters = [];
-        
+
         if (!is_array($chaptersData)) {
             return [];
         }
-        
+
         foreach ($chaptersData as $server) {
             if (isset($server['server_data']) && is_array($server['server_data'])) {
                 foreach ($server['server_data'] as $chapter) {
                     $chapterName = trim($chapter['chapter_name'] ?? '');
-                    
+
                     if (empty($chapterName)) {
                         continue;
                     }
-                    
+
                     $key = $chapterName;
-                    
+
                     if (!isset($seenChapters[$key])) {
                         $chapterNumber = preg_replace('/^Chapter\s+/i', '', $chapterName);
                         $chapterNumber = trim($chapterNumber);
                         $chapterNumber = preg_replace('/[^a-zA-Z0-9.\-]/', '', $chapterNumber);
-                        
+
                         if (empty($chapterNumber)) {
                             continue;
                         }
-                        
+
                         $chapterSlug = 'chapter-' . $chapterNumber;
-                        
+
                         $allChapters[] = [
                             'name' => $chapterName,
                             'title' => $chapter['chapter_title'] ?? '',
@@ -523,8 +531,8 @@ class OTruyenService
                 }
             }
         }
-        
-        usort($allChapters, function($a, $b) {
+
+        usort($allChapters, function ($a, $b) {
             $aNum = $this->parseChapterNumber($a['name']);
             $bNum = $this->parseChapterNumber($b['name']);
             if ($aNum == $bNum) {
@@ -536,21 +544,21 @@ class OTruyenService
             }
             return $bNum <=> $aNum;
         });
-        
+
         return $allChapters;
     }
 
     protected function parseChapterNumber($chapterName)
     {
         if (preg_match('/^(\d+)/', $chapterName, $matches)) {
-            return (float)$matches[1];
+            return (float) $matches[1];
         }
         return 0;
     }
 
     protected function extractCategories($categories)
     {
-        return array_map(function($cat) {
+        return array_map(function ($cat) {
             return [
                 'id' => $cat['id'] ?? '',
                 'name' => $cat['name'] ?? '',
@@ -564,11 +572,11 @@ class OTruyenService
         $typeKeywords = ['manga', 'manhua', 'manhwa', 'truyen-mau', 'truyen-tranh'];
         $type = null;
         $tags = [];
-        
+
         foreach ($categories as $cat) {
             $slug = strtolower($cat['slug'] ?? '');
             $name = strtolower($cat['name'] ?? '');
-            
+
             if (in_array($slug, $typeKeywords) || in_array($name, $typeKeywords)) {
                 if (!$type) {
                     $type = [
@@ -581,7 +589,7 @@ class OTruyenService
                 $tags[] = $cat;
             }
         }
-        
+
         if (!$type) {
             $type = [
                 'id' => '',
@@ -589,7 +597,7 @@ class OTruyenService
                 'slug' => 'manga',
             ];
         }
-        
+
         return [
             'type' => $type,
             'tags' => $tags,
@@ -603,7 +611,7 @@ class OTruyenService
             'completed' => 'Hoàn thành',
             'hiatus' => 'Tạm ngưng',
         ];
-        
+
         return $statusMap[$status] ?? 'Đang cập nhật';
     }
 
@@ -612,7 +620,7 @@ class OTruyenService
         if (empty($thumbUrl)) {
             return '';
         }
-        
+
         if (strpos($thumbUrl, 'http') === 0) {
             $fullUrl = $thumbUrl;
         } elseif (strpos($thumbUrl, '/') === 0) {
@@ -620,7 +628,7 @@ class OTruyenService
         } else {
             $fullUrl = rtrim($domain, '/') . '/uploads/comics/' . $thumbUrl;
         }
-        
+
         return $this->wrapImageWithProxy($fullUrl);
     }
 
@@ -629,24 +637,24 @@ class OTruyenService
         if (empty($apiUrl)) {
             return null;
         }
-        
+
         $cacheKey = "otruyen:chapter_images:" . md5($apiUrl);
-        
+
         return Cache::remember($cacheKey, 3600, function () use ($apiUrl) {
             try {
                 $response = Http::timeout($this->timeout)
                     ->withoutVerifying()
                     ->get($apiUrl);
-                
+
                 if ($response->successful()) {
                     $data = $response->json();
-                    
+
                     if (isset($data['data']['item'])) {
                         $item = $data['data']['item'];
                         $domainCdn = $data['data']['domain_cdn'] ?? 'https://sv1.otruyencdn.com';
                         $chapterPath = $item['chapter_path'] ?? '';
                         $chapterImages = $item['chapter_image'] ?? [];
-                        
+
                         if (is_array($chapterImages) && !empty($chapterPath)) {
                             $imageUrls = [];
                             foreach ($chapterImages as $image) {
@@ -656,14 +664,14 @@ class OTruyenService
                                     $imageUrls[] = $this->wrapImageWithProxy($rawUrl);
                                 }
                             }
-                            
+
                             if (!empty($imageUrls)) {
                                 return $imageUrls;
                             }
                         }
                     }
                 }
-                
+
                 return null;
             } catch (\Exception $e) {
                 return null;
@@ -672,40 +680,24 @@ class OTruyenService
     }
     protected function wrapImageWithProxy($url)
     {
-        if (empty($url)) {
-            return '';
-        }
-        
-        if (strpos($url, '/proxy-img') === 0 || strpos($url, url('/proxy-img')) === 0) {
-            return $url;
-        }
-
-        if (
-            preg_match('~img\.otruyenapi\.com(/uploads/[^?]+)~i', $url, $matches) ||
-            preg_match('~sv1\.otruyencdn\.com(/uploads/[^?]+)~i', $url, $matches)
-        ) {
-            $path = $matches[1]; 
-            return url($path);
-        }
-
-        return url('/proxy-img?url=' . urlencode($url));
+        return proxyImageUrl($url);
     }
 
     public function getCategories()
     {
         $cacheKey = "otruyen:categories";
-        
+
         return Cache::remember($cacheKey, 3600, function () {
             try {
                 $response = Http::timeout($this->timeout)
                     ->withoutVerifying()
                     ->get("{$this->baseUrl}/the-loai");
-                
+
                 if ($response->successful()) {
                     $data = $response->json();
-                    
+
                     if (isset($data['data']['items']) && is_array($data['data']['items'])) {
-                        return array_map(function($item) {
+                        return array_map(function ($item) {
                             return [
                                 'id' => $item['_id'] ?? '',
                                 'slug' => $item['slug'] ?? '',
@@ -714,7 +706,7 @@ class OTruyenService
                         }, $data['data']['items']);
                     }
                 }
-                
+
                 return [];
             } catch (\Exception $e) {
                 return [];
@@ -725,7 +717,7 @@ class OTruyenService
     public function syncCategories()
     {
         $categories = $this->getCategories();
-        
+
         foreach ($categories as $cat) {
             Category::updateOrCreate(
                 ['source_id' => $cat['id']],
@@ -736,14 +728,14 @@ class OTruyenService
                 ]
             );
         }
-        
+
         return count($categories);
     }
 
     public function getMangaByGenre($slug, $page = 1)
     {
         $cacheKey = "otruyen:genre:{$slug}:page:{$page}";
-        
+
         return Cache::remember($cacheKey, 600, function () use ($slug, $page) {
             try {
                 $response = Http::timeout($this->timeout)
@@ -751,16 +743,16 @@ class OTruyenService
                     ->get("{$this->baseUrl}/the-loai/{$slug}", [
                         'page' => $page,
                     ]);
-                
+
                 if ($response->successful()) {
                     $data = $response->json();
-                    
+
                     if (isset($data['data']['items']) && is_array($data['data']['items'])) {
                         $mangas = $this->transformGenreMangas($data['data']['items']);
                         $pagination = $data['data']['params']['pagination'] ?? [];
                         $seo = $data['data']['seoOnPage'] ?? [];
                         $titlePage = $data['data']['titlePage'] ?? '';
-                        
+
                         return [
                             'mangas' => $mangas,
                             'pagination' => $pagination,
@@ -770,18 +762,18 @@ class OTruyenService
                         ];
                     }
                 }
-                
+
                 return null;
             } catch (\Exception $e) {
                 return null;
             }
         });
     }
-    
+
     public function getOngoingMangas($page = 1)
     {
         $cacheKey = "otruyen:ongoing:page:{$page}";
-        
+
         return Cache::remember($cacheKey, 600, function () use ($page) {
             try {
                 $response = Http::timeout($this->timeout)
@@ -789,16 +781,16 @@ class OTruyenService
                     ->get("{$this->baseUrl}/danh-sach/dang-phat-hanh", [
                         'page' => $page,
                     ]);
-                
+
                 if ($response->successful()) {
                     $data = $response->json();
-                    
+
                     if (isset($data['data']['items']) && is_array($data['data']['items'])) {
                         $mangas = $this->transformGenreMangas($data['data']['items'], false); // false = only 1 chapter
                         $pagination = $data['data']['params']['pagination'] ?? [];
                         $seo = $data['data']['seoOnPage'] ?? [];
                         $titlePage = $data['data']['titlePage'] ?? 'Truyện đang phát hành';
-                        
+
                         return [
                             'mangas' => $mangas,
                             'pagination' => $pagination,
@@ -808,7 +800,7 @@ class OTruyenService
                         ];
                     }
                 }
-                
+
                 return null;
             } catch (\Exception $e) {
                 return null;
@@ -821,12 +813,12 @@ class OTruyenService
         return array_map(function ($item) use ($addPreviousChapter) {
             $chapters = [];
             $updatedAt = $item['updatedAt'] ?? null;
-            
+
             if (isset($item['chaptersLatest']) && is_array($item['chaptersLatest']) && count($item['chaptersLatest']) > 0) {
                 $chapter = $item['chaptersLatest'][0];
                 $chapterName = $chapter['chapter_name'] ?? '';
                 $filename = $chapter['filename'] ?? '';
-                
+
                 if (!empty($filename)) {
                     if (preg_match('/\[Chap\s+(\d+)\]/i', $filename, $matches)) {
                         $chapterName = $matches[1];
@@ -834,7 +826,7 @@ class OTruyenService
                         $chapterName = $matches[1];
                     }
                 }
-                
+
                 if (!empty($chapterName)) {
                     $chapters[] = [
                         'id' => null,
@@ -843,12 +835,12 @@ class OTruyenService
                         'releasedAt' => $updatedAt ? $this->formatVietnameseTime($updatedAt) : null,
                     ];
                 }
-                
+
                 if ($addPreviousChapter && count($chapters) > 0 && !empty($chapters[0]['slug'])) {
                     $chapterSlug = $chapters[0]['slug'];
                     $chapterNumber = str_replace('chapter-', '', $chapterSlug);
                     if (is_numeric($chapterNumber)) {
-                        $currentNumber = (int)$chapterNumber;
+                        $currentNumber = (int) $chapterNumber;
                         if ($currentNumber > 1) {
                             $prevNumber = $currentNumber - 1;
                             $chapters[] = [
@@ -861,7 +853,7 @@ class OTruyenService
                     }
                 }
             }
-            
+
             return [
                 'slug' => $item['slug'] ?? '',
                 'title' => $item['name'] ?? 'Đang cập nhật',
@@ -878,7 +870,7 @@ class OTruyenService
     public function getMangaByType($slug, $page = 1, $limit = 24)
     {
         $cacheKey = "otruyen:type:{$slug}:page:{$page}:limit:{$limit}";
-        
+
         return Cache::remember($cacheKey, 600, function () use ($slug, $page, $limit) {
             try {
                 $response = Http::timeout($this->timeout)
@@ -886,10 +878,10 @@ class OTruyenService
                     ->get("{$this->baseUrl}/the-loai/{$slug}", [
                         'page' => $page,
                     ]);
-                
+
                 if ($response->successful()) {
                     $data = $response->json();
-                    
+
                     if (isset($data['data']['items']) && is_array($data['data']['items'])) {
                         $allItems = $data['data']['items'];
                         $shuffledItems = $allItems;
@@ -897,14 +889,14 @@ class OTruyenService
                         $selectedItems = array_slice($shuffledItems, 0, $limit);
                         $mangas = $this->transformGenreMangas($selectedItems);
                         $titlePage = $data['data']['titlePage'] ?? '';
-                        
+
                         return [
                             'mangas' => $mangas,
                             'titlePage' => $titlePage,
                         ];
                     }
                 }
-                
+
                 return null;
             } catch (\Exception $e) {
                 return null;
@@ -915,7 +907,7 @@ class OTruyenService
     public function getMangaByList($slug, $page = 1, $limit = 24, $shuffle = true)
     {
         $cacheKey = "otruyen:list:{$slug}:page:{$page}:limit:{$limit}:shuffle:" . ($shuffle ? '1' : '0');
-        
+
         return Cache::remember($cacheKey, 600, function () use ($slug, $page, $limit, $shuffle) {
             try {
                 $response = Http::timeout($this->timeout)
@@ -923,13 +915,13 @@ class OTruyenService
                     ->get("{$this->baseUrl}/danh-sach/{$slug}", [
                         'page' => $page,
                     ]);
-                
+
                 if ($response->successful()) {
                     $data = $response->json();
-                    
+
                     if (isset($data['data']['items']) && is_array($data['data']['items'])) {
                         $allItems = $data['data']['items'];
-                        
+
                         if ($shuffle) {
                             $shuffledItems = $allItems;
                             shuffle($shuffledItems);
@@ -937,11 +929,11 @@ class OTruyenService
                         } else {
                             $selectedItems = $allItems;
                         }
-                        
+
                         $mangas = $this->transformGenreMangas($selectedItems);
                         $titlePage = $data['data']['titlePage'] ?? '';
                         $pagination = $data['data']['params']['pagination'] ?? [];
-                        
+
                         return [
                             'mangas' => $mangas,
                             'titlePage' => $titlePage,
@@ -949,7 +941,7 @@ class OTruyenService
                         ];
                     }
                 }
-                
+
                 return null;
             } catch (\Exception $e) {
                 return null;

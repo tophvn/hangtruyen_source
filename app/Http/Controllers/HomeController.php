@@ -119,7 +119,7 @@ class HomeController extends Controller
                 return [
                     'slug' => $manga->slug ?? '',
                     'title' => $manga->title ?? 'Đang cập nhật',
-                    'posterPath' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                    'posterPath' => proxyImageUrl($manga->cover_url),
                     'avgVote' => $manga->rating ? (float) $manga->rating : 0,
                     'chapters' => $chapterData,
                 ];
@@ -135,7 +135,7 @@ class HomeController extends Controller
                 return [
                     'slug' => $manga['slug'] ?? '',
                     'title' => $manga['title'] ?? 'Đang cập nhật',
-                    'posterPath' => $manga['posterPath'] ?? asset('images/pre-load1.png'),
+                    'posterPath' => proxyImageUrl($manga['posterPath'] ?? null),
                     'avgVote' => isset($manga['avgVote']) ? (float) $manga['avgVote'] : 0,
                     'chapters' => isset($manga['chapters']) && is_array($manga['chapters']) && !empty($manga['chapters'])
                         ? array_slice($manga['chapters'], 0, 1)
@@ -231,7 +231,7 @@ class HomeController extends Controller
                 $trendingMangas[] = [
                     'slug' => $manga->slug,
                     'title' => $manga->title,
-                    'cover_url' => $manga->cover_url ?: asset('images/pre-load1.png'),
+                    'cover_url' => proxyImageUrl($manga->cover_url),
                     'rating' => $manga->rating ? (float) $manga->rating : 0,
                     'views_count' => $viewsCount,
                     'views_formatted' => $viewsFormatted,
@@ -289,7 +289,7 @@ class HomeController extends Controller
                 return [
                     'slug' => $manga->slug,
                     'title' => $manga->title ?? 'Đang cập nhật',
-                    'posterPath' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                    'posterPath' => proxyImageUrl($manga->cover_url),
                     'avgVote' => $manga->rating ? (float) $manga->rating : 0,
                     'chapters' => $chapters,
                 ];
@@ -340,7 +340,7 @@ class HomeController extends Controller
                 return [
                     'slug' => $manga->slug,
                     'title' => $manga->title ?? 'Đang cập nhật',
-                    'posterPath' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                    'posterPath' => proxyImageUrl($manga->cover_url),
                     'avgVote' => $manga->rating ? (float) $manga->rating : 0,
                     'chapters' => $chapters,
                 ];
@@ -387,7 +387,7 @@ class HomeController extends Controller
                         'id' => $manga->id,
                         'slug' => $manga->slug ?? '',
                         'title' => $manga->title ?? 'Đang cập nhật',
-                        'cover_url' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                        'cover_url' => proxyImageUrl($manga->cover_url),
                     ],
                 ];
             })
@@ -480,7 +480,7 @@ class HomeController extends Controller
                 'id' => $manga->id,
                 'slug' => $manga->slug,
                 'title' => $manga->title ?? 'Đang cập nhật',
-                'cover_url' => $manga->cover_url ?? asset('images/pre-load1.png'),
+                'cover_url' => proxyImageUrl($manga->cover_url),
                 'rating' => $manga->rating ? (float) $manga->rating : 0,
                 'views_count' => $viewsCount,
                 'views_formatted' => $formattedViews,
