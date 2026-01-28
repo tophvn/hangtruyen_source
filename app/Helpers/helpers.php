@@ -8,7 +8,7 @@ if (!function_exists('formatVietnameseTime')) {
         if (!$dateTime) {
             return null;
         }
-        
+
         try {
             $date = Carbon::parse($dateTime);
             $now = Carbon::now();
@@ -18,7 +18,7 @@ if (!function_exists('formatVietnameseTime')) {
             $diffInDays = $now->diffInDays($date);
             $diffInMonths = $now->diffInMonths($date);
             $diffInYears = $now->diffInYears($date);
-            
+
             if ($diffInSeconds < 60) {
                 return 'vừa xong';
             } elseif ($diffInMinutes < 60) {
@@ -35,5 +35,24 @@ if (!function_exists('formatVietnameseTime')) {
         } catch (\Exception $e) {
             return null;
         }
+    }
+}
+
+if (!function_exists('formatChapterNameForDisplay')) {
+    function formatChapterNameForDisplay($chapterName)
+    {
+        if (empty($chapterName)) {
+            return 'Chapter 0';
+        }
+
+        if (preg_match('/^Chapter\s+/i', $chapterName)) {
+            return $chapterName;
+        }
+
+        if (is_numeric($chapterName)) {
+            return 'Chapter ' . $chapterName;
+        }
+
+        return $chapterName;
     }
 }

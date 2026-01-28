@@ -140,7 +140,7 @@ $(document).ready(function() {
                 }
             },
             error: function(xhr) {
-                alert('Lỗi upload ảnh: ' + (xhr.responseJSON?.message || 'Có lỗi xảy ra'));
+                showToast('Lỗi upload ảnh: ' + (xhr.responseJSON?.message || 'Có lỗi xảy ra'), 'danger');
             }
         });
     }

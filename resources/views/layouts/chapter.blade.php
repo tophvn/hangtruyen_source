@@ -104,6 +104,25 @@
     @if(!empty($gtagCode))
         {!! $gtagCode !!}
     @endif
+
+    {{-- Advertisement Head --}}
+    @php
+        $adsEnabled = \App\Models\Setting::get('ads_enabled', '0') == '1';
+    @endphp
+    @if($adsEnabled)
+        {{-- Custom Head Script --}}
+        {!! \App\Models\Setting::get('ad_script_header', '') !!}
+        
+        {{-- Popunder --}}
+        @if(\App\Models\Setting::get('ads_popunder_enabled', '0') == '1')
+            {!! \App\Models\Setting::get('ads_popunder_code', '') !!}
+        @endif
+
+        {{-- Push Notifications --}}
+        @if(\App\Models\Setting::get('ads_push_enabled', '0') == '1')
+            {!! \App\Models\Setting::get('ads_push_code', '') !!}
+        @endif
+    @endif
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     @include('components.header-scripts')
 </head>
@@ -276,6 +295,13 @@
             </button>
         </header>
 
+        {{-- Ad Banner Top --}}
+        @if($adsEnabled && \App\Models\Setting::get('ads_top_enabled', '0') == '1')
+            <div class="ad-banner-top my-3 text-center" style="margin-top: 80px !important;">
+                {!! \App\Models\Setting::get('ad_banner_top', '') !!}
+            </div>
+        @endif
+
         <div id="vote_noti">
             <p></p>
             <img src="{{ asset('images/details/img-vote-noti.png') }}" width="64" height="92" alt="" />
@@ -287,6 +313,13 @@
             </div>
         </main>
         
+        {{-- Ad Banner Bottom --}}
+        @if($adsEnabled && \App\Models\Setting::get('ads_bottom_enabled', '0') == '1')
+            <div class="ad-banner-bottom my-4 text-center">
+                {!! \App\Models\Setting::get('ad_banner_bottom', '') !!}
+            </div>
+        @endif
+
         @include('components.footer')
         
         <div href="javascript:void(0)" id="back-to-top" style="display: flex; cursor: pointer;">
@@ -434,6 +467,13 @@
     @stack('scripts')
     <script src="{{ asset('js/custom.js') }}?v=1.06"></script>
     
+    {{-- Sticky Ad --}}
+    @if($adsEnabled && \App\Models\Setting::get('ads_sticky_enabled', '0') == '1')
+        <div class="sticky-ad-container" style="position: fixed; bottom: 0; left: 0; width: 100%; z-index: 999; text-align: center; background: rgba(0,0,0,0.1);">
+            {!! \App\Models\Setting::get('ads_sticky_code', '') !!}
+        </div>
+    @endif
+
     <script>
         if (typeof jQuery === 'undefined') {
             console.error('jQuery is not loaded');

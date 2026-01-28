@@ -1,10 +1,54 @@
 # HangTruyen - Website Đọc Truyện Tranh Online
 
-Hangtruyen - Website đọc truyện tranh online miễn phí được xây dựng bằng Laravel.
+Hangtruyen - Website đọc truyện tranh online miễn phí được xây dựng trên nền tảng Laravel, mang đến trải nghiệm đọc truyện mượt mà, tốc độ tải nhanh và giao diện hiện đại.
 
 ## Giới thiệu
 
-Website sử dụng API từ [OTruyen API](https://docs.otruyenapi.com/)
+Website sử dụng API từ [OTruyen API](https://docs.otruyenapi.com/) để đồng bộ dữ liệu truyện khổng lồ, kết hợp với hệ thống quản trị chuyên nghiệp giúp vận hành website dễ dàng.
+
+## Hình ảnh Demo & Tính năng
+
+### 1. Giao diện Người dùng (Frontend)
+
+*   **Trang chủ:** Thiết kế hiện đại, tinh tế với các mục truyện đề xuất, truyện mới cập nhật và bảng xếp hạng.
+    ![Trang chủ](DEMO/trang-chu.png)
+
+*   **Truyện nổi bật:** Tổng hợp các bộ truyện hot nhất theo tuần, tháng và mọi thời đại.
+    ![Hot nhất](DEMO/hot-nhat.png)
+
+*   **Chi tiết truyện:** Hiển thị thông tin chi tiết, danh sách chương, bình luận và đánh giá từ người dùng.
+    ![Chi tiết truyện](DEMO/truyen-tranh.png)
+
+*   **Trình đọc truyện (Reader):** Tối ưu hóa cho cả desktop và mobile, hỗ trợ nhiều chế độ đọc, tải ảnh nhanh.
+    ![Chi tiết chương](DEMO/chapters.png)
+
+*   **Tìm kiếm thông minh:** Tìm kiếm truyện nhanh chóng với gợi ý tức thì.
+    ![Tìm kiếm](DEMO/tim-kiem.png)
+    ![Kết quả tìm kiếm](DEMO/search.png)
+
+### 2. Giao diện Quản trị (Admin Panel)
+
+Hệ thống Admin được xây dựng với đầy đủ các tính năng cần thiết để quản trị nội dung và cấu hình website:
+
+*   **Dashboard:** Thống kê tổng quan về truyện, bài viết, người dùng và báo lỗi.
+    ![Admin Dashboard](DEMO/admin-Dashboard.png)
+
+*   **Quản lý Quảng cáo:** Hệ thống quản lý quảng cáo linh hoạt với nhiều vị trí hiển thị (Popunder, Banner, Sticky...).
+    ![Quản lý Quảng cáo](DEMO/admin-ads.png)
+
+*   **Cấu hình Website:** Tùy chỉnh linh hoạt giao diện, SEO, tài khoản xã hội và các hiệu ứng đặc biệt.
+    ![Cài đặt 1](DEMO/admin-setings-1.png)
+    ![Cài đặt 2](DEMO/admin-setings-2.png)
+
+*   **Quản lý Báo lỗi:** Tiếp nhận và xử lý các báo lỗi từ người dùng (ảnh lỗi, sai chương...).
+    ![Quản lý Báo lỗi](DEMO/admin-report.png)
+
+*   **Quản lý Bài viết & Tin tức:** Hệ thống đăng bài viết, tin tức manga với trình soạn thảo Rich Text.
+    ![Danh sách bài viết](DEMO/admin-posts.png)
+    ![Tạo bài viết mới](DEMO/admin-posts-create.png)
+
+*   **Quản lý Người dùng:** Theo dõi và quản trị danh sách người dùng trên hệ thống.
+    ![Quản lý Người dùng](DEMO/admin-Users.png)
 
 ## Yêu cầu hệ thống
 
@@ -71,21 +115,6 @@ DB_PASSWORD=           # Password MySQL
 
 **Lưu ý:** Đảm bảo đã tạo database trước khi chạy migrations.
 
-#### Cấu hình Logging
-
-```env
-LOG_CHANNEL=stack      # stack, single, daily, syslog, errorlog
-LOG_LEVEL=debug        # debug, info, notice, warning, error, critical, alert, emergency
-```
-
-#### Cấu hình Cache và Session
-
-```env
-CACHE_DRIVER=file      # file, redis, memcached
-SESSION_DRIVER=file    # file, redis, database
-SESSION_LIFETIME=120   # Thời gian session (phút)
-```
-
 #### Cấu hình Google OAuth
 
 ```env
@@ -93,15 +122,6 @@ GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 GOOGLE_REDIRECT_URI=http://localhost:8000/auth/google/callback
 ```
-
-**Hướng dẫn lấy Google OAuth credentials:**
-
-1. Truy cập [Google Cloud Console](https://console.cloud.google.com/)
-2. Tạo project mới
-3. Bật Google+ API
-4. Tạo OAuth 2.0 Client ID
-5. Thêm Authorized redirect URIs: `http://localhost:8000/auth/google/callback` (cho local) và URL production của bạn
-6. Copy Client ID và Client Secret vào file `.env`
 
 ### Chạy ứng dụng
 

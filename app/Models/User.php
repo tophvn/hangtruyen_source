@@ -23,6 +23,7 @@ class User extends Authenticatable
         'google_id',
         'avatar',
         'last_login_at',
+        'last_seen_at',
         'role',
         'banned_until',
     ];
@@ -45,51 +46,39 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'last_login_at' => 'datetime',
+        'last_seen_at' => 'datetime',
         'banned_until' => 'datetime',
     ];
-    
-    /**
-     * Kiểm tra user có bị ban không
-     */
+
     public function isBanned()
     {
         if (!$this->banned_until) {
             return false;
         }
-        
-        // Nếu banned_until trong tương lai = đang bị ban
-        // Nếu banned_until trong quá khứ = hết hạn ban
+
         return $this->banned_until->isFuture();
     }
-    
-    /**
-     * Kiểm tra user có hoạt động không (không bị ban và có last_login gần đây)
-     */
+
     public function isActive()
     {
         if ($this->isBanned()) {
             return false;
         }
-        
-        // Nếu có last_login trong vòng 30 ngày = active
+
         if ($this->last_login_at) {
             return $this->last_login_at->diffInDays(now()) <= 30;
         }
-        
-        // Nếu chưa login bao giờ = không active
+
         return false;
     }
-    
-    /**
-     * Kiểm tra user có đang online không (last_login trong vòng 15 phút)
-     */
     public function isOnline()
     {
-        if (!$this->last_login_at) {
+        $lastSeen = $this->last_seen_at ?: $this->last_login_at;
+
+        if (!$lastSeen) {
             return false;
         }
-        
-        // Nếu last_login trong vòng 15 phút = online
-        return $this->last_login_at->diffInMinutes(now()) <= 15;
+
+        return $lastSeen->diffInMinutes(now()) <= 5;
     }
 }

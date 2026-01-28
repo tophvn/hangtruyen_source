@@ -109,6 +109,13 @@
                         @endif
                     </div>
                 </div>
+
+                {{-- Middle Ad --}}
+                @if(($index + 1) == 5 && \App\Models\Setting::get('ads_enabled', '0') == '1' && \App\Models\Setting::get('ads_chapter_enabled', '0') == '1')
+                    <div class="ad-chapter-middle my-3 text-center">
+                        {!! \App\Models\Setting::get('ad_chapter_middle', '') !!}
+                    </div>
+                @endif
             @endforeach
         @else           
             @for($i = 1; $i <= 5; $i++)

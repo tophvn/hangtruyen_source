@@ -78,15 +78,15 @@
             "name": "{{ $siteName }}",
             "url": "{{ url('/') }}",
             "logo": "{{ asset('images/logo-dark.png') }}"@if(count($socialLinks) > 0),
-            "sameAs": {!! json_encode($socialLinks, JSON_UNESCAPED_SLASHES) !!}
-        @endif
+                "sameAs": {!! json_encode($socialLinks, JSON_UNESCAPED_SLASHES) !!}
+            @endif
 }
     </script>
 
     <!-- Required meta tags -->
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-    
+
     <!-- Open Graph / Facebook -->
     <meta property="og:locale" content="vi_VN" />
     <meta property="og:url" content="{{ $ogUrl }}" />
@@ -97,7 +97,7 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:site_name" content="{{ $siteName }}" />
-    
+
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="{{ $ogTitle }}" />
@@ -109,7 +109,7 @@
     <meta http-equiv="content-language" content="vi" />
     <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
     <link rel="shortcut icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
-    
+
     <!-- PWA Manifest -->
     <link rel="manifest" href="{{ asset('manifest.json') }}">
     <meta name="theme-color" content="#596FB7">
@@ -117,19 +117,38 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="{{ $siteName }}">
     <link rel="apple-touch-icon" href="{{ asset('images/favicon.png') }}">
-    
+
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="{{ asset('css/bootstrap.min.css') }}" />
     <link rel="stylesheet" href="{{ asset('css/icon-font.css') }}" />
     <link rel="stylesheet" href="{{ asset('css/splide-core.min.css') }}" />
     <link rel="stylesheet" href="{{ asset('css/style.css') }}?v=1.13" />
     <link rel="stylesheet" href="{{ asset('css/responsive.css') }}?v=1.13" />
-    
+
     @php
         $gtagCode = \App\Models\Setting::get('gtag_code', '');
     @endphp
     @if(!empty($gtagCode))
         {!! $gtagCode !!}
+    @endif
+
+    {{-- Advertisement Head --}}
+    @php
+        $adsEnabled = \App\Models\Setting::get('ads_enabled', '0') == '1';
+    @endphp
+    @if($adsEnabled)
+        {{-- Custom Head Script --}}
+        {!! \App\Models\Setting::get('ad_script_header', '') !!}
+
+        {{-- Popunder --}}
+        @if(\App\Models\Setting::get('ads_popunder_enabled', '0') == '1')
+            {!! \App\Models\Setting::get('ads_popunder_code', '') !!}
+        @endif
+
+        {{-- Push Notifications --}}
+        @if(\App\Models\Setting::get('ads_push_enabled', '0') == '1')
+            {!! \App\Models\Setting::get('ads_push_code', '') !!}
+        @endif
     @endif
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 </head>
@@ -162,7 +181,7 @@
                 type: 'POST',
                 url: '/api/auth/logout',
                 contentType: 'application/json',
-                error: function(data) {
+                error: function (data) {
                     console.log('logout error');
                     return null;
                 },
@@ -222,6 +241,13 @@
     <div class="wrapper">
         @include('components.header')
 
+        {{-- Ad Banner Top --}}
+        @if($adsEnabled && \App\Models\Setting::get('ads_top_enabled', '0') == '1')
+            <div class="container ad-banner-top my-3 text-center">
+                {!! \App\Models\Setting::get('ad_banner_top', '') !!}
+            </div>
+        @endif
+
         <div id="vote_noti">
             <p></p>
             <img src="{{ asset('images/details/img-vote-noti.png') }}" width="64" height="92" alt="" />
@@ -232,9 +258,16 @@
                 @yield('content')
             </div>
         </main>
-        
+
+        {{-- Ad Banner Bottom --}}
+        @if($adsEnabled && \App\Models\Setting::get('ads_bottom_enabled', '0') == '1')
+            <div class="container ad-banner-bottom my-4 text-center">
+                {!! \App\Models\Setting::get('ad_banner_bottom', '') !!}
+            </div>
+        @endif
+
         @include('components.footer')
-        
+
         <div href="javascript:void(0)" id="back-to-top" style="display: flex; cursor: pointer;">
             <i class="icon-arrow-up"></i>
         </div>
@@ -246,12 +279,12 @@
     <script src="{{ asset('js/custom/home/index.js') }}"></script>
     <script src="{{ asset('js/custom.js') }}?v=1.06"></script>
     @stack('scripts')
-    
+
     <script>
-        $(document).ready(function() {
-            setTimeout(function() {
+        $(document).ready(function () {
+            setTimeout(function () {
                 if (typeof getUser === 'function' && typeof handleHeaderLoginSuccess === 'function') {
-                    getUser().then(function(user) {
+                    getUser().then(function (user) {
                         if (user) {
                             if (typeof handleSaveUserToSessionStorage === 'function') {
                                 handleSaveUserToSessionStorage(user);
@@ -262,7 +295,7 @@
                                 handleHeaderLogout();
                             }
                         }
-                    }).catch(function(error) {
+                    }).catch(function (error) {
                         console.log('Error getting user:', error);
                     });
                 }
@@ -280,6 +313,14 @@
         }
     @endphp
     {!! $effectHtml !!}
+
+    {{-- Sticky Ad and Additional scripts --}}
+    @if($adsEnabled && \App\Models\Setting::get('ads_sticky_enabled', '0') == '1')
+        <div class="sticky-ad-container"
+            style="position: fixed; bottom: 0; left: 0; width: 100%; z-index: 999; text-align: center; background: rgba(0,0,0,0.1);">
+            {!! \App\Models\Setting::get('ads_sticky_code', '') !!}
+        </div>
+    @endif
 </body>
 
 </html>
