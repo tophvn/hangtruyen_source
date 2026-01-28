@@ -33,11 +33,13 @@ class MangaChapter extends Model
 
     public function incrementViews()
     {
+        $this->timestamps = false;
         $this->increment('views_count');
         if (!$this->first_viewed_at) {
             $this->first_viewed_at = now();
         }
         $this->last_viewed_at = now();
         $this->save();
+        $this->timestamps = true;
     }
 }

@@ -631,29 +631,25 @@ class MangaController extends Controller
                 }
 
                 $lastChapter = $manga->chapters()
-                    ->orderBy('updated_at', 'desc')
-                    ->orderBy('chapter_name', 'desc')
+                    ->orderBy('id', 'desc')
                     ->first();
 
                 $lastChapterData = null;
                 if ($lastChapter) {
-                    $chapterName = $lastChapter->chapter_name;
-                    if (!preg_match('/^Chapter\s+/i', $chapterName)) {
-                        $chapterName = 'Chapter ' . $chapterName;
-                    }
+                    $chapterName = formatChapterNameForDisplay($manga->last_chapter_number ?: $lastChapter->chapter_name);
                     $lastChapterData = [
                         'name' => $chapterName,
                         'slug' => $lastChapter->chapter_slug,
-                        'updated_at' => $lastChapter->updated_at ? $lastChapter->updated_at->diffForHumans() : null,
+                        'updated_at' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : ($lastChapter->updated_at ? $lastChapter->updated_at->diffForHumans() : null),
                     ];
                 } elseif ($manga->last_chapter_number) {
                     $relatedMangaDetail = $this->otruyenService->getMangaDetail($manga->slug);
                     if ($relatedMangaDetail && isset($relatedMangaDetail['chapters']) && is_array($relatedMangaDetail['chapters']) && count($relatedMangaDetail['chapters']) > 0) {
-                        $lastChapterFromApi = end($relatedMangaDetail['chapters']);
+                        $lastChapterFromApi = $relatedMangaDetail['chapters'][0];
                         $lastChapterData = [
-                            'name' => 'Chapter ' . $lastChapterFromApi['name'],
+                            'name' => formatChapterNameForDisplay($manga->last_chapter_number ?: $lastChapterFromApi['name']),
                             'slug' => $lastChapterFromApi['slug'],
-                            'updated_at' => isset($lastChapterFromApi['updated_at']) ? \Carbon\Carbon::parse($lastChapterFromApi['updated_at'])->diffForHumans() : null,
+                            'updated_at' => isset($lastChapterFromApi['updated_at']) ? formatVietnameseTime($lastChapterFromApi['updated_at']) : ($manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : null),
                         ];
                     } else {
                         $lastChapterData = [
@@ -750,16 +746,15 @@ class MangaController extends Controller
                 continue;
 
             $lastChapter = $manga->chapters()
-                ->orderBy('updated_at', 'desc')
-                ->orderBy('chapter_name', 'desc')
+                ->orderBy('id', 'desc')
                 ->first();
 
             $lastChapterData = null;
             if ($lastChapter) {
                 $lastChapterData = [
-                    'name' => formatChapterNameForDisplay($lastChapter->chapter_name),
+                    'name' => formatChapterNameForDisplay($manga->last_chapter_number ?: $lastChapter->chapter_name),
                     'slug' => $lastChapter->chapter_slug,
-                    'updated_at' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                    'updated_at' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : ($lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null),
                 ];
             }
 

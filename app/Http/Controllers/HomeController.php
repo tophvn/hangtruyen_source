@@ -85,8 +85,7 @@ class HomeController extends Controller
             ->get()
             ->map(function ($manga) {
                 $lastChapter = $manga->chapters()
-                    ->orderBy('updated_at', 'desc')
-                    ->orderBy('chapter_name', 'desc')
+                    ->orderBy('id', 'desc')
                     ->first();
 
                 $chapterData = [];
@@ -99,8 +98,8 @@ class HomeController extends Controller
                         [
                             'id' => $lastChapter->id,
                             'slug' => $lastChapter->chapter_slug,
-                            'name' => $chapterName,
-                            'releasedAt' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                            'name' => formatChapterNameForDisplay($manga->last_chapter_number ?: $lastChapter->chapter_name),
+                            'releasedAt' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : ($lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null),
                         ],
                     ];
                 } elseif ($manga->last_chapter_number) {
@@ -164,7 +163,7 @@ class HomeController extends Controller
             foreach ($trendingMangasData as $manga) {
                 $latestChapter = $manga->chapters()
                     ->whereNotNull('chapter_slug')
-                    ->orderBy('updated_at', 'desc')
+                    ->orderBy('id', 'desc')
                     ->first();
 
                 $chapters = [];
@@ -180,8 +179,8 @@ class HomeController extends Controller
                     $chapters[] = [
                         'id' => $latestChapter->id,
                         'slug' => $latestChapter->chapter_slug,
-                        'name' => formatChapterNameForDisplay($latestChapter->chapter_name),
-                        'releasedAt' => $latestChapter->updated_at ? formatVietnameseTime($latestChapter->updated_at) : null,
+                        'name' => formatChapterNameForDisplay($manga->last_chapter_number ?: $latestChapter->chapter_name),
+                        'releasedAt' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : ($latestChapter->updated_at ? formatVietnameseTime($latestChapter->updated_at) : null),
                     ];
 
                     if ($chapterNumber && is_numeric($chapterNumber) && (int) $chapterNumber > 1) {
@@ -260,8 +259,7 @@ class HomeController extends Controller
             ->get()
             ->map(function ($manga) {
                 $lastChapter = $manga->chapters()
-                    ->orderBy('updated_at', 'desc')
-                    ->orderBy('chapter_name', 'desc')
+                    ->orderBy('id', 'desc')
                     ->first();
 
                 $chapters = [];
@@ -269,8 +267,8 @@ class HomeController extends Controller
                     $chapters[] = [
                         'id' => $lastChapter->id,
                         'slug' => $lastChapter->chapter_slug,
-                        'name' => formatChapterNameForDisplay($lastChapter->chapter_name),
-                        'releasedAt' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                        'name' => formatChapterNameForDisplay($manga->last_chapter_number ?: $lastChapter->chapter_name),
+                        'releasedAt' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : ($lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null),
                     ];
                 } elseif ($manga->last_chapter_number) {
                     $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
@@ -312,8 +310,7 @@ class HomeController extends Controller
             ->get()
             ->map(function ($manga) {
                 $lastChapter = $manga->chapters()
-                    ->orderBy('updated_at', 'desc')
-                    ->orderBy('chapter_name', 'desc')
+                    ->orderBy('id', 'desc')
                     ->first();
 
                 $chapters = [];
@@ -321,8 +318,8 @@ class HomeController extends Controller
                     $chapters[] = [
                         'id' => $lastChapter->id,
                         'slug' => $lastChapter->chapter_slug,
-                        'name' => formatChapterNameForDisplay($lastChapter->chapter_name),
-                        'releasedAt' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                        'name' => formatChapterNameForDisplay($manga->last_chapter_number ?: $lastChapter->chapter_name),
+                        'releasedAt' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : ($lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null),
                     ];
                 } elseif ($manga->last_chapter_number) {
                     $chapterNumber = preg_replace('/^Chapter\s+/i', '', $manga->last_chapter_number);
@@ -457,16 +454,15 @@ class HomeController extends Controller
                 continue;
 
             $lastChapter = $manga->chapters()
-                ->orderBy('updated_at', 'desc')
-                ->orderBy('chapter_name', 'desc')
+                ->orderBy('id', 'desc')
                 ->first();
 
             $lastChapterData = null;
             if ($lastChapter) {
                 $lastChapterData = [
-                    'name' => formatChapterNameForDisplay($lastChapter->chapter_name),
+                    'name' => formatChapterNameForDisplay($manga->last_chapter_number ?: $lastChapter->chapter_name),
                     'slug' => $lastChapter->chapter_slug,
-                    'updated_at' => $lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null,
+                    'updated_at' => $manga->last_synced_at ? formatVietnameseTime($manga->last_synced_at) : ($lastChapter->updated_at ? formatVietnameseTime($lastChapter->updated_at) : null),
                 ];
             }
 
