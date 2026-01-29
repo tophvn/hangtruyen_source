@@ -1,0 +1,32 @@
+<style>
+    @media (max-width: 768px) {
+        #tet-mai-corner,
+        #tet-dao-corner {
+            display: none !important;
+        }
+    }
+</style>
+
+<script src="/js/tet-flowers.js"></script>
+<script>
+    (function() {
+        function init() {
+            if (typeof initTetFlowers === 'function') {
+                initTetFlowers({
+                    imagePaths: {
+                        mai: '/images/effects/hoamai.png',
+                        dao: '/images/effects/hoadao.png'
+                    }
+                });
+            } else {
+                setTimeout(init, 50);
+            }
+        }
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    })();
+</script>

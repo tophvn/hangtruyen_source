@@ -247,6 +247,7 @@ class AdminController extends Controller
             'quockhanh' => 'Quốc khánh',
             'snow' => 'Tuyết rơi',
             'stars' => 'Ngôi sao',
+            'tet-flowers' => 'Hoa Tết (Hoa mai & Hoa đào)',
             'trungthu' => 'Trung thu',
         ];
         $currentEffect = Setting::get('site_effect', 'none');
@@ -399,7 +400,7 @@ class AdminController extends Controller
 
     public function saveEffect(Request $request)
     {
-        $effects = ['none', 'bubbles', 'firework', 'fireworks_sound', 'halloween', 'hearts', 'hoadao', 'hoamai', 'leaves', 'lixi', 'matrix', 'quockhanh', 'snow', 'stars', 'trungthu'];
+        $effects = ['none', 'bubbles', 'firework', 'fireworks_sound', 'halloween', 'hearts', 'hoadao', 'hoamai', 'leaves', 'lixi', 'matrix', 'quockhanh', 'snow', 'stars', 'tet-flowers', 'trungthu'];
 
         $validated = $request->validate([
             'site_effect' => 'required|string|in:' . implode(',', $effects),

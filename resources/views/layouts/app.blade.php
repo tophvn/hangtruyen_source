@@ -110,14 +110,6 @@
     <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
     <link rel="shortcut icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
 
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="{{ asset('manifest.json') }}">
-    <meta name="theme-color" content="#596FB7">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="{{ $siteName }}">
-    <link rel="apple-touch-icon" href="{{ asset('images/favicon.png') }}">
-
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="{{ asset('css/bootstrap.min.css') }}" />
     <link rel="stylesheet" href="{{ asset('css/icon-font.css') }}" />

@@ -27,9 +27,64 @@
 @if(isset($chapterImages) && is_array($chapterImages) && count($chapterImages) > 0)
 <link rel="preload" as="image" href="{{ $chapterImages[0] }}" fetchpriority="high">
 @if(count($chapterImages) > 1)
-<link rel="preload" as="image" href="{{ $chapterImages[1] }}">
+<link rel="preload" as="image" href="{{ $chapterImages[1] }}" fetchpriority="high">
+@endif
+@if(count($chapterImages) > 2)
+<link rel="preload" as="image" href="{{ $chapterImages[2] }}" fetchpriority="high">
+@endif
+@if(count($chapterImages) > 3)
+<link rel="preload" as="image" href="{{ $chapterImages[3] }}" fetchpriority="high">
+@endif
+@if(count($chapterImages) > 4)
+<link rel="preload" as="image" href="{{ $chapterImages[4] }}" fetchpriority="high">
 @endif
 @endif
+<style>
+.mi-item {
+    width: 100%;
+    margin-bottom: 0;
+}
+
+.reading-img {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+    background: transparent;
+}
+
+.lzl.reading-img {
+    background: transparent;
+    transition: opacity 0.3s ease;
+}
+
+.lzl.reading-img.loaded {
+    opacity: 1;
+}
+
+.reading-img.load-error {
+    background: #ffebee;
+    border: 2px dashed #f44336;
+}
+
+.reading-img.error-retrying {
+    opacity: 0.7;
+    filter: grayscale(50%);
+}
+
+.reading-img.error-retrying::after {
+    content: 'Retrying...';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+</style>
 <script type="application/ld+json">
 {
     "@context": "https://schema.org",
@@ -82,18 +137,18 @@
 
 @section('content')
 <div id="manga-images" data-mode="vertical">
-    <div class="main-images text-center position-relative">
+    <div class="main-images text-center position-relative" id="read-chaps">
         @if(isset($chapterImages) && is_array($chapterImages))
             @foreach($chapterImages as $index => $imageUrl)
                 <div class="mi-item" data-page="{{ $index + 1 }}">
                     <div class="loaded i-right">
-                        @if($index < 3)
+                        @if($index < 5)
                             <img 
                                 class="reading-img" 
                                 src="{{ $imageUrl }}" 
                                 alt="Trang {{ $index + 1 }}" 
                                 loading="eager"
-                                fetchpriority="{{ $index === 0 ? 'high' : 'auto' }}"
+                                fetchpriority="{{ $index === 0 ? 'high' : ($index === 1 ? 'high' : 'auto') }}"
                                 decoding="async"
                             />
                         @else
@@ -102,7 +157,7 @@
                                 data-src="{{ $imageUrl }}" 
                                 data-original="{{ $imageUrl }}" 
                                 alt="Trang {{ $index + 1 }}" 
-                                src="{{ asset('images/pre-load1.png') }}"
+                                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E"
                                 loading="lazy"
                                 decoding="async"
                             />
@@ -189,6 +244,100 @@
         if (document.body) {
             document.body.scrollTop = 0;
         }
+    }
+    
+    function initEnhancedLazyLoading() {
+        const lazyImages = document.querySelectorAll('.lzl.reading-img');
+        
+        if ('IntersectionObserver' in window) {
+            const imageObserver = new IntersectionObserver(function(entries, observer) {
+                entries.forEach(function(entry) {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        const src = img.dataset.src;
+                        
+                        if (src) {
+                            loadImageWithRetry(img, src, 3);
+                        }
+                    }
+                });
+            }, {
+                rootMargin: '400px 0px', 
+                threshold: 0.01
+            });
+            
+            lazyImages.forEach(function(img) {
+                imageObserver.observe(img);
+            });
+        } else {
+            lazyImages.forEach(function(img) {
+                loadImageWithRetry(img, img.dataset.src, 3);
+            });
+        }
+    }
+    
+    function loadImageWithRetry(img, src, maxRetries) {
+        let retryCount = 0;
+        
+        function attemptLoad() {
+            const tempImg = new Image();
+            
+            tempImg.onload = function() {
+                img.src = src;
+                img.classList.remove('lzl');
+                img.classList.add('loaded');
+                img.style.opacity = '1';
+            };
+            
+            tempImg.onerror = function() {
+                retryCount++;
+                if (retryCount < maxRetries) {
+                    console.log('Retrying image load:', src, 'Attempt:', retryCount + 1);
+                    setTimeout(attemptLoad, 1000 * retryCount); 
+                } else {
+                    console.error('Failed to load image after', maxRetries, 'attempts:', src);
+                    img.onerror = function() {
+                        img.src = src;
+                        img.classList.add('load-error');
+                    };
+                    img.src = src;
+                }
+            };
+            
+            tempImg.src = src;
+        }
+        
+        attemptLoad();
+    }
+    
+    function monitorImageErrors() {
+        const allImages = document.querySelectorAll('.reading-img');
+        allImages.forEach(function(img) {
+            img.addEventListener('error', function() {
+                if (!img.classList.contains('error-retrying')) {
+                    img.classList.add('error-retrying');
+                    console.log('Image error detected, retrying:', img.src);
+                    
+                    setTimeout(function() {
+                        const originalSrc = img.src;
+                        img.src = ''; 
+                        setTimeout(function() {
+                            img.src = originalSrc; 
+                        }, 100);
+                    }, 2000);
+                }
+            });
+        });
+    }
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            initEnhancedLazyLoading();
+            monitorImageErrors();
+        });
+    } else {
+        initEnhancedLazyLoading();
+        monitorImageErrors();
     }
     
     window.chapterDetail = {

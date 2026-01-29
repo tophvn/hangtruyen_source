@@ -17,7 +17,7 @@ class OTruyenService
     {
         $cacheKey = "otruyen:recently_updated:{$page}:{$minCount}";
 
-        return Cache::remember($cacheKey, 600, function () use ($page, $minCount) {
+        $result = Cache::remember($cacheKey, 600, function () use ($page, $minCount) {
             try {
                 $allMangas = [];
                 $currentPage = $page;
@@ -82,6 +82,12 @@ class OTruyenService
                 return ['mangas' => [], 'metadata' => null];
             }
         });
+
+        if (isset($result['mangas'])) {
+            $result['mangas'] = $this->enrichWithMetadata($result['mangas']);
+        }
+
+        return $result;
     }
 
     protected function transformMangas($mangas)
@@ -99,8 +105,9 @@ class OTruyenService
                 'cover_url' => $this->getImageUrl($manga['thumb_url'] ?? ''),
                 'cover_mobile_url' => $this->getImageUrl($manga['thumb_url'] ?? ''),
                 'chapters' => $chapters,
-                'views' => $manga['views'] ?? $manga['views_count'] ?? null,
-                'rating' => $manga['rating'] ?? null,
+                'views' => $manga['views'] ?? $manga['views_count'] ?? 0,
+                'rating' => $manga['rating'] ?? 0,
+                'avgVote' => $manga['rating'] ?? 0,
                 'updated_at' => $updatedAt,
             ];
         }, $mangas);
@@ -736,7 +743,7 @@ class OTruyenService
     {
         $cacheKey = "otruyen:genre:{$slug}:page:{$page}";
 
-        return Cache::remember($cacheKey, 600, function () use ($slug, $page) {
+        $result = Cache::remember($cacheKey, 600, function () use ($slug, $page) {
             try {
                 $response = Http::timeout($this->timeout)
                     ->withoutVerifying()
@@ -768,13 +775,19 @@ class OTruyenService
                 return null;
             }
         });
+
+        if (isset($result['mangas'])) {
+            $result['mangas'] = $this->enrichWithMetadata($result['mangas']);
+        }
+
+        return $result;
     }
 
     public function getOngoingMangas($page = 1)
     {
         $cacheKey = "otruyen:ongoing:page:{$page}";
 
-        return Cache::remember($cacheKey, 600, function () use ($page) {
+        $result = Cache::remember($cacheKey, 600, function () use ($page) {
             try {
                 $response = Http::timeout($this->timeout)
                     ->withoutVerifying()
@@ -806,11 +819,18 @@ class OTruyenService
                 return null;
             }
         });
+
+        if (isset($result['mangas'])) {
+            $result['mangas'] = $this->enrichWithMetadata($result['mangas']);
+        }
+
+        return $result;
     }
 
     protected function transformGenreMangas($items, $addPreviousChapter = true)
     {
         return array_map(function ($item) use ($addPreviousChapter) {
+            $slug = $item['slug'] ?? '';
             $chapters = [];
             $updatedAt = $item['updatedAt'] ?? null;
 
@@ -855,11 +875,12 @@ class OTruyenService
             }
 
             return [
-                'slug' => $item['slug'] ?? '',
+                'slug' => $slug,
                 'title' => $item['name'] ?? 'Đang cập nhật',
                 'posterPath' => $this->getImageUrl($item['thumb_url'] ?? ''),
-                'avgVote' => 0,
-                'countView' => 0,
+                'avgVote' => $item['rating'] ?? 0,
+                'rating' => $item['rating'] ?? 0,
+                'countView' => $item['views'] ?? $item['views_count'] ?? 0,
                 'chapters' => $chapters,
                 'status' => $this->mapStatus($item['status'] ?? ''),
                 'updatedAt' => $updatedAt,
@@ -871,7 +892,7 @@ class OTruyenService
     {
         $cacheKey = "otruyen:type:{$slug}:page:{$page}:limit:{$limit}";
 
-        return Cache::remember($cacheKey, 600, function () use ($slug, $page, $limit) {
+        $result = Cache::remember($cacheKey, 600, function () use ($slug, $page, $limit) {
             try {
                 $response = Http::timeout($this->timeout)
                     ->withoutVerifying()
@@ -902,13 +923,19 @@ class OTruyenService
                 return null;
             }
         });
+
+        if (isset($result['mangas'])) {
+            $result['mangas'] = $this->enrichWithMetadata($result['mangas']);
+        }
+
+        return $result;
     }
 
     public function getMangaByList($slug, $page = 1, $limit = 24, $shuffle = true)
     {
         $cacheKey = "otruyen:list:{$slug}:page:{$page}:limit:{$limit}:shuffle:" . ($shuffle ? '1' : '0');
 
-        return Cache::remember($cacheKey, 600, function () use ($slug, $page, $limit, $shuffle) {
+        $result = Cache::remember($cacheKey, 600, function () use ($slug, $page, $limit, $shuffle) {
             try {
                 $response = Http::timeout($this->timeout)
                     ->withoutVerifying()
@@ -947,6 +974,12 @@ class OTruyenService
                 return null;
             }
         });
+
+        if (isset($result['mangas'])) {
+            $result['mangas'] = $this->enrichWithMetadata($result['mangas']);
+        }
+
+        return $result;
     }
 
     protected function formatVietnameseTime($dateTime)
@@ -955,5 +988,52 @@ class OTruyenService
             return null;
         }
         return formatVietnameseTime($dateTime);
+    }
+
+    public function enrichWithMetadata($mangas)
+    {
+        if (empty($mangas) || !is_array($mangas)) {
+            return $mangas;
+        }
+
+        $slugs = array_filter(array_column($mangas, 'slug'));
+        if (empty($slugs)) {
+            return $mangas;
+        }
+
+        $metadataMap = MangaMetadata::whereIn('slug', $slugs)
+            ->get(['slug', 'rating', 'views_count'])
+            ->keyBy('slug');
+
+        foreach ($mangas as &$manga) {
+            $slug = $manga['slug'] ?? '';
+            $dbMetadata = $metadataMap->get($slug);
+
+            if ($dbMetadata) {
+                $dbRating = (float) ($dbMetadata->rating ?? 0);
+                $dbViews = (int) ($dbMetadata->views_count ?? 0);
+
+                if ($dbRating > 0) {
+                    $manga['rating'] = $dbRating;
+                    $manga['avgVote'] = $dbRating;
+                }
+
+                if ($dbViews > 0) {
+                    $manga['views'] = $dbViews;
+                    $manga['countView'] = $dbViews;
+                }
+            }
+
+            // Ensure fields exist for blade templates
+            if (!isset($manga['avgVote'])) {
+                $manga['avgVote'] = $manga['rating'] ?? 0;
+            }
+            if (!isset($manga['countView'])) {
+                $manga['countView'] = $manga['views'] ?? $manga['views_count'] ?? 0;
+            }
+        }
+        unset($manga);
+
+        return $mangas;
     }
 }

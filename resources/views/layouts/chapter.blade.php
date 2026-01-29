@@ -72,6 +72,24 @@
     <meta name="twitter:image" content="@yield('og:image', asset('images/logo-dark.png'))" />
 
     @stack('head')
+    
+    <style>
+        @media (max-width: 768px) {
+            .reading-header {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 1000;
+                background: var(--bg-color, #fff);
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            
+            .reading-page main {
+                transition: padding-top 0.3s ease;
+            }
+        }
+    </style>
 
     <meta http-equiv="content-language" content="vi" />
     <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/png" />
@@ -82,14 +100,6 @@
     <link rel="preconnect" href="https://img.otruyenapi.com" crossorigin>
     <link rel="dns-prefetch" href="https://sv1.otruyencdn.com">
     <link rel="dns-prefetch" href="https://img.otruyenapi.com">
-    
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="{{ asset('manifest.json') }}">
-    <meta name="theme-color" content="#596FB7">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="{{ $siteName }}">
-    <link rel="apple-touch-icon" href="{{ asset('images/favicon.png') }}">
     
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="{{ asset('css/bootstrap.min.css') }}" />
@@ -124,6 +134,25 @@
         @endif
     @endif
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    
+    <!-- Define global functions early -->
+    <script>
+        function debounce(func, wait, immediate) {
+            var timeout;
+            return function() {
+                var context = this, args = arguments;
+                var later = function() {
+                    timeout = null;
+                    if (!immediate) func.apply(context, args);
+                };
+                var callNow = immediate && !timeout;
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+                if (callNow) func.apply(context, args);
+            };
+        }
+    </script>
+    
     @include('components.header-scripts')
 </head>
 
@@ -280,6 +309,17 @@
                         </div>
                     </div>
                 </div>
+                <div class="tl-trans dropdown">
+                    <a href="" class="dropdown-toggle" data-bs-toggle="dropdown">
+                        <span>Người đăng</span>
+                        <i class="icon-arrow-down-1"></i>
+                    </a>
+                    <div class="dropdown-menu">
+                        <span class="active">
+                            <span class="dropdown-item" data-value="Hang Truyện" href="">Hang Truyện</span>
+                        </span>
+                    </div>
+                </div>
                 @if(isset($nextChapter) && $nextChapter)
                     <button type="button" class="navi next" onclick="window.location.href='{{ $nextChapter['url'] }}'" title="Chapter Sau">
                         <i class="icon-arrow-right"></i>
@@ -290,9 +330,9 @@
                     </button>
                 @endif
             </div>
-            <button class="reading-header-btn" id="reading-header-btn">
+            <span class="reading-header-btn" id="reading-header-btn">
                 <i class="icon-arrow-down-1"></i>
-            </button>
+            </span>
         </header>
 
         {{-- Ad Banner Top --}}
@@ -478,12 +518,80 @@
         if (typeof jQuery === 'undefined') {
             console.error('jQuery is not loaded');
         }
-        let lastScrollTop = 0;
+        
+        function debounce(func, wait, immediate) {
+            var timeout;
+            return function() {
+                var context = this, args = arguments;
+                var later = function() {
+                    timeout = null;
+                    if (!immediate) func.apply(context, args);
+                };
+                var callNow = immediate && !timeout;
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+                if (callNow) func.apply(context, args);
+            };
+        }
+        
         const readingHeader = document.getElementById('readingHeader');
         const readingHeaderBtn = document.getElementById('reading-header-btn');
+        const mainContent = document.querySelector('main');
         let isHeaderExpanded = false;
+        let headerLastScrollTop = 0;
+        let scrollThreshold = 100;
+        let isMobile = window.innerWidth <= 768;
+        
+        // Update mobile detection on resize
+        window.addEventListener('resize', function() {
+            isMobile = window.innerWidth <= 768;
+            updateMainContentPadding();
+        });
         
         if (readingHeader && readingHeaderBtn) {
+            // Get header height dynamically
+            const getHeaderHeight = () => {
+                return readingHeader.offsetHeight || 134;
+            };
+            
+            // Update main content padding based on header state
+            const updateMainContentPadding = () => {
+                if (!mainContent || !isMobile) {
+                    if (mainContent) {
+                        mainContent.style.paddingTop = '';
+                    }
+                    return;
+                }
+                
+                const headerTop = parseInt(readingHeader.style.top) || 0;
+                const headerHeight = getHeaderHeight();
+                
+                if (headerTop < 0) {
+                    // Header is hidden (scrolled down)
+                    mainContent.style.paddingTop = '0';
+                } else {
+                    // Header is visible (at top or expanded)
+                    mainContent.style.paddingTop = headerHeight + 'px';
+                }
+            };
+            
+            readingHeaderBtn.addEventListener('click', function() {
+                isHeaderExpanded = !isHeaderExpanded;
+                readingHeader.classList.toggle('expanded');
+                if (isHeaderExpanded) {
+                    readingHeader.style.top = '0';
+                } else {
+                    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                    const headerHeight = getHeaderHeight();
+                    if (scrollTop > scrollThreshold) {
+                        readingHeader.style.top = '-' + headerHeight + 'px';
+                    } else {
+                        readingHeader.style.top = '0';
+                    }
+                }
+                updateMainContentPadding();
+            });
+
             window.addEventListener('scroll', function() {
                 const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
                 
@@ -491,35 +599,47 @@
                     return;
                 }
                 
-                if (scrollTop > lastScrollTop && scrollTop > 100) {
-                    readingHeader.style.top = '-100%';
-                    readingHeaderBtn.style.opacity = '1';
-                    readingHeaderBtn.style.visibility = 'visible';
-                } else if (scrollTop < lastScrollTop) {
+                const headerHeight = getHeaderHeight();
+                
+                if (scrollTop > scrollThreshold) {
+                    if (scrollTop > headerLastScrollTop) {
+                        // Scroll down - hide header
+                        readingHeader.style.top = '-' + headerHeight + 'px';
+                        readingHeaderBtn.style.opacity = '1';
+                        readingHeaderBtn.style.visibility = 'visible';
+                    } else {
+                        // Scroll up - show header
+                        readingHeader.style.top = '0';
+                        readingHeaderBtn.style.opacity = '0';
+                        readingHeaderBtn.style.visibility = 'hidden';
+                    }
+                } else {
                     readingHeader.style.top = '0';
                     readingHeaderBtn.style.opacity = '0';
                     readingHeaderBtn.style.visibility = 'hidden';
                 }
                 
-                lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
+                headerLastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
+                updateMainContentPadding();
             });
             
-            readingHeaderBtn.addEventListener('click', function() {
-                isHeaderExpanded = !isHeaderExpanded;
-                readingHeader.classList.toggle('expanded');
-                if (isHeaderExpanded) {
+            window.addEventListener('load', function() {
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                if (scrollTop <= scrollThreshold) {
                     readingHeader.style.top = '0';
                     readingHeaderBtn.style.opacity = '0';
                     readingHeaderBtn.style.visibility = 'hidden';
                 } else {
-                    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-                    if (scrollTop > 100) {
-                        readingHeader.style.top = '-100%';
-                        readingHeaderBtn.style.opacity = '1';
-                        readingHeaderBtn.style.visibility = 'visible';
-                    }
+                    readingHeaderBtn.style.opacity = '1';
+                    readingHeaderBtn.style.visibility = 'visible';
                 }
+                updateMainContentPadding();
             });
+            
+            // Initialize header position on page load
+            readingHeader.style.top = '0';
+            readingHeader.style.transition = 'top 0.3s ease';
+            updateMainContentPadding();
         }
 
         const formSearchChap = document.getElementById('form-search-chap');
